@@ -74,7 +74,7 @@ export default function Login({ onNavigate, onLoginSuccess }) {
           <div className="w-8 h-8 rounded-full bg-white flex items-center justify-center">
             <div className="w-4 h-4 bg-black rounded-sm rotate-45"></div>
           </div>
-          <span className="text-xl font-bold tracking-tighter text-white">PLATFORM.</span>
+          <span className="text-xl font-bold tracking-tighter text-white">Employee Wellness Management Analytics</span>
         </div>
 
         {/* Dynamic Centerpiece Quote / Info */}
@@ -123,7 +123,7 @@ export default function Login({ onNavigate, onLoginSuccess }) {
               <div className="w-8 h-8 rounded-full bg-white flex items-center justify-center">
                 <div className="w-4 h-4 bg-black rounded-sm rotate-45"></div>
               </div>
-              <span className="font-display font-bold text-white tracking-tighter">PLATFORM.</span>
+              <span className="font-display font-bold text-white tracking-tighter">Employee Wellness Management Analytics</span>
             </div>
             <h2 className="font-display text-3xl font-medium text-white mb-2 tracking-tight">Welcome back</h2>
             <p className="text-[#71717a] text-sm">Sign in to manage and analyze wellness profiles</p>

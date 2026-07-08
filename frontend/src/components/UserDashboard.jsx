@@ -569,7 +569,7 @@ export default function UserDashboard({ user, onLogout, healthRecords, onUpdateU
             <div className="w-4 h-4 bg-black rounded-sm rotate-45"></div>
           </div>
           <div>
-            <span className="font-display font-bold text-lg tracking-tight block text-white leading-tight">PLATFORM.</span>
+            <span className="font-display font-bold text-lg tracking-tight block text-white leading-tight">Employee Wellness Management Analytics</span>
             <span className="text-[10px] text-[#71717a] font-bold tracking-widest uppercase font-mono">Wellness Intelligence</span>
           </div>
         </div>

@@ -171,7 +171,7 @@ export default function SignUp({ onNavigate, onSignUpSuccess }) {
               <div className="w-8 h-8 rounded-full bg-white flex items-center justify-center">
                 <div className="w-4 h-4 bg-black rounded-sm rotate-45"></div>
               </div>
-              <span className="font-display font-bold text-white tracking-tighter">PLATFORM.</span>
+              <span className="font-display font-bold text-white tracking-tighter">Employee Wellness Management Analytics</span>
             </div>
             <h2 className="font-display text-2xl font-medium text-white tracking-tight">Create your account</h2>
             <p className="text-[#71717a] text-sm mt-1">Deploy wellness metrics and trackers for your team</p>
