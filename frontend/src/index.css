@@ -28,3 +28,14 @@ body {
   background-color: #050505;
   color: #e0e0e0;
 }
+
+:root[data-theme='light'] body,
+:root[data-theme='light'] {
+  background-color: #ffffff;
+  color: #0a0a0a;
+}
+
+:root[data-theme='light'] .min-h-screen {
+  background-color: #ffffff !important;
+}
+

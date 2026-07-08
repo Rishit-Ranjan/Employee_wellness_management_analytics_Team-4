@@ -18,6 +18,8 @@ const INITIAL_RECOMMENDATIONS = [];
 const INITIAL_SENTIMENTS = [];
 
 // Main App Component
+import ThemeToggle from './components/ThemeToggle';
+
 export default function App() {
     const [screen, setScreen] = useState('login');
     const [currentUser, setCurrentUser] = useState(null);
@@ -275,6 +277,7 @@ export default function App() {
     // Render the appropriate screen based on current state
     return (
         <div className="min-h-screen text-[#e0e0e0] bg-[#050505] font-sans">
+        <ThemeToggle />
         {screen === 'login' && (<Login onNavigate={handleNavigate} 
         onLoginSuccess={handleLoginSuccess}/>)}
       
