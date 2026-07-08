@@ -1,0 +1,36 @@
+"""Seed a default admin user into MongoDB if not present."""
+import os
+from pymongo import MongoClient
+from pymongo.errors import ConfigurationError
+from passlib.hash import bcrypt
+
+MONGO_URI = os.getenv('MONGO_URI', 'mongodb://localhost:27017/employee_wellness_analytics')
+MONGO_DB_NAME = os.getenv('MONGO_DB_NAME', 'wellness_app')
+ADMIN_EMAIL = os.getenv('ADMIN_EMAIL', 'admin@platform.com')
+ADMIN_PASSWORD = os.getenv('ADMIN_PLAIN_PASSWORD', 'AdminPass123!')
+ADMIN_USERNAME = os.getenv('ADMIN_USERNAME', 'admin')
+
+def seed():
+    client = MongoClient(MONGO_URI)
+    try:
+        db = client.get_default_database()
+    except ConfigurationError:
+        db = client.get_database(MONGO_DB_NAME)
+    admin_col = db.get_collection('admin')
+    existing = admin_col.find_one({'email': ADMIN_EMAIL.lower()})
+    if existing:
+        print('Admin already exists:', ADMIN_EMAIL)
+        return
+    pwd_hash = bcrypt.hash(ADMIN_PASSWORD)
+    admin_doc = {
+        'username': ADMIN_USERNAME,
+        'email': ADMIN_EMAIL.lower(),
+        'password_hash': pwd_hash,
+        'role': 'admin',
+        'createdAt': __import__('datetime').datetime.utcnow().isoformat()
+    }
+    res = admin_col.insert_one(admin_doc)
+    print('Created admin with id', res.inserted_id)
+
+if __name__ == '__main__':
+    seed()
