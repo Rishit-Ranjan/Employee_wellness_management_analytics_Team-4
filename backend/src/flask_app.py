@@ -84,7 +84,10 @@ def signup():
         if users_collection.find_one({"email": email}):
             return jsonify({'detail': 'Account already exists'}), 409
 
-        pwd_hash = bcrypt.hash(password)
+        # bcrypt (and passlib's bcrypt backend) only uses first 72 bytes
+        # to avoid ValueError: password cannot be longer than 72 bytes
+        pwd_hash = bcrypt.hash(password[:72])
+
         username = name.replace(' ', '').lower()
         doc = {
             'name': name,
