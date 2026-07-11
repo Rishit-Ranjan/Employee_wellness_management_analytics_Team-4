@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { Mail, Lock, Eye, EyeOff, Shield, ArrowRight, Activity, Sparkles } from 'lucide-react';
+import { Mail, Lock, Eye, EyeOff, ArrowRight, Activity, Sparkles, Shield } from 'lucide-react';
+import { login as loginApi } from '../services/api';
 
-export default function Login({ onNavigate, onLoginSuccess  }) {
+export default function Login({ onNavigate, onLoginSuccess }) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -18,7 +19,7 @@ export default function Login({ onNavigate, onLoginSuccess  }) {
     }
   }, []);
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
 
@@ -29,73 +30,32 @@ export default function Login({ onNavigate, onLoginSuccess  }) {
 
     setLoading(true);
 
-    // Simulate database lookup from localStorage (with pre-registered demo user)
-    setTimeout(() => {
-      try {
-        const storedUsers = localStorage.getItem('wellness_users');
-        const usersList = storedUsers ? JSON.parse(storedUsers) : [];
+    try {
+      const res = await loginApi(email, password);
 
-        // Check if demo users exist
-        const demoAdmin = {
-          id: 'demo-admin',
-          name: 'Demo Administrator',
-          email: 'admin@wellness.com',
-          avatarUrl: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&h=100&fit=crop&crop=faces',
-          createdAt: new Date().toISOString(),
-          role: 'admin'
-        };
-
-        const demoEmployee = {
-          id: 'demo-user',
-          name: 'Demo Employee',
-          email: 'user@wellness.com',
-          avatarUrl: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=100&h=100&fit=crop&crop=faces',
-          createdAt: new Date().toISOString(),
-          role: 'user'
-        };
-
-        const demoPassword = 'Password123!';
-
-        let foundUser = usersList.find(u => u.email.toLowerCase() === email.toLowerCase());
-        let isCorrectPassword = false;
-
-        if (email.toLowerCase() === 'demo@wellness.com' || email.toLowerCase() === 'admin@wellness.com') {
-          foundUser = demoAdmin;
-          isCorrectPassword = password === demoPassword;
-        } else if (email.toLowerCase() === 'user@wellness.com') {
-          foundUser = demoEmployee;
-          isCorrectPassword = password === demoPassword;
-        } else if (foundUser) {
-          // For users created during the session, retrieve their password
-          const userPasswords = JSON.parse(localStorage.getItem('wellness_user_passwords') || '{}');
-          isCorrectPassword = userPasswords[foundUser.id] === password;
-          if (!foundUser.role) {
-            foundUser.role = 'user';
-          }
-        }
-
-        if (foundUser && isCorrectPassword) {
-          if (rememberMe) {
-            localStorage.setItem('wellness_remember_email', email);
-          } else {
-            localStorage.removeItem('wellness_remember_email');
-          }
-          onLoginSuccess(foundUser);
-        } else {
-          setError('Invalid email or password. Please try again.');
-        }
-      } catch (err) {
-        setError('An unexpected error occurred. Please try again.');
-      } finally {
-        setLoading(false);
+      if (rememberMe) {
+        localStorage.setItem('wellness_remember_email', email);
+      } else {
+        localStorage.removeItem('wellness_remember_email');
       }
-    }, 800);
+
+      // Backend returns: { user: userInfo }
+      onLoginSuccess(res?.user || res?.user_info || res);
+    } catch (err) {
+      console.error('Login API error:', err);
+      setError('Invalid email or password. Please try again.');
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
     <div id="login-container" className="min-h-screen flex bg-slate-50 text-slate-800">
       {/* Left side panel: Decorative/Info panel */}
-      <div id="login-hero-panel" className="hidden lg:flex lg:w-1/2 bg-slate-900 text-white p-12 flex-col justify-between relative overflow-hidden border-r border-slate-800">
+      <div
+        id="login-hero-panel"
+        className="hidden lg:flex lg:w-1/2 bg-slate-900 text-white p-12 flex-col justify-between relative overflow-hidden border-r border-slate-800"
+      >
         {/* Abstract background graphics */}
         <div className="absolute inset-0 opacity-10 pointer-events-none">
           <div className="absolute top-[-10%] left-[-10%] w-[120%] h-[120%] bg-[radial-gradient(circle_at_50%_50%,#fff_0%,transparent_50%)]"></div>
@@ -118,13 +78,14 @@ export default function Login({ onNavigate, onLoginSuccess  }) {
             Empowering Healthy & Engaged Workforces
           </div>
           <h1 className="font-display text-5xl font-light leading-[1.1] tracking-tight text-white mb-6">
-            Transform your workplace <br/><span className="italic font-serif text-slate-300">with health</span> intelligence.
+            Transform your workplace <br />
+            <span className="italic font-serif text-slate-300">with health</span> intelligence.
           </h1>
           <p className="text-slate-400 text-base leading-relaxed mb-8 font-light">
-            Manage employee health records, monitor burnout risks, analyze organization sentiment, and provide personalized mental and physical wellness recommendations in real-time.
+            Manage employee health records, monitor burnout risks, analyze organization sentiment, and provide personalized mental and physical
+            wellness recommendations in real-time.
           </p>
 
-          {/* Core modules review box */}
           <div className="grid grid-cols-2 gap-4">
             <div className="p-4 bg-slate-850 border border-slate-800 rounded-xl">
               <Activity className="w-5 h-5 text-indigo-400 mb-2" />
@@ -272,3 +233,4 @@ export default function Login({ onNavigate, onLoginSuccess  }) {
     </div>
   );
 }
+

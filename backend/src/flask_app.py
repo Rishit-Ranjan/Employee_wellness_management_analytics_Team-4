@@ -53,9 +53,13 @@ def login():
         if not user:
             app.logger.warning(f"Login failed for {email}: User not found.")
             return jsonify({'detail': 'Invalid credentials'}), 401
-        if not bcrypt.verify(password, user['password_hash']):
+        # Signup currently stores SHA256(password) as password_hash (placeholder)
+        # so login must verify against the same scheme.
+        pwd_hash = hashlib.sha256(password.encode('utf-8')).hexdigest()
+        if pwd_hash != user.get('password_hash'):
             app.logger.warning(f"Login failed for {email}: Incorrect password.")
             return jsonify({'detail': 'Invalid credentials'}), 401
+
 
         # Prepare user data for the token and response
         user_id_str = str(user['_id'])
