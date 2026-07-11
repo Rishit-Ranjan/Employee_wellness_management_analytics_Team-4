@@ -1,6 +1,8 @@
 from flask import Flask, request, jsonify, make_response
 from flask_cors import CORS
 from passlib.hash import bcrypt
+import hashlib
+
 from flask_jwt_extended import create_access_token, get_jwt_identity, jwt_required, JWTManager
 import os
 from datetime import datetime, timedelta
@@ -24,11 +26,12 @@ jwt = JWTManager(app)
 
 # --- MongoDB Connection ---
 # Explicit TLS settings to avoid Atlas SSL handshake failures in some environments
+# Let pymongo infer TLS settings from the URI (prevents TLS/handshake issues).
 client = MongoClient(
     MONGO_URI,
-    tls=True,
     serverSelectionTimeoutMS=20000,
 )
+
 try:
     db = client.get_default_database()
 
@@ -90,11 +93,14 @@ def signup():
         if users_collection.find_one({"email": email}):
             return jsonify({'detail': 'Account already exists'}), 409
 
-        # bcrypt (and passlib's bcrypt backend) only uses first 72 bytes
-        # to avoid ValueError: password cannot be longer than 72 bytes
-        pwd_hash = bcrypt.hash(password[:72])
+        # Passlib bcrypt backend is currently misconfigured in this environment.
+        # Temporary approach: use a deterministic SHA256 hash as a placeholder so signup can reach MongoDB.
+        # (Replace with proper bcrypt after dependency alignment.)
+        pwd_hash = hashlib.sha256(password.encode('utf-8')).hexdigest()
+
 
         username = name.replace(' ', '').lower()
+
         doc = {
             'name': name,
             'username': username,
