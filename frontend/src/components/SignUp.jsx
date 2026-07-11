@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { signup as signupApi } from '../services/api';
 import { Mail, Lock, Eye, EyeOff, User, ArrowRight, Check, AlertCircle, HeartPulse, Sparkles, CheckCircle2 } from 'lucide-react';
 
 export default function SignUp({ onNavigate, onSignUpSuccess  }) {
@@ -72,10 +73,10 @@ export default function SignUp({ onNavigate, onSignUpSuccess  }) {
     setLoading(true);
 
     try {
-      const api = await import('../services/api');
-      await api.signup(name, email, password);
+      await signupApi(name, email, password);
 
       setSuccess(true);
+
       setTimeout(() => {
         onSignUpSuccess();
       }, 1200);
