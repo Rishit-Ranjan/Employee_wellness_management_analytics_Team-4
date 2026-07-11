@@ -23,6 +23,12 @@ import ThemeToggle from './components/ThemeToggle';
 export default function App() {
     const [screen, setScreen] = useState('login');
     const [currentUser, setCurrentUser] = useState(null);
+    const [theme, setTheme] = useState(() => {
+        const savedTheme = localStorage.getItem('wellness_theme');
+        return savedTheme === 'light' || savedTheme === 'dark' ? savedTheme : 'dark';
+    });
+
+
     // Core Wellness State (Moved from Dashboard)
     const [healthRecords, setHealthRecords] = useState([]);
     const [risks, setRisks] = useState([]);
@@ -274,20 +280,50 @@ export default function App() {
         setScreen(targetScreen);
     };
 
+    const toggleTheme = () => {
+        setTheme(prevTheme => {
+            const newTheme = prevTheme === 'dark' ? 'light' : 'dark';
+            localStorage.setItem('wellness_theme', newTheme);
+            document.documentElement.classList.remove(`theme-${prevTheme}`);
+            document.documentElement.classList.add(`theme-${newTheme}`);
+            return newTheme;
+        });
+    };
+
     // Render the appropriate screen based on current state
     return (
-        <div className="min-h-screen text-[#e0e0e0] bg-[#050505] font-sans">
-        <ThemeToggle />
-        {screen === 'login' && (<Login onNavigate={handleNavigate} 
-        onLoginSuccess={handleLoginSuccess}/>)}
-      
-        {screen === 'signup' && (<SignUp onNavigate={handleNavigate} 
-        onSignUpSuccess={handleSignUpSuccess}/>)}
-      
-        {screen === 'forgot_password' && (<ForgotPassword 
-        onNavigate={handleNavigate}/>)}
-      
-        {screen === 'dashboard' && currentUser && (currentUser.role === 'admin' ? (<AdminDashboard user={currentUser} onLogout={handleLogout} healthRecords={healthRecords} risks={risks} recommendations={recommendations} sentimentList={sentimentList} kpis={derivedKpis} onAddHealthRecord={handleAddHealthRecord}/>) : (<UserDashboard user={currentUser} onLogout={handleLogout} healthRecords={healthRecords} onUpdateUserRecord={handleUpdateUserRecord} onUpdateSentimentPulse={handleUpdateSentimentPulse} recommendations={recommendations}/>))}
+        <div className={`min-h-screen font-sans ${theme === 'dark' ? 'bg-[#050505] text-[#e0e0e0]' : 'bg-white text-black'}`}>
+            {screen !== 'dashboard' && <ThemeToggle theme={theme} toggleTheme={toggleTheme} />}
+            {screen === 'login' && (<Login onNavigate={handleNavigate}
+                onLoginSuccess={handleLoginSuccess} />)}
+
+            {screen === 'signup' && (<SignUp onNavigate={handleNavigate}
+                onSignUpSuccess={handleSignUpSuccess} />)}
+
+            {screen === 'forgot_password' && (<ForgotPassword
+                onNavigate={handleNavigate} />)}
+
+            {screen === 'dashboard' && currentUser && (currentUser.role === 'admin' ?
+                (<AdminDashboard
+                    user={currentUser}
+                    onLogout={handleLogout}
+                    healthRecords={healthRecords}
+                    risks={risks}
+                    recommendations={recommendations}
+                    sentimentList={sentimentList}
+                    kpis={derivedKpis}
+                    onAddHealthRecord={handleAddHealthRecord}
+                    themeToggle={<ThemeToggle theme={theme} toggleTheme={toggleTheme} />} />)
+                :
+                (<UserDashboard
+                    user={currentUser}
+                    onLogout={handleLogout}
+                    healthRecords={healthRecords}
+                    onUpdateUserRecord={handleUpdateUserRecord}
+                    onUpdateSentimentPulse={handleUpdateSentimentPulse}
+                    recommendations={recommendations}
+                    themeToggle={<ThemeToggle theme={theme} toggleTheme={toggleTheme} />} />)
+            )}
         </div>
     );
 }

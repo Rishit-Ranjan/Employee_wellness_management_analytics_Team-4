@@ -6,7 +6,8 @@ import App from './App.jsx'
 // Theme init
 const savedTheme = localStorage.getItem('wellness_theme');
 const theme = savedTheme === 'light' || savedTheme === 'dark' ? savedTheme : 'dark';
-document.documentElement.dataset.theme = theme;
+document.documentElement.classList.add(`theme-${theme}`);
+
 
 createRoot(document.getElementById('root')).render(
 
