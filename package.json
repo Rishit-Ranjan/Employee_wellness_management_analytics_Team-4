@@ -1,0 +1,28 @@
+{
+  "name": "employee_wellness_management_analytics",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "dev:frontend": "cd frontend && npm run dev -- --host",
+    "dev:backend": "cd backend/src && python run_flask.py",
+    "dev": "concurrently -k -n FRONTEND,BACKEND -c green,cyan \"npm run dev:frontend\" \"npm run dev:backend\""
+  },
+  "devDependencies": {
+    "concurrently": "^9.0.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Rishit-Ranjan/Employee_wellness_management_analytics_Team-4.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/Rishit-Ranjan/Employee_wellness_management_analytics_Team-4/issues"
+  },
+  "homepage": "https://github.com/Rishit-Ranjan/Employee_wellness_management_analytics_Team-4#readme"
+}
+
