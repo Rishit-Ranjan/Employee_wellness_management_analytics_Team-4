@@ -558,7 +558,7 @@ export function UserProfileModule({ user, records, onUpdateRecord, onAddSentimen
 
     </div>);
 }
-export default function UserDashboard({ user, onLogout, healthRecords, onUpdateUserRecord, onUpdateSentimentPulse, recommendations }) {
+export default function UserDashboard({ user, onLogout, healthRecords, onUpdateUserRecord, onUpdateSentimentPulse, recommendations, themeToggle }) {
     const [activeTab, setActiveTab] = useState(7);
     const [isChatOpen, setIsChatOpen] = useState(false);
     return (<div className="min-h-screen bg-[#050505] text-[#e0e0e0] flex flex-col font-sans">
@@ -590,6 +590,7 @@ export default function UserDashboard({ user, onLogout, healthRecords, onUpdateU
 
           <div className="h-8 w-px bg-[#1a1a1a] hidden sm:block"/>
 
+          {themeToggle}
           <button onClick={onLogout} className="flex items-center gap-2 px-3.5 py-1.5 bg-[#111] hover:bg-[#241212] border border-[#262626] hover:border-[#4d1d1d] rounded-lg text-xs font-semibold text-[#71717a] hover:text-red-300 transition-all cursor-pointer">
             <LogOut className="w-4 h-4"/>
             Logout

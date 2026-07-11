@@ -17,17 +17,10 @@ const INITIAL_RECOMMENDATIONS = [];
 // initial mock data for department sentiment analysis
 const INITIAL_SENTIMENTS = [];
 
-// Main App Component
-import ThemeToggle from './components/ThemeToggle';
-
 export default function App() {
     const [screen, setScreen] = useState('login');
     const [currentUser, setCurrentUser] = useState(null);
-    const [theme, setTheme] = useState(() => {
-        const savedTheme = localStorage.getItem('wellness_theme');
-        return savedTheme === 'light' || savedTheme === 'dark' ? savedTheme : 'dark';
-    });
-
+    
 
     // Core Wellness State (Moved from Dashboard)
     const [healthRecords, setHealthRecords] = useState([]);
@@ -280,20 +273,10 @@ export default function App() {
         setScreen(targetScreen);
     };
 
-    const toggleTheme = () => {
-        setTheme(prevTheme => {
-            const newTheme = prevTheme === 'dark' ? 'light' : 'dark';
-            localStorage.setItem('wellness_theme', newTheme);
-            document.documentElement.classList.remove(`theme-${prevTheme}`);
-            document.documentElement.classList.add(`theme-${newTheme}`);
-            return newTheme;
-        });
-    };
-
     // Render the appropriate screen based on current state
     return (
-        <div className={`min-h-screen font-sans ${theme === 'dark' ? 'bg-[#050505] text-[#e0e0e0]' : 'bg-white text-black'}`}>
-            {screen !== 'dashboard' && <ThemeToggle theme={theme} toggleTheme={toggleTheme} />}
+        <div className="min-h-screen font-sans bg-[#050505] text-[#e0e0e0]">
+            
             {screen === 'login' && (<Login onNavigate={handleNavigate}
                 onLoginSuccess={handleLoginSuccess} />)}
 
@@ -313,16 +296,14 @@ export default function App() {
                     sentimentList={sentimentList}
                     kpis={derivedKpis}
                     onAddHealthRecord={handleAddHealthRecord}
-                    themeToggle={<ThemeToggle theme={theme} toggleTheme={toggleTheme} />} />)
+                     />)
                 :
                 (<UserDashboard
                     user={currentUser}
                     onLogout={handleLogout}
                     healthRecords={healthRecords}
                     onUpdateUserRecord={handleUpdateUserRecord}
-                    onUpdateSentimentPulse={handleUpdateSentimentPulse}
-                    recommendations={recommendations}
-                    themeToggle={<ThemeToggle theme={theme} toggleTheme={toggleTheme} />} />)
+                    onUpdateSentimentPulse={handleUpdateSentimentPulse} recommendations={recommendations} />)
             )}
         </div>
     );
