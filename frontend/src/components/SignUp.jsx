@@ -72,23 +72,13 @@ export default function SignUp({ onNavigate, onSignUpSuccess  }) {
     setLoading(true);
 
     try {
-      const response = await fetch('http://localhost:8000/api/auth/signup', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ name, email, password }),
-      });
+      const api = await import('../services/api');
+      await api.signup(name, email, password);
 
-      if (response.ok) {
-        setSuccess(true);
-        setTimeout(() => {
-          onSignUpSuccess();
-        }, 1200);
-      } else {
-        const errorData = await response.json();
-        setError(errorData.detail || 'Failed to create account. Please try again.');
-      }
+      setSuccess(true);
+      setTimeout(() => {
+        onSignUpSuccess();
+      }, 1200);
     } catch (err) {
       console.error('Signup API error:', err);
       setError('Could not connect to the server. Please try again later.');

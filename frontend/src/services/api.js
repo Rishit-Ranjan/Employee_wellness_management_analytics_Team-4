@@ -23,6 +23,13 @@ export function login(email, password) {
   return request('/auth/login', { method: 'POST', body: JSON.stringify({ email, password }) });
 }
 
+export function signup(name, email, password) {
+  return request('/auth/signup', {
+    method: 'POST',
+    body: JSON.stringify({ name, email, password }),
+  });
+}
+
 export function me() { return request('/auth/me'); }
 
-export default { login, me };
+export default { login, signup, me };
