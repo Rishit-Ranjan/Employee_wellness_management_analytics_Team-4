@@ -26,7 +26,7 @@ jwt = JWTManager(app)
 
 # --- MongoDB Connection ---
 # Explicit TLS settings to avoid Atlas SSL handshake failures in some environments
-# Let pymongo infer TLS settings from the URI (prevents TLS/handshake issues).
+
 client = MongoClient(
     MONGO_URI,
     serverSelectionTimeoutMS=20000,
