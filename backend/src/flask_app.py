@@ -23,9 +23,15 @@ app.config["JWT_ACCESS_TOKEN_EXPIRES"] = timedelta(minutes=int(os.getenv('JWT_EX
 jwt = JWTManager(app)
 
 # --- MongoDB Connection ---
-client = MongoClient(MONGO_URI)
+# Explicit TLS settings to avoid Atlas SSL handshake failures in some environments
+client = MongoClient(
+    MONGO_URI,
+    tls=True,
+    serverSelectionTimeoutMS=20000,
+)
 try:
     db = client.get_default_database()
+
 except ConfigurationError:
     db = client.get_database(MONGO_DB_NAME)
 users_collection = db.get_collection('users')
