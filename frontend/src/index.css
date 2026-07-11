@@ -7,7 +7,7 @@
   --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
 }
 
-/* Custom scrollbar for beautiful Elegant Dark UI */
+/* Custom scrollbar for beautiful Elegant Light UI */
 ::-webkit-scrollbar {
   width: 6px;
   height: 6px;
@@ -16,15 +16,15 @@
   background: transparent;
 }
 ::-webkit-scrollbar-thumb {
-  background: #262626;
+  background: #cbd5e1;
   border-radius: 4px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: #3f3f46;
+  background: #94a3b8;
 }
 
 body {
   font-family: var(--font-sans);
-  background-color: #050505;
-  color: #e0e0e0;
+  background-color: #f8fafc;
+  color: #0f172a;
 }

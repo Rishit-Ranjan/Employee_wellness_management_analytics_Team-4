@@ -257,7 +257,7 @@ export default function App() {
     };
 
     // Handle successful sign-up by redirecting to login screen
-    const handleSignUpSuccess = () => {
+    const handleSignUpSuccess = (user) => {
         setScreen('login');
     };
 
