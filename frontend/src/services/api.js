@@ -32,4 +32,23 @@ export function signup(name, email, password) {
 
 export function me() { return request('/auth/me'); }
 
-export default { login, signup, me };
+export function forgotPassword(email, method = 'otp') {
+  return request('/auth/forgot-password', {
+    method: 'POST',
+    body: JSON.stringify({ email, method }),
+  });
+}
+
+export function resetPassword({ email, newPassword, otp, resetToken }) {
+  return request('/auth/reset-password', {
+    method: 'POST',
+    body: JSON.stringify({
+      email,
+      newPassword,
+      otp,
+      resetToken,
+    }),
+  });
+}
+
+export default { login, signup, me, forgotPassword, resetPassword };

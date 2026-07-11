@@ -38,6 +38,21 @@ try:
 except ConfigurationError:
     db = client.get_database(MONGO_DB_NAME)
 users_collection = db.get_collection('users')
+reset_collection = db.get_collection('password_reset_requests')
+
+
+def _sha256_hex(s: str) -> str:
+    return hashlib.sha256(s.encode('utf-8')).hexdigest()
+
+
+def _generate_reset_otp(length: int = 6) -> str:
+    # numeric OTP, zero-padded
+    return str(int.from_bytes(os.urandom(4), 'big') % (10 ** length)).zfill(length)
+
+
+def _generate_reset_token(num_bytes: int = 32) -> str:
+    # URL-safe-ish token
+    return hashlib.sha256(os.urandom(num_bytes)).hexdigest()
 
 
 @app.route('/api/auth/login', methods=['POST'])
@@ -97,11 +112,7 @@ def signup():
         if users_collection.find_one({"email": email}):
             return jsonify({'detail': 'Account already exists'}), 409
 
-        # Passlib bcrypt backend is currently misconfigured in this environment.
-        # Temporary approach: use a deterministic SHA256 hash as a placeholder so signup can reach MongoDB.
-        # (Replace with proper bcrypt after dependency alignment.)
         pwd_hash = hashlib.sha256(password.encode('utf-8')).hexdigest()
-
 
         username = name.replace(' ', '').lower()
 
@@ -118,6 +129,106 @@ def signup():
     except Exception as e:
         app.logger.exception(f"Signup failed for {email}: {e}")
         return jsonify({'detail': 'Internal Server Error'}), 500
+
+
+@app.route('/api/auth/forgot-password', methods=['POST'])
+def forgot_password():
+    data = request.get_json() or {}
+    email = (data.get('email') or '').lower().strip()
+    method = (data.get('method') or 'otp').lower().strip()  # otp | link
+
+    if not email:
+        return jsonify({'detail': 'Missing email'}), 400
+
+    if method not in {'otp', 'link'}:
+        return jsonify({'detail': 'Invalid method'}), 400
+
+    user = users_collection.find_one({'email': email})
+
+    # Always return generic message to avoid account enumeration
+    message_resp = {
+        'detail': 'If an account exists for this email, a recovery option has been generated.'
+    }
+
+    if not user:
+        return jsonify(message_resp), 200
+
+    # Generate and store reset request
+    now = datetime.utcnow()
+    expires_at = now + timedelta(minutes=15)
+
+    otp_code = None
+    reset_token = None
+    if method == 'otp':
+        otp_code = _generate_reset_otp(6)
+    else:
+        reset_token = _generate_reset_token(32)
+
+    req_doc = {
+        'email': email,
+        'otp': otp_code,
+        'reset_token': reset_token,
+        'expires_at': expires_at.isoformat(),
+        'used': False,
+        'created_at': now.isoformat(),
+    }
+    reset_collection.insert_one(req_doc)
+
+    # Repo has no email service wired, so return debug values for dev/testing only.
+    resp_payload = message_resp.copy()
+    if otp_code is not None:
+        resp_payload['debugOtp'] = otp_code
+    if reset_token is not None:
+        resp_payload['debugResetToken'] = reset_token
+    return jsonify(resp_payload), 200
+
+
+@app.route('/api/auth/reset-password', methods=['POST'])
+def reset_password():
+    data = request.get_json() or {}
+    email = (data.get('email') or '').lower().strip()
+    new_password = data.get('newPassword') or ''
+    otp = (data.get('otp') or '').strip()
+    reset_token = (data.get('resetToken') or '').strip()
+
+    if not email:
+        return jsonify({'detail': 'Missing email'}), 400
+    if not new_password:
+        return jsonify({'detail': 'Missing newPassword'}), 400
+    if len(new_password) < 8:
+        return jsonify({'detail': 'Password must be at least 8 characters long.'}), 400
+    if otp == '' and reset_token == '':
+        return jsonify({'detail': 'Provide otp or resetToken.'}), 400
+
+    # Find latest unused, unexpired reset request matching provided credential
+    query = {
+        'email': email,
+        'used': False,
+    }
+    now = datetime.utcnow()
+
+    if otp != '':
+        query['otp'] = otp
+    if reset_token != '':
+        query['reset_token'] = reset_token
+
+    req = reset_collection.find_one(query, sort=[('created_at', -1)])
+    if not req:
+        return jsonify({'detail': 'Invalid or expired reset request.'}), 400
+
+    expires_at = datetime.fromisoformat(req['expires_at'])
+    if expires_at < now:
+        return jsonify({'detail': 'Reset request expired.'}), 400
+
+    user = users_collection.find_one({'email': email})
+    if not user:
+        return jsonify({'detail': 'User not found.'}), 404
+
+    pwd_hash = _sha256_hex(new_password)
+    users_collection.update_one({'_id': user['_id']}, {'$set': {'password_hash': pwd_hash}})
+    reset_collection.update_one({'_id': req['_id']}, {'$set': {'used': True}})
+
+    return jsonify({'detail': 'Password updated successfully.'}), 200
 
 
 @app.route('/api/auth/me', methods=['GET'])

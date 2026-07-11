@@ -1,5 +1,6 @@
 import React, { useState, useRef } from 'react';
 import { Mail, Lock, Eye, EyeOff, KeyRound, ArrowLeft, ArrowRight, CheckCircle2, ShieldAlert, Send } from 'lucide-react';
+import { forgotPassword, resetPassword } from '../services/api';
 
 export default function ForgotPassword({ onNavigate  }) {
   const [step, setStep] = useState(1);
@@ -7,6 +8,7 @@ export default function ForgotPassword({ onNavigate  }) {
   const [otpCode, setOtpCode] = useState(['', '', '', '', '', '']);
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+  const [recoveryOtp, setRecoveryOtp] = useState('');
   const [showNewPassword, setShowNewPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
@@ -42,8 +44,8 @@ export default function ForgotPassword({ onNavigate  }) {
 
   const strength = getPasswordStrength();
 
-  // Handle Step 1: Submit email
-  const handleEmailSubmit = (e) => {
+  // Handle Step 1: Request recovery OTP
+  const handleEmailSubmit = async (e) => {
     e.preventDefault();
     setError('');
 
@@ -58,22 +60,19 @@ export default function ForgotPassword({ onNavigate  }) {
     }
 
     setLoading(true);
-
-    setTimeout(() => {
-      // Check if user exists
-      const storedUsers = localStorage.getItem('wellness_users');
-      const usersList = storedUsers ? JSON.parse(storedUsers) : [];
-      const userExists = usersList.some(u => u.email.toLowerCase() === email.toLowerCase());
-
-      if (!userExists) {
-        setError('No account found with this email address.');
-        setLoading(false);
-        return;
+    try {
+      const res = await forgotPassword(email, 'otp');
+      // DebugOtp is returned by backend for this prototype (since no email sender is wired)
+      if (res?.debugOtp) {
+        setRecoveryOtp(res.debugOtp);
+        setOtpCode(res.debugOtp.split(''));
       }
-
-      setLoading(false);
       setStep(2);
-    }, 1000);
+    } catch (err) {
+      setError(err?.message || 'Could not send recovery code.');
+    } finally {
+      setLoading(false);
+    }
   };
 
   // Handle OTP digit changes
@@ -99,8 +98,8 @@ export default function ForgotPassword({ onNavigate  }) {
     }
   };
 
-  // Handle Step 2: Submit OTP
-  const handleOtpSubmit = (e) => {
+  // Handle Step 2: Validate OTP (server-side)
+  const handleOtpSubmit = async (e) => {
     e.preventDefault();
     setError('');
 
@@ -110,21 +109,16 @@ export default function ForgotPassword({ onNavigate  }) {
       return;
     }
 
-    setLoading(true);
-
-    setTimeout(() => {
-      // In this high-fidelity prototype, any code is accepted or the explicit "123456" standard
-      if (codeString === '123456' || codeString !== '') {
-        setStep(3);
-      } else {
-        setError('Incorrect recovery code. Try using "123456" for testing.');
-      }
-      setLoading(false);
-    }, 800);
+    // We only validate by trying the reset in step 3; to keep steps consistent,
+    // move to step 3 after verifying OTP exists in backend by attempting with empty password is not ideal.
+    // Instead: just store OTP in state and go to step 3.
+    // Reset will be validated again when submitting new password.
+    setRecoveryOtp(codeString);
+    setStep(3);
   };
 
   // Handle Step 3: Password Update
-  const handlePasswordReset = (e) => {
+  const handlePasswordReset = async (e) => {
     e.preventDefault();
     setError('');
 
@@ -144,30 +138,25 @@ export default function ForgotPassword({ onNavigate  }) {
     }
 
     setLoading(true);
+    try {
+      const otpToUse = recoveryOtp || otpCode.join('');
+      const res = await resetPassword({
+        email,
+        newPassword,
+        otp: otpToUse,
+      });
 
-    setTimeout(() => {
-      try {
-        const storedUsers = localStorage.getItem('wellness_users');
-        const usersList = storedUsers ? JSON.parse(storedUsers) : [];
-
-        const userObj = usersList.find(u => u.email.toLowerCase() === email.toLowerCase());
-        let userId = userObj ? userObj.id : '';
-
-        // Update password in local storage
-        const userPasswords = JSON.parse(localStorage.getItem('wellness_user_passwords') || '{}');
-        userPasswords[userId] = newPassword;
-        localStorage.setItem('wellness_user_passwords', JSON.stringify(userPasswords));
-
+      if (res?.detail) {
         setSuccess(true);
         setTimeout(() => {
           onNavigate('login');
         }, 1500);
-      } catch (err) {
-        setError('Could not update password. Please try again.');
-      } finally {
-        setLoading(false);
       }
-    }, 1000);
+    } catch (err) {
+      setError(err?.message || 'Could not update password. Please try again.');
+    } finally {
+      setLoading(false);
+    }
   };
 
   if (success) {
