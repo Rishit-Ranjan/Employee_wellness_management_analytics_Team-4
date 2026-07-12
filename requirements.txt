@@ -1,7 +1,5 @@
 pandas
 numpy
-Flask
-flask-cors
 pymongo
 passlib[bcrypt]
 PyJWT
