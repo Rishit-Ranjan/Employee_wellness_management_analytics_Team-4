@@ -2,7 +2,7 @@
 
 ## Run frontend + backend together
 
-First set up the ".env" file with your own string and information for MongoDb and SMTP and place it in the backend root with these:
+First set up the ".env" file with your own string and information for MongoDb and SMTP and place it in the backend root with these variables:
 
 ```bash
 MONGO_URI=connection string
