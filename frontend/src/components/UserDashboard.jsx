@@ -4,6 +4,8 @@ import {
   Dumbbell, Apple, Brain, Clock, HeartPulse, Sparkles, Check, ShieldAlert, AlertCircle, Smile, Send
 } from 'lucide-react';
 
+import { personalRecommendations } from '../types';
+
 
 // ==========================================
 // MODULE 3: PERSONALIZED RECOMMENDATIONS
@@ -729,7 +731,7 @@ export default function UserDashboard({ user,
   healthRecords,
   onUpdateUserRecord,
   onUpdateSentimentPulse,
-  recommendations
+  recommendations= personalRecommendations
  }) {
   const [activeTab, setActiveTab] = useState(7);
   const [isChatOpen, setIsChatOpen] = useState(false);
@@ -866,7 +868,7 @@ export default function UserDashboard({ user,
             )}
 
             {activeTab === 3 && (
-              <RecommendationModule recommendations={recommendations} />
+              <RecommendationModule recommendations={personalRecommendations} />
             )}
           </div>
         </main>
