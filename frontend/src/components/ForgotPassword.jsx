@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { Mail, Lock, Eye, EyeOff, KeyRound, ArrowLeft, ArrowRight, CheckCircle2, ShieldAlert, Send } from 'lucide-react';
 import { forgotPassword, resetPassword } from '../services/api';
 
@@ -9,6 +9,7 @@ export default function ForgotPassword({ onNavigate  }) {
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [recoveryOtp, setRecoveryOtp] = useState('');
+  const [resetToken, setResetToken] = useState('');
   const [showNewPassword, setShowNewPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
@@ -44,7 +45,28 @@ export default function ForgotPassword({ onNavigate  }) {
 
   const strength = getPasswordStrength();
 
-  // Handle Step 1: Request recovery OTP
+// If redirected with a token link, use token reset mode (query param: ?token=...&email=...)
+  const initFromQuery = () => {
+    try {
+      const params = new URLSearchParams(window.location.search);
+      const t = params.get('token') || params.get('resetToken') || '';
+      const e = params.get('email') || '';
+      if (t) setResetToken(t);
+      if (e) setEmail(e);
+      if (t) {
+        setStep(3);
+      }
+    } catch {
+      // ignore
+    }
+  };
+
+  React.useEffect(() => {
+    initFromQuery();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Handle Step 1: Request recovery code / reset link
   const handleEmailSubmit = async (e) => {
     e.preventDefault();
     setError('');
@@ -61,15 +83,26 @@ export default function ForgotPassword({ onNavigate  }) {
 
     setLoading(true);
     try {
+      // method=otp so backend generates 6-digit OTP
       const res = await forgotPassword(email, 'otp');
-      // DebugOtp is returned by backend for this prototype (since no email sender is wired)
+
+
+      // Prototype: backend returns debugOtp since no email sender is wired.
+      // We store it so the user can proceed to enter recovery code/new password.
       if (res?.debugOtp) {
-        setRecoveryOtp(res.debugOtp);
+        setResetToken('');
+        setRecoveryOtp('');
         setOtpCode(res.debugOtp.split(''));
       }
+
       setStep(2);
+
+      if (!res?.debugOtp) {
+        // If email sending existed, the user would click the link and come back with ?token=...
+        setError('Reset link generated. Check your email.');
+      }
     } catch (err) {
-      setError(err?.message || 'Could not send recovery code.');
+      setError(err?.message || 'Could not send reset link.');
     } finally {
       setLoading(false);
     }
@@ -99,7 +132,7 @@ export default function ForgotPassword({ onNavigate  }) {
   };
 
   // Handle Step 2: Validate OTP (server-side)
-  const handleOtpSubmit = async (e) => {
+const handleOtpSubmit = async (e) => {
     e.preventDefault();
     setError('');
 
@@ -109,16 +142,13 @@ export default function ForgotPassword({ onNavigate  }) {
       return;
     }
 
-    // We only validate by trying the reset in step 3; to keep steps consistent,
-    // move to step 3 after verifying OTP exists in backend by attempting with empty password is not ideal.
-    // Instead: just store OTP in state and go to step 3.
-    // Reset will be validated again when submitting new password.
+    setResetToken('');
     setRecoveryOtp(codeString);
     setStep(3);
   };
 
   // Handle Step 3: Password Update
-  const handlePasswordReset = async (e) => {
+const handlePasswordReset = async (e) => {
     e.preventDefault();
     setError('');
 
@@ -139,12 +169,22 @@ export default function ForgotPassword({ onNavigate  }) {
 
     setLoading(true);
     try {
-      const otpToUse = recoveryOtp || otpCode.join('');
-      const res = await resetPassword({
+      const payload = {
         email,
         newPassword,
-        otp: otpToUse,
-      });
+      };
+
+      // Use token if available, otherwise OTP
+      if (resetToken) {
+        payload.resetToken = resetToken;
+        payload.otp = '';
+      } else {
+        const otpToUse = recoveryOtp || otpCode.join('');
+        payload.otp = otpToUse;
+        payload.resetToken = '';
+      }
+
+      const res = await resetPassword(payload);
 
       if (res?.detail) {
         setSuccess(true);

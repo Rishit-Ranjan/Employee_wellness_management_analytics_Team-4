@@ -10,6 +10,7 @@ from pymongo import MongoClient
 from pymongo.errors import ConfigurationError
 from bson import ObjectId
 from dotenv import load_dotenv
+from email_sender import send_email
  
 MONGO_URI = os.getenv('MONGO_URI', 'mongodb://localhost:27017/employee_wellness_analytics')
 MONGO_DB_NAME = os.getenv('MONGO_DB_NAME', 'wellness_app')
@@ -174,12 +175,29 @@ def forgot_password():
     }
     reset_collection.insert_one(req_doc)
 
-    # Repo has no email service wired, so return debug values for dev/testing only.
+    # Send email if SMTP is configured. Otherwise, fall back to debug values.
     resp_payload = message_resp.copy()
-    if otp_code is not None:
-        resp_payload['debugOtp'] = otp_code
-    if reset_token is not None:
-        resp_payload['debugResetToken'] = reset_token
+    try:
+        frontend_origin = os.getenv('FRONTEND_ORIGIN', 'http://localhost:5173')
+        if method == 'otp' and otp_code is not None:
+            subject = 'Your password recovery code'
+            text_body = f"Your OTP recovery code is: {otp_code}\n\nThis code expires in 15 minutes."
+            html_body = f"<p>Your OTP recovery code is: <b>{otp_code}</b></p><p>This code expires in 15 minutes.</p>"
+            send_email(email, subject, html_body, text_body)
+        elif method == 'link' and reset_token is not None:
+            subject = 'Your password reset link'
+            reset_link = f"{frontend_origin}/forgot_password?token={reset_token}&email={email}"
+            text_body = f"Reset your password using this link: {reset_link}\n\nThis link expires in 15 minutes."
+            html_body = f"<p>Reset your password using this link:</p><p><a href='{reset_link}'>Reset password</a></p><p>This link expires in 15 minutes.</p>"
+            send_email(email, subject, html_body, text_body)
+    except Exception as e:
+        # Prototype fallback
+        app.logger.warning(f"Failed to send email (falling back to debug): {e}")
+        if otp_code is not None:
+            resp_payload['debugOtp'] = otp_code
+        if reset_token is not None:
+            resp_payload['debugResetToken'] = reset_token
+
     return jsonify(resp_payload), 200
 
 
