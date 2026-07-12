@@ -743,7 +743,7 @@ export default function UserDashboard({ user,
             <div className="w-4 h-4 bg-white rounded-sm rotate-45"></div>
           </div>
           <div>
-            <span className="font-display font-bold text-lg tracking-tight block text-slate-900 leading-tight">PLATFORM.</span>
+            <span className="font-display font-bold text-lg tracking-tight block text-slate-900 leading-tight">Employee Wellness Management Analytics</span>
             <span className="text-[10px] text-slate-400 font-bold tracking-widest uppercase font-mono">Wellness Intelligence</span>
           </div>
         </div>
