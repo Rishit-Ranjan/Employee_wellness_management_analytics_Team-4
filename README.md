@@ -25,13 +25,19 @@ Then create a virtual environment using:
 python -m venv .venv
 ```
 
+Start the virtual environment using the command:
+```bash
+.venv/Scripts/activate
+```
+
 Download the libraries from the requirements.txt using the command:
 
 ```bash
 pip install -r requirements.txt
 ```
 
-Now
+Now,
+
 ``` bash
 cd frontend
 npm install
