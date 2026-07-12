@@ -11,3 +11,6 @@ flask
 flask-cors
 requests
 joblib
+matplotlib
+seaborn
+flask-jwt-extended
