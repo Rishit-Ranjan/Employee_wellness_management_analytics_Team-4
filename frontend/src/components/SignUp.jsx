@@ -82,7 +82,14 @@ export default function SignUp({ onNavigate, onSignUpSuccess  }) {
       }, 1200);
     } catch (err) {
       console.error('Signup API error:', err);
-      setError('Could not connect to the server. Please try again later.');
+
+      // Backend returns: 409 { detail: 'Account already exists' }
+      const msg = err?.message || '';
+      if (String(msg).toLowerCase().includes('account already exists')) {
+        setError('An account with this email already exists. Please sign in instead.');
+      } else {
+        setError(msg ? msg : 'Could not connect to the server. Please try again later.');
+      }
     } finally {
       setLoading(false);
     }
