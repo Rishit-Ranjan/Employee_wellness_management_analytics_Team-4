@@ -202,10 +202,8 @@ def forgot_password():
         'detail': 'If an account exists for this email, a recovery option has been generated.'
     }
 
-
     if not user:
         return jsonify(message_resp), 200
-
 
     # Generate and store reset request
     now = datetime.utcnow()
@@ -229,7 +227,6 @@ def forgot_password():
         'created_at': now.isoformat(),
     }
     reset_collection.insert_one(req_doc)
-
 
     # Send email if SMTP is configured. Otherwise, fall back to debug values.
     resp_payload = message_resp.copy()
@@ -257,8 +254,6 @@ def forgot_password():
 
     return jsonify(resp_payload), 200
 
-
-
 @app.route('/api/auth/reset-password', methods=['POST'])
 def reset_password():
     data = request.get_json() or {}
@@ -267,12 +262,9 @@ def reset_password():
     otp = (data.get('otp') or '').strip()
     reset_token = (data.get('resetToken') or '').strip()
 
-
     app.logger.info(
         "reset-password called: email=%s newPassword_len=%s has_otp=%s has_resetToken=%s", email, len(new_password) if new_password else 0, bool(otp), bool(reset_token)
     )
-
-
 
     if not email:
         return jsonify({'detail': 'Missing required email field.'}), 400
@@ -285,7 +277,6 @@ def reset_password():
     if otp == '' and reset_token == '':
         return jsonify({'detail': 'A valid OTP or reset token is required.'}), 400
 
-
     try:
         # Find latest unused, unexpired reset request matching provided credential
         query = {
@@ -294,33 +285,37 @@ def reset_password():
         }
         now = datetime.utcnow()
 
-
         if otp != '':
             query['otp'] = otp
         if reset_token != '':
             query['reset_token'] = reset_token
 
-
         req = reset_collection.find_one(query, sort=[('created_at', -1)])
         if not req:
             return jsonify({'detail': 'Invalid or expired reset request.'}), 400
-
 
         expires_at = datetime.fromisoformat(req['expires_at'])
         if expires_at < now:
             return jsonify({'detail': 'Reset request expired.'}), 400
 
-
         user = users_collection.find_one({'email': email})
+        target_collection = users_collection
+
+        if not user:
+            user = admin_collection.find_one({'email': email})
+            target_collection = admin_collection
+
         if not user:
             return jsonify({'detail': 'User not found.'}), 404
 
+        # Check if the new password is the same as the old one
+        if verify_password(new_password, user['password_hash']):
+            return jsonify({'detail': 'New password cannot be the same as the old password.'}), 400
 
         # Hash the new password using bcrypt
         pwd_hash = hash_password(new_password)
-        users_collection.update_one({'_id': user['_id']}, {'$set': {'password_hash': pwd_hash}})
+        target_collection.update_one({'_id': user['_id']}, {'$set': {'password_hash': pwd_hash}})
         reset_collection.update_one({'_id': req['_id']}, {'$set': {'used': True}})
-
 
         return jsonify({'detail': 'Password updated successfully.'}), 200
     except Exception as e:

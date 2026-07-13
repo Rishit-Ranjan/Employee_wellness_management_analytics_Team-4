@@ -3,9 +3,12 @@ import os
 from pymongo import MongoClient
 from pymongo.errors import ConfigurationError
 import bcrypt
+from dotenv import load_dotenv
 
-MONGO_URI = os.getenv('MONGO_URI', 'mongodb://localhost:27017/employee_wellness_analytics')
-MONGO_DB_NAME = os.getenv('MONGO_DB_NAME', 'wellness_app')
+load_dotenv()
+
+MONGO_DB_NAME = os.getenv('MONGO_DB_NAME', 'employee_wellness_analytics')
+MONGO_URI = os.getenv('MONGO_URI', f'mongodb://localhost:27017/{MONGO_DB_NAME}')
 ADMIN_EMAIL = os.getenv('ADMIN_EMAIL', 'admin@platform.com')
 ADMIN_PASSWORD = os.getenv('ADMIN_PLAIN_PASSWORD', 'AdminPass123!')
 ADMIN_USERNAME = os.getenv('ADMIN_USERNAME', 'admin')
