@@ -55,8 +55,8 @@ export default function SignUp({ onNavigate, onSignUpSuccess  }) {
       return;
     }
 
-    if (password.length < 8) {
-      setError('Password must be at least 8 characters long.');
+    if (password.length < 6) {
+      setError('Password must be at least 6 characters long.');
       return;
     }
 
@@ -243,7 +243,7 @@ export default function SignUp({ onNavigate, onSignUpSuccess  }) {
                   required
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  placeholder="At least 8 characters"
+                  placeholder="At least 6 characters"
                   className="w-full pl-10 pr-10 py-2.5 bg-slate-50 border border-slate-200 rounded-lg text-sm text-slate-900 placeholder-slate-400 outline-none focus:border-indigo-500 focus:bg-white transition-colors"
                 />
                 <button
@@ -266,7 +266,7 @@ export default function SignUp({ onNavigate, onSignUpSuccess  }) {
                     <div className={`${strength.color} h-full transition-all duration-300`} style={{ width: `${strength.score}%` }} />
                   </div>
                   <div className="grid grid-cols-2 gap-x-2 text-[9px] text-slate-400 mt-1 font-mono">
-                    <span className={password.length >= 8 ? 'text-emerald-600 font-semibold' : ''}>✓ Min 8 chars</span>
+                    <span className={password.length >= 8 ? 'text-emerald-600 font-semibold' : ''}>✓ Min 6 chars</span>
                     <span className={/[A-Z]/.test(password) ? 'text-emerald-600 font-semibold' : ''}>✓ 1 Uppercase</span>
                     <span className={/[0-9]/.test(password) ? 'text-emerald-600 font-semibold' : ''}>✓ 1 Number</span>
                     <span className={/[^A-Za-z0-9]/.test(password) ? 'text-emerald-600 font-semibold' : ''}>✓ 1 Special</span>

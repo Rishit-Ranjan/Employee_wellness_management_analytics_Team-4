@@ -21,6 +21,11 @@ def seed():
     if existing:
         print('Admin already exists:', ADMIN_EMAIL)
         return
+
+    if len(ADMIN_PASSWORD.encode('utf-8')) > 72:
+        print(f"ERROR: Admin password is too long (max 72 bytes). Please check your ADMIN_PLAIN_PASSWORD environment variable.")
+        return
+
     pwd_hash = bcrypt.hash(ADMIN_PASSWORD)
     admin_doc = {
         'username': ADMIN_USERNAME,
