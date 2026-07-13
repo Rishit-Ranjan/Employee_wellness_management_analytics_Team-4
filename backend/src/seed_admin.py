@@ -2,7 +2,7 @@
 import os
 from pymongo import MongoClient
 from pymongo.errors import ConfigurationError
-from passlib.hash import bcrypt
+import bcrypt
 
 MONGO_URI = os.getenv('MONGO_URI', 'mongodb://localhost:27017/employee_wellness_analytics')
 MONGO_DB_NAME = os.getenv('MONGO_DB_NAME', 'wellness_app')
@@ -26,7 +26,7 @@ def seed():
         print(f"ERROR: Admin password is too long (max 72 bytes). Please check your ADMIN_PLAIN_PASSWORD environment variable.")
         return
 
-    pwd_hash = bcrypt.hash(ADMIN_PASSWORD)
+    pwd_hash = bcrypt.hashpw(ADMIN_PASSWORD.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
     admin_doc = {
         'username': ADMIN_USERNAME,
         'email': ADMIN_EMAIL.lower(),
