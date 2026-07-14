@@ -4,6 +4,8 @@ import {
   Search, Plus, X, ShieldAlert, AlertCircle, Check, Sparkles, Dumbbell, Apple, Brain, Clock
 } from 'lucide-react';
 
+import {personalRecommendations, sentimentData} from '../types'
+
 // ==========================================
 // MODULE 1: EMPLOYEE HEALTH DATA MANAGEMENT
 // ==========================================
@@ -524,10 +526,15 @@ export function RiskPredictionModule({ risks  }) {
 // ==========================================
 // MODULE 3: PERSONALIZED RECOMMENDATIONS
 // ==========================================
-export function RecommendationModule({ recommendations  }) {
+export function RecommendationModule({ recommendations = [] }) {
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-      {recommendations.map((rec) => {
+      {recommendations.length === 0 ? (
+        <div className="col-span-full bg-white border border-slate-200 rounded-xl p-10 text-center font-mono text-xs text-slate-400 shadow-sm">
+          No recommendations available at this time.
+        </div>
+      ) : (
+        recommendations.map((rec) => {
         const Icon = rec.category === 'Fitness' ? Dumbbell :
                      rec.category === 'Diet' ? Apple :
                      rec.category === 'Mental Wellness' ? Brain : Clock;
@@ -562,7 +569,8 @@ export function RecommendationModule({ recommendations  }) {
             </div>
           </div>
         );
-      })}
+      })
+      )}
     </div>
   );
 }
@@ -741,8 +749,8 @@ export function PerformanceDashboard({ kpis, records  }) {
 export default function AdminDashboard({ user,
   onLogout,
   healthRecords,
-  risks,
-  recommendations,
+  risks,  
+  recommendations = personalRecommendations,
   sentimentList,
   kpis,
   onAddHealthRecord
@@ -892,11 +900,11 @@ export default function AdminDashboard({ user,
             )}
 
             {activeTab === 3 && (
-              <RecommendationModule recommendations={recommendations} />
+              <RecommendationModule recommendations={personalRecommendations} />
             )}
 
             {activeTab === 4 && (
-              <SentimentModule sentimentList={sentimentList} />
+              <SentimentModule sentimentList={sentimentData} />
             )}
 
             {activeTab === 5 && (

@@ -32,3 +32,52 @@ export const personalRecommendations = [
     durationWeeks: 3,
   },
 ];
+
+export const sentimentData = [
+  {
+    department: 'Development',
+    averageStressScore: 7.4,
+    sentimentDistribution: {
+      positive: 35,
+      neutral: 45,
+      negative: 20,
+    },
+    keyIssues: ['Deadline pressure', 'Context switching', 'Meeting overload'],
+    recentFeedbackCount: 28,
+  },
+  {
+  department: 'Sales',
+    averageStressScore: 6.8,
+    sentimentDistribution: {
+      positive: 45,
+      neutral: 35,
+      negative: 20,
+    },
+    keyIssues: ['High quota pressure', 'Travel fatigue'],
+    recentFeedbackCount: 28,
+  },
+
+  {
+  department: 'Marketing',
+    averageStressScore: 5.0,
+    sentimentDistribution: {
+      positive: 65,
+      neutral: 25,
+      negative: 10,
+    },
+    keyIssues: ['Creative blocks', 'Inter-department bottlenecks'],
+    recentFeedbackCount: 28,
+  },
+
+  {
+  department: 'Operations',
+    averageStressScore: 5.9,
+    sentimentDistribution: {
+      positive: 65,
+      neutral: 25,
+      negative: 10,
+    },
+    keyIssues: ['On-call rotation conflicts'],
+    recentFeedbackCount: 28,
+  }
+];
