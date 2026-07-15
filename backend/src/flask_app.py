@@ -77,12 +77,19 @@ def login():
     data = request.get_json() or {}
     email = (data.get('email') or '').lower()
     password = data.get('password') or ''
-    app.logger.debug(f"Attempting login for email: {email}")
+    role = data.get('role', 'Employee')  # Default to 'Employee'
+    app.logger.debug(f"Attempting login for email: {email} with role: {role}")
 
 
     try:
-        # Check collections in order: admin, then employees, then users
-        user = admin_collection.find_one({"email": email}) or users_collection.find_one({"email": email})
+        # Check collection based on role
+        if role == 'Admin':
+            user = admin_collection.find_one({"email": email})
+        elif role == 'Employee':
+            user = users_collection.find_one({"email": email})
+        else:
+            # Fallback for safety, though frontend should prevent this
+            user = admin_collection.find_one({"email": email}) or users_collection.find_one({"email": email})
         if not user:
             app.logger.warning(f"Login failed for {email}: User not found.")
             return jsonify({'detail': 'Invalid credentials'}), 401

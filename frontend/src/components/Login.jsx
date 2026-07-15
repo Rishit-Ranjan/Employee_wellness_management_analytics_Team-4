@@ -1,10 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import { Mail, Lock, Eye, EyeOff, ArrowRight, Activity, Sparkles, Shield } from 'lucide-react';
+import { Mail, Lock, Eye, EyeOff, ArrowRight, Activity, Sparkles, Shield, UserCheck, UserCog } from 'lucide-react';
 import { login as loginApi } from '../services/api';
 
 export default function Login({ onNavigate, onLoginSuccess }) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [role, setRole] = useState('Employee');
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
@@ -19,10 +20,19 @@ export default function Login({ onNavigate, onLoginSuccess }) {
     }
   }, []);
 
+  // Automatically switch role for default admin email
+  useEffect(() => {
+    if (email.toLowerCase() === 'admin@platform.com') {
+      setRole('Admin');
+    } else if (role === 'Admin' && email.toLowerCase() !== 'admin@platform.com') {
+      setRole('Employee');
+    }
+  }, [email]);
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
-
+    
     if (!email || !password) {
       setError('Please fill in all fields.');
       return;
@@ -31,7 +41,7 @@ export default function Login({ onNavigate, onLoginSuccess }) {
     setLoading(true);
 
     try {
-      const res = await loginApi(email, password);
+      const res = await loginApi(email, password, role);
 
       if (rememberMe) {
         localStorage.setItem('wellness_remember_email', email);
@@ -122,6 +132,35 @@ export default function Login({ onNavigate, onLoginSuccess }) {
             </div>
             <h2 className="font-display text-3xl font-semibold text-slate-900 mb-2 tracking-tight">Welcome back</h2>
             <p className="text-slate-500 text-sm">Sign in to manage and analyze wellness profiles</p>
+          </div>
+
+          {/* Role Selector */}
+          <div className="mb-4">
+            <label className="block text-[11px] uppercase tracking-widest text-slate-500 font-bold mb-2">
+              Select Your Role
+            </label>
+            <div className="grid grid-cols-2 gap-2">
+              <button
+                type="button"
+                onClick={() => setRole('Employee')}
+                className={`flex items-center justify-center gap-2 p-3 rounded-lg border transition-all text-xs font-semibold ${
+                  role === 'Employee'
+                    ? 'bg-indigo-50 border-indigo-500 text-indigo-700 shadow-sm'
+                    : 'bg-slate-50 border-slate-200 text-slate-500 hover:bg-slate-100'
+                }`}
+              >
+                <UserCheck className="w-4 h-4" /> Employee
+              </button>
+              <button
+                type="button"
+                onClick={() => setRole('Admin')}
+                className={`flex items-center justify-center gap-2 p-3 rounded-lg border transition-all text-xs font-semibold ${
+                  role === 'Admin' ? 'bg-indigo-50 border-indigo-500 text-indigo-700 shadow-sm' : 'bg-slate-50 border-slate-200 text-slate-500 hover:bg-slate-100'
+                }`}
+              >
+                <UserCog className="w-4 h-4" /> Admin
+              </button>
+            </div>
           </div>
 
           {error && (
@@ -233,4 +272,3 @@ export default function Login({ onNavigate, onLoginSuccess }) {
     </div>
   );
 }
-
