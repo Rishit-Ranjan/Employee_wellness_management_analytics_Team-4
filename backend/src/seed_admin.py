@@ -33,6 +33,7 @@ def seed():
     admin_doc = {
         'username': ADMIN_USERNAME,
         'email': ADMIN_EMAIL.lower(),
+        'adminId': 'ADM001',
         'password_hash': pwd_hash,
         'role': 'admin',
         'createdAt': __import__('datetime').datetime.utcnow().isoformat()

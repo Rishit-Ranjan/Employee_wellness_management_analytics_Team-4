@@ -77,19 +77,22 @@ def login():
     data = request.get_json() or {}
     email = (data.get('email') or '').lower()
     password = data.get('password') or ''
+    entity_id = (data.get('entityId') or '').strip()
     role = data.get('role', 'Employee')  # Default to 'Employee'
-    app.logger.debug(f"Attempting login for email: {email} with role: {role}")
+    app.logger.debug(f"Attempting login for email: {email} with role: {role} and ID: {entity_id}")
 
 
     try:
         # Check collection based on role
         if role == 'Admin':
-            user = admin_collection.find_one({"email": email})
+            user = admin_collection.find_one({"email": email, "adminId": entity_id})
         elif role == 'Employee':
-            user = users_collection.find_one({"email": email})
+            user = users_collection.find_one({"email": email, "employeeId": entity_id})
         else:
             # Fallback for safety, though frontend should prevent this
-            user = admin_collection.find_one({"email": email}) or users_collection.find_one({"email": email})
+            user = admin_collection.find_one({"email": email, "adminId": entity_id}) or \
+                   users_collection.find_one({"email": email, "employeeId": entity_id})
+
         if not user:
             app.logger.warning(f"Login failed for {email}: User not found.")
             return jsonify({'detail': 'Invalid credentials'}), 401
@@ -166,12 +169,17 @@ def signup():
         # Hash the password using bcrypt.
         pwd_hash = hash_password(password)
 
+        # Generate a unique employee ID
+        # We'll base it on the current number of users to ensure uniqueness
+        user_count = users_collection.count_documents({})
+        employee_id = f"EMP{user_count + 101}"
 
         username = name.replace(' ', '').lower()
 
 
         doc = {
             'name': name,
+            'employeeId': employee_id,
             'username': username,
             'email': email,
             'password_hash': pwd_hash,

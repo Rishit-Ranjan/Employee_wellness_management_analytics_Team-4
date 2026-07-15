@@ -1,11 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { Mail, Lock, Eye, EyeOff, ArrowRight, Activity, Sparkles, Shield, UserCheck, UserCog } from 'lucide-react';
+import { Mail, Lock, Eye, EyeOff, ArrowRight, Activity, Sparkles, Shield, UserCheck, UserCog, Hash } from 'lucide-react';
 import { login as loginApi } from '../services/api';
 
 export default function Login({ onNavigate, onLoginSuccess }) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [role, setRole] = useState('Employee');
+  const [entityId, setEntityId] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
@@ -33,15 +34,15 @@ export default function Login({ onNavigate, onLoginSuccess }) {
     e.preventDefault();
     setError('');
     
-    if (!email || !password) {
-      setError('Please fill in all fields.');
+    if (!email || !password || !entityId) {
+      setError('Please fill in all required fields.');
       return;
     }
 
     setLoading(true);
 
     try {
-      const res = await loginApi(email, password, role);
+      const res = await loginApi(email, password, role, entityId);
 
       if (rememberMe) {
         localStorage.setItem('wellness_remember_email', email);
@@ -130,8 +131,12 @@ export default function Login({ onNavigate, onLoginSuccess }) {
               </div>
               <span className="font-display font-bold text-slate-900 tracking-tighter">Employee Wellness Management Analytics</span>
             </div>
-            <h2 className="font-display text-3xl font-semibold text-slate-900 mb-2 tracking-tight">Welcome back</h2>
-            <p className="text-slate-500 text-sm">Sign in to manage and analyze wellness profiles</p>
+            <h2 className="font-display text-3xl font-semibold text-slate-900 mb-2 tracking-tight">
+              {role === 'Admin' ? 'Admin Sign In' : 'Employee Sign In'}
+            </h2>
+            <p className="text-slate-500 text-sm">
+              {role === 'Admin' ? 'Restricted access for authorized administrators only.' : 'Use your registered employee credentials.'}
+            </p>
           </div>
 
           {/* Role Selector */}
@@ -171,6 +176,26 @@ export default function Login({ onNavigate, onLoginSuccess }) {
           )}
 
           <form onSubmit={handleSubmit} className="space-y-4">
+            <div>
+              <label htmlFor="entityId" className="block text-[11px] uppercase tracking-widest text-slate-500 font-bold mb-1.5">
+                {role === 'Admin' ? 'Admin ID' : 'Employee ID'}
+              </label>
+              <div className="relative">
+                <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
+                  <Hash className="w-4 h-4" />
+                </div>
+                <input
+                  id="entityId"
+                  type="text"
+                  required
+                  value={entityId}
+                  onChange={(e) => setEntityId(e.target.value)}
+                  placeholder={role === 'Admin' ? 'e.g. ADM-12345' : 'e.g. EMP-12345'}
+                  className="w-full pl-10 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-lg text-sm text-slate-900 placeholder-slate-400 outline-none focus:border-indigo-500 focus:bg-white transition-all"
+                />
+              </div>
+            </div>
+
             <div>
               <label htmlFor="email" className="block text-[11px] uppercase tracking-widest text-slate-500 font-bold mb-1.5">
                 Email Address

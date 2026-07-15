@@ -19,8 +19,8 @@ async function request(path, opts = {}) {
   try { return await res.json(); } catch { return null; }
 }
 
-export function login(email, password, role) {
-  return request('/auth/login', { method: 'POST', body: JSON.stringify({ email, password, role }) });
+export function login(email, password, role, entityId) {
+  return request('/auth/login', { method: 'POST', body: JSON.stringify({ email, password, role, entityId }) });
 }
 
 export function signup(name, email, password) {
