@@ -12,6 +12,7 @@ MONGO_URI = os.getenv('MONGO_URI', f'mongodb://localhost:27017/{MONGO_DB_NAME}')
 ADMIN_EMAIL = os.getenv('ADMIN_EMAIL', 'admin@platform.com')
 ADMIN_PASSWORD = os.getenv('ADMIN_PLAIN_PASSWORD', 'AdminPass123!')
 ADMIN_USERNAME = os.getenv('ADMIN_USERNAME', 'admin')
+ADMIN_ID= os.getenv('ADMIN_ID', 'ADM001')
 
 def seed():
     client = MongoClient(MONGO_URI)
@@ -33,7 +34,7 @@ def seed():
     admin_doc = {
         'username': ADMIN_USERNAME,
         'email': ADMIN_EMAIL.lower(),
-        'adminId': 'ADM001',
+        'adminId': ADMIN_ID,
         'password_hash': pwd_hash,
         'role': 'admin',
         'createdAt': __import__('datetime').datetime.utcnow().isoformat()
