@@ -25,7 +25,6 @@ Then create a virtual environment in the project root using the command:
 python -m venv .venv
 ```
 
-
 Start the virtual environment using the command:
 ```bash
 ./.venv/Scripts/Activate.ps1
