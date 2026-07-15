@@ -28,7 +28,7 @@ python -m venv .venv
 
 Start the virtual environment using the command:
 ```bash
-.venv/Scripts/activate
+./.venv/Scripts/Activate.ps1
 ```
 
 Download the libraries from the requirements.txt using the command:
