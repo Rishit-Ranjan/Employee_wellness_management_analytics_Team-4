@@ -19,7 +19,7 @@ EMAIL_FROM=employee-wellness-analytics@gmail.com
 FRONTEND_ORIGIN=http://localhost:5173
 ```
 
-Then create a virtual environment  in the project root using the command:
+Then create a virtual environment in the project root using the command:
 
 ```bash
 python -m venv .venv
