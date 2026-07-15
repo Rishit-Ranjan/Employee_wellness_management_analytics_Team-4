@@ -190,7 +190,7 @@ export default function Login({ onNavigate, onLoginSuccess }) {
                   required
                   value={entityId}
                   onChange={(e) => setEntityId(e.target.value)}
-                  placeholder={role === 'Admin' ? 'e.g. ADM-12345' : 'e.g. EMP-12345'}
+                  placeholder={role === 'Admin' ? 'e.g. ADM001' : 'e.g. EMP101'}
                   className="w-full pl-10 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-lg text-sm text-slate-900 placeholder-slate-400 outline-none focus:border-indigo-500 focus:bg-white transition-all"
                 />
               </div>
