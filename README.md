@@ -2,7 +2,7 @@
 
 ## Run frontend + backend together
 
-First create a ".env" file with your own string and information for MongoDb and SMTP and place it in the backend root with these variables:
+First create a ".env" file with your own string and information for MongoDb and SMTP and place it in the backend root with these variables inside the .env file:
 
 ```bash
 MONGO_URI=connection string
@@ -19,11 +19,12 @@ EMAIL_FROM=employee-wellness-analytics@gmail.com
 FRONTEND_ORIGIN=http://localhost:5173
 ```
 
-Then create a virtual environment using:
+Then create a virtual environment  in the project root using the command:
 
 ```bash
 python -m venv .venv
 ```
+
 
 Start the virtual environment using the command:
 ```bash
@@ -42,13 +43,9 @@ Now,
 cd frontend
 npm install
 ```
-Then,
-From the repo root:
+Then, in the project directory root:
 
 ```bash
 npm install
 npm run dev
 ```
-
-- Frontend: Vite (default http://localhost:5173)
-- Backend: Flask (default http://localhost:8000)
