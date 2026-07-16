@@ -42,7 +42,7 @@ Now,
 cd frontend
 npm install
 ```
-Then, in the project directory root:
+Then, in the project root folder:
 
 ```bash
 npm install
