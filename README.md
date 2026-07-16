@@ -1,8 +1,14 @@
 # Employee_Wellness_Management_Analytics (Team 4)
 
+First clone the repository using the command:
+
+```bash
+git clone https://github.com/Rishit-Ranjan/Employee_wellness_management_analytics_Team-4.git
+```
+
 ## Run frontend + backend together
 
-First create a ".env" file with your own string and information for MongoDb and SMTP and place it in the backend root with these variables inside the .env file:
+Create a ".env" file with your own string and information for MongoDB and SMTP and place it in the backend root with these variables inside the .env file:
 
 ```bash
 MONGO_URI=connection string
@@ -42,7 +48,7 @@ Now,
 cd frontend
 npm install
 ```
-Then, in the project directory root:
+Then, in the project root folder:
 
 ```bash
 npm install
