@@ -1,8 +1,14 @@
 # Employee_Wellness_Management_Analytics (Team 4)
 
+First clone the the repository using the command:
+
+```bash
+git clone
+```
+
 ## Run frontend + backend together
 
-First create a ".env" file with your own string and information for MongoDB and SMTP and place it in the backend root with these variables inside the .env file:
+Create a ".env" file with your own string and information for MongoDB and SMTP and place it in the backend root with these variables inside the .env file:
 
 ```bash
 MONGO_URI=connection string
