@@ -369,8 +369,6 @@ def logout():
     resp.set_cookie('access_token', '', expires=0, httponly=True, samesite='Lax')
     return resp
 
-
-
 if __name__ == '__main__':
     port = int(os.getenv('PORT', 8000))
     app.run(host='0.0.0.0', port=port, debug=True)
