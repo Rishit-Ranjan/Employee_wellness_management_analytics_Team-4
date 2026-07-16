@@ -123,7 +123,6 @@ def login():
             "avatarUrl": user.get("avatarUrl", f"https://i.pravatar.cc/150?u={email}")
         }
 
-
         # Create token with user_info as the identity
         token = create_access_token(identity=user_info)
 
