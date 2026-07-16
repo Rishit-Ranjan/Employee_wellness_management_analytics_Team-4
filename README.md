@@ -3,7 +3,7 @@
 First clone the the repository using the command:
 
 ```bash
-git clone
+git clone https://github.com/Rishit-Ranjan/Employee_wellness_management_analytics_Team-4.git
 ```
 
 ## Run frontend + backend together
