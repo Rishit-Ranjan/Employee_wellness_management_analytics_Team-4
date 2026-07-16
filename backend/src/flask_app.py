@@ -2,7 +2,6 @@ from flask import Flask, request, jsonify, make_response
 from flask_cors import CORS
 import bcrypt
 
-
 from flask_jwt_extended import create_access_token, get_jwt_identity, jwt_required, JWTManager
 import os
 from datetime import datetime, timedelta
@@ -40,7 +39,7 @@ client = MongoClient(
     serverSelectionTimeoutMS=20000,
 )
 
-
+# Attempt to get the default database from the URI, fallback to MONGO_DB_NAME if not specified
 try:
     db = client.get_default_database()
 
@@ -51,7 +50,7 @@ users_collection = db.get_collection('users')
 admin_collection = db.get_collection('admin')
 reset_collection = db.get_collection('password_reset_requests')
 
-
+#--- Utility Functions ---
 def hash_password(password: str) -> str:
     return bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
 
@@ -70,8 +69,6 @@ def _generate_reset_token(num_bytes: int = 32) -> str:
     # URL-safe-ish token
     return os.urandom(num_bytes).hex()
 
-
-
 @app.route('/api/auth/login', methods=['POST'])
 def login():
     data = request.get_json() or {}
@@ -81,7 +78,7 @@ def login():
     role = data.get('role', 'Employee')  # Default to 'Employee'
     app.logger.debug(f"Attempting login for email: {email} with role: {role} and ID: {entity_id}")
 
-
+    # Input validation
     try:
         # Check collection based on role
         if role == 'Admin':
@@ -97,24 +94,24 @@ def login():
             app.logger.warning(f"Login failed for {email}: User not found.")
             return jsonify({'detail': 'Invalid credentials'}), 401
 
-
+        # Verify that the user has a password
         password_hash = user.get('password_hash')
         if not password_hash:
             app.logger.warning(f"Login failed for {email}: No password hash found for user.")
             return jsonify({'detail': 'Invalid credentials'}), 401
 
-
+        # Verify the password using bcrypt
         try:
             # Verify the password using bcrypt
             if not verify_password(password, password_hash):
                 app.logger.warning(f"Login failed for {email}: Incorrect password.")
                 return jsonify({'detail': 'Invalid credentials'}), 401
+            
+        # Handle potential errors in password verification
         except (ValueError, TypeError):
             # Catches invalid hash format (e.g., old sha256 hashes, None, etc.)
             app.logger.warning(f"Login failed for {email}: Incorrect password.")
             return jsonify({'detail': 'Invalid credentials'}), 401
-
-
 
         # Prepare user data for the token and response
         user_id_str = str(user['_id'])
@@ -130,14 +127,15 @@ def login():
         # Create token with user_info as the identity
         token = create_access_token(identity=user_info)
 
-
+        # Set the token in an HTTP-only cookie and return user info
         resp = make_response(jsonify({'user': user_info}))
         resp.set_cookie('access_token', token, httponly=True, samesite='Lax')
         return resp
+    
+    # Handle unexpected errors gracefully
     except Exception as e:
         app.logger.exception(f"An unexpected error occurred during login for {email}: {e}")
         return jsonify({'detail': 'Internal Server Error'}), 500
-
 
 
 @app.route('/api/auth/signup', methods=['POST'])
@@ -147,24 +145,21 @@ def signup():
     email = (data.get('email') or '').lower().strip()
     password = data.get('password') or ''
 
-
+    # Validate input 
     if not name or not email or not password:
         return jsonify({'detail': 'Missing required fields'}), 400
-
 
     if len(password) < 6:
         return jsonify({'detail': 'Password must be at least 6 characters long.'}), 400
 
-
     if len(password.encode('utf-8')) > 72:
         return jsonify({'detail': 'Password is too long (max 72 bytes).'}), 400
 
-
+    # Check if the user already exists
     try:
         # Only allow signups into the collection that login checks for normal users.
         if users_collection.find_one({"email": email}):
             return jsonify({'detail': 'Account already exists'}), 409
-
 
         # Hash the password using bcrypt.
         pwd_hash = hash_password(password)
@@ -172,11 +167,12 @@ def signup():
         # Generate a unique employee ID
         # We'll base it on the current number of users to ensure uniqueness
         user_count = users_collection.count_documents({})
-        employee_id = f"EMP{user_count + 101}"
+        employee_id = f"EMP{user_count + 100}"
 
+        # Generate a username by removing spaces and converting to lowercase
         username = name.replace(' ', '').lower()
 
-
+        # Create the user document
         doc = {
             'name': name,
             'employeeId': employee_id,
@@ -186,8 +182,12 @@ def signup():
             'role': 'user',
             'createdAt': datetime.utcnow().isoformat(),
         }
+
+        # Insert the new user into the users collection
         users_collection.insert_one(doc)
         return jsonify({'detail': 'Account created'}), 201
+    
+    # error handling for the SignUp failed
     except Exception as e:
         app.logger.exception(f"Signup failed for {email}: {e}")
         return jsonify({'detail': 'Internal Server Error'}), 500
@@ -200,23 +200,23 @@ def forgot_password():
     email = (data.get('email') or '').lower().strip()
     method = (data.get('method') or 'otp').lower().strip()  # otp | link
 
-
+    # Validate input
     if not email:
         return jsonify({'detail': 'Missing email'}), 400
 
-
+    # Validate method for reseting password
     if method not in {'otp', 'link'}:
         return jsonify({'detail': 'Invalid method'}), 400
 
-
+    # Check if the user exists in either collection
     user = users_collection.find_one({'email': email})
-
 
     # Always return generic message to avoid account enumeration
     message_resp = {
         'detail': 'If an account exists for this email, a recovery option has been generated.'
     }
 
+    # If the user does not exist, we still return the same message to prevent account enumeration
     if not user:
         return jsonify(message_resp), 200
 
@@ -224,7 +224,7 @@ def forgot_password():
     now = datetime.utcnow()
     expires_at = now + timedelta(minutes=15)
 
-
+    # Generate either an OTP or a reset token based on the method
     otp_code = None
     reset_token = None
     if method == 'otp':
@@ -232,7 +232,7 @@ def forgot_password():
     else:
         reset_token = _generate_reset_token(32)
 
-
+    # Store the reset request in the database
     req_doc = {
         'email': email,
         'otp': otp_code,
@@ -252,12 +252,14 @@ def forgot_password():
             text_body = f"Your OTP recovery code is: {otp_code}\n\nThis code expires in 15 minutes."
             html_body = f"<p>Your OTP recovery code is: <b>{otp_code}</b></p><p>This code expires in 15 minutes.</p>"
             send_email(email, subject, html_body, text_body)
+        
         elif method == 'link' and reset_token is not None:
             subject = 'Your password reset link'
             reset_link = f"{frontend_origin}/forgot_password?token={reset_token}&email={email}"
             text_body = f"Reset your password using this link: {reset_link}\n\nThis link expires in 15 minutes."
             html_body = f"<p>Reset your password using this link:</p><p><a href='{reset_link}'>Reset password</a></p><p>This link expires in 15 minutes.</p>"
             send_email(email, subject, html_body, text_body)
+    
     except Exception as e:
         # Prototype fallback
         app.logger.warning(f"Failed to send email (falling back to debug): {e}")
@@ -271,16 +273,19 @@ def forgot_password():
 
 @app.route('/api/auth/reset-password', methods=['POST'])
 def reset_password():
+    # Get the JSON data from the request
     data = request.get_json() or {}
     email = (data.get('email') or '').lower().strip()
     new_password = data.get('newPassword') or ''
     otp = (data.get('otp') or '').strip()
     reset_token = (data.get('resetToken') or '').strip()
 
+    # Log the request
     app.logger.info(
         "reset-password called: email=%s newPassword_len=%s has_otp=%s has_resetToken=%s", email, len(new_password) if new_password else 0, bool(otp), bool(reset_token)
     )
 
+    # Validate input
     if not email:
         return jsonify({'detail': 'Missing required email field.'}), 400
     if not new_password:
@@ -300,26 +305,32 @@ def reset_password():
         }
         now = datetime.utcnow()
 
+        # Add either otp or reset_token to the query if provided
         if otp != '':
             query['otp'] = otp
         if reset_token != '':
             query['reset_token'] = reset_token
 
+        # Find the most recent reset request
         req = reset_collection.find_one(query, sort=[('created_at', -1)])
         if not req:
             return jsonify({'detail': 'Invalid or expired reset request.'}), 400
 
+        # Check if the reset request has expired
         expires_at = datetime.fromisoformat(req['expires_at'])
         if expires_at < now:
             return jsonify({'detail': 'Reset request expired.'}), 400
 
+        # Find the user in either users or admin collection
         user = users_collection.find_one({'email': email})
         target_collection = users_collection
 
+        # If not found in users, check admin collection
         if not user:
             user = admin_collection.find_one({'email': email})
             target_collection = admin_collection
 
+        # If still not found, return error
         if not user:
             return jsonify({'detail': 'User not found.'}), 404
 
@@ -332,6 +343,7 @@ def reset_password():
         target_collection.update_one({'_id': user['_id']}, {'$set': {'password_hash': pwd_hash}})
         reset_collection.update_one({'_id': req['_id']}, {'$set': {'used': True}})
 
+        # Log the successful password reset
         return jsonify({'detail': 'Password updated successfully.'}), 200
     except Exception as e:
         app.logger.exception(f"Password reset failed for {email}: {e}")
