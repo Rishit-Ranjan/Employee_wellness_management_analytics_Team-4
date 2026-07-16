@@ -1,6 +1,6 @@
 # Employee_Wellness_Management_Analytics (Team 4)
 
-First clone the the repository using the command:
+First clone the repository using the command:
 
 ```bash
 git clone https://github.com/Rishit-Ranjan/Employee_wellness_management_analytics_Team-4.git
