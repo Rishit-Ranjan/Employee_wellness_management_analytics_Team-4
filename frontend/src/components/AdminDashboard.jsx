@@ -291,7 +291,8 @@ export function HealthDataModule({ records, onAddRecord, onUpdateRecord, onDelet
                 <th className="px-5 py-4">Department</th>
                 <th className="px-5 py-4">BMI</th>
                 <th className="px-5 py-4">BP Vitals</th>
-                <th className="px-5 py-4">Exercise / Sleep</th>
+                <th className="px-5 py-4">Exercise (hrs/wk)</th>
+                <th className="px-5 py-4">Sleep (hrs/night)</th>
                 <th className="px-5 py-4">Stress Level</th>
                 <th className="px-5 py-4">Status Index</th>
                 <th className="px-5 py-4 text-right">Last Sync</th>
@@ -301,7 +302,7 @@ export function HealthDataModule({ records, onAddRecord, onUpdateRecord, onDelet
             <tbody className="divide-y divide-slate-100">
               {filtered.length === 0 ? (
                 <tr>
-                  <td colSpan={9} className="text-center py-10 text-slate-400 font-mono">
+                  <td colSpan={10} className="text-center py-10 text-slate-400 font-mono">
                     No records found matching filters.
                   </td>
                 </tr>
@@ -320,12 +321,11 @@ export function HealthDataModule({ records, onAddRecord, onUpdateRecord, onDelet
                       </span>
                     </td>
                     <td className="px-5 py-3.5 font-semibold font-mono text-slate-500">{record.bloodPressure}</td>
-                    <td className="px-5 py-3.5">
-                      <div className="flex items-center gap-2">
-                        <span className="font-semibold font-mono text-slate-600">{record.exerciseHoursPerWeek} hrs</span>
-                        <span className="text-slate-200">|</span>
-                        <span className="font-semibold font-mono text-slate-600">{record.sleepHoursPerNight} hrs</span>
-                      </div>
+                    <td className="px-5 py-3.5 font-semibold font-mono text-slate-600">
+                      {record.exerciseHoursPerWeek}
+                    </td>
+                    <td className="px-5 py-3.5 font-semibold font-mono text-slate-600">
+                      {record.sleepHoursPerNight}
                     </td>
                     <td className="px-5 py-3.5">
                       <span className={`px-2.5 py-1 rounded-md text-[10px] font-bold ${

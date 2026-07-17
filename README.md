@@ -22,6 +22,8 @@ SMTP_PASSWORD=app password from gmail
 SMTP_USE_TLS=true
 EMAIL_FROM=employee-wellness-analytics@gmail.com
 
+JWT_SCECRET_KEY=your_jwt_secret_key
+
 FRONTEND_ORIGIN=http://localhost:5173
 ```
 
