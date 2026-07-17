@@ -27,6 +27,7 @@ export default function App() {
     const [healthRecords, setHealthRecords] = useState([]);
     const [risks, setRisks] = useState([]);
     const [recommendations, setRecommendations] = useState([]);
+    const [allUsers, setAllUsers] = useState([]);
     const [sentimentList, setSentimentList] = useState([]);
     const kpis = useState({
         participationRate: 78,
@@ -81,6 +82,11 @@ export default function App() {
 
         const loadData = async () => {
             try {
+                // 0. If admin, fetch all users for the dropdown
+                if (currentUser.role === 'admin') {
+                    const users = await api.fetchUsers();
+                    setAllUsers(users);
+                }
                 // 1. Health Records from the backend
                 let loadedHR = await api.fetchHealthRecords();
                 if (loadedHR.length === 0) loadedHR = INITIAL_HEALTH_RECORDS;
@@ -287,6 +293,7 @@ export default function App() {
                 (<AdminDashboard
                     user={currentUser}
                     onLogout={handleLogout}
+                    allUsers={allUsers}
                     healthRecords={healthRecords}
                     risks={risks}
                     recommendations={recommendations}

@@ -1,6 +1,5 @@
-import React, { useState, useRef, useEffect } from 'react';
-import { Trash2, Edit, MoreHorizontal,
-  Activity, TrendingUp, Lightbulb, Smile, BarChart3, LogOut,
+import React, { useState, useRef, useEffect, useMemo } from 'react';
+import { Trash2, Edit, MoreHorizontal, Activity, TrendingUp, Lightbulb, Smile, BarChart3, LogOut,
   Search, Plus, X, ShieldAlert, AlertCircle, Check, Sparkles, Dumbbell, Apple, Brain, Clock
 } from 'lucide-react';
 
@@ -9,32 +8,33 @@ import {personalRecommendations, sentimentData} from '../types'
 // ==========================================
 // MODULE 1: EMPLOYEE HEALTH DATA MANAGEMENT
 // ==========================================
-export function HealthDataModule({ records, onAddRecord, onUpdateRecord, onDeleteRecord  }) {
+export function HealthDataModule({ records, allUsers, onAddRecord, onUpdateRecord, onDeleteRecord }) {
   const [search, setSearch] = useState('');
   const [filterDept, setFilterDept] = useState('');
   const [isAddOpen, setIsAddOpen] = useState(false);
   const [editingRecord, setEditingRecord] = useState(null); // Track which record is being edited
   const [menuPosition, setMenuPosition] = useState({ top: 0, left: 0 });
   const [openActionMenu, setOpenActionMenu] = useState(null); // Track which action menu is open
+  const [error, setError] = useState(''); // State for form errors
   
-  // Form states
-  const [name, setName] = useState('');
+  // Form states (using selectedEmployee to hold "employeeId|employeeName")
+  const [selectedEmployee, setSelectedEmployee] = useState('');
   const [dept, setDept] = useState('Engineering');
-  const [bmi, setBmi] = useState('22.5');
-  const [bp, setBp] = useState('120/80');
-  const [exercise, setExercise] = useState('3.5');
-  const [sleep, setSleep] = useState('7');
-  const [stress, setStress] = useState('Medium');
+  const [bmi, setBmi] = useState('');
+  const [bp, setBp] = useState('');
+  const [exercise, setExercise] = useState('');
+  const [sleep, setSleep] = useState('');
+  const [stress, setStress] = useState('');
 
   const actionMenuRef = useRef(null);
 
   // Close menu when clicking outside
   useEffect(() => {
     const handleClickOutside = (event) => {
-      // Check if the click is outside the menu and not on the button that opens it.
-      // We identify the button by checking if it's the parent of an svg (the '...' icon).
-      const isToggleButton = event.target.closest('button')?.querySelector('svg');
-      if (actionMenuRef.current && !actionMenuRef.current.contains(event.target) && !isToggleButton) {
+      // Close menu if clicked outside of it and not on the toggle button itself
+      if (actionMenuRef.current && !actionMenuRef.current.contains(event.target) &&
+          !event.target.closest(`[data-record-id="${openActionMenu}"]`)) {
+        setOpenActionMenu(null);
         setOpenActionMenu(null);
       }
     };
@@ -45,9 +45,9 @@ export function HealthDataModule({ records, onAddRecord, onUpdateRecord, onDelet
   }, []);
 
 
-  const openEditModal = (record) => {
+    const openEditModal = (record) => {
     setEditingRecord(record);
-    setName(record.employeeName);
+    setSelectedEmployee(`${record.employeeId}|${record.employeeName}`); // Store combined ID and Name for pre-filling dropdown
     setDept(record.department);
     setBmi(String(record.bmi));
     setBp(record.bloodPressure);
@@ -55,21 +55,27 @@ export function HealthDataModule({ records, onAddRecord, onUpdateRecord, onDelet
     setSleep(String(record.sleepHoursPerNight));
     setStress(record.stressLevel);
     setIsAddOpen(true);
+    setError(''); // Clear any previous errors when opening modal
   };
 
   const handleMenuToggle = (e, recordId) => {
+    // Toggle the menu for the clicked record. If it's already open, close it.
+    // If another menu is open, this will close it first due to the state update.
+    setOpenActionMenu(openActionMenu === recordId ? null : recordId);
+
     e.stopPropagation(); // Prevent click from bubbling up to document
     const rect = e.currentTarget.getBoundingClientRect();
-    setMenuPosition({
-      top: rect.bottom + window.scrollY,
-      left: rect.left + window.scrollX - 100, // Adjust for menu width
-    });
-    setOpenActionMenu(openActionMenu === recordId ? null : recordId);
+    // Set position for the fixed dropdown
+    setMenuPosition({ top: rect.bottom + window.scrollY, left: rect.left + window.scrollX - 100 });
   };
   const openAddModal = () => {
+    setEditingRecord(null); // Ensure we're in add mode
+    setSelectedEmployee(''); // Clear selected employee
+    // Reset other form fields to default/empty
+    setDept('Engineering'); setBmi(''); setBp(''); setExercise(''); setSleep(''); setStress('Medium');
     setIsAddOpen(true);
+    setError(''); // Clear any previous errors when opening modal
   };
-
   const filtered = records.filter(r => {
     const matchSearch = r.employeeName.toLowerCase().includes(search.toLowerCase()) ||
                         r.employeeId.toLowerCase().includes(search.toLowerCase());
@@ -77,12 +83,17 @@ export function HealthDataModule({ records, onAddRecord, onUpdateRecord, onDelet
     return matchSearch && matchDept;
   });
 
-  const handleFormSubmit = (e) => {
+  
+  const handleFormSubmit = async (e) => {
     e.preventDefault();
-    if (!name || !bp) return;
-    
+    if (!selectedEmployee || !dept || !bmi || !bp || !exercise || !sleep || !stress) {
+      setError('Please fill in all required fields.');
+      return;
+    }
     // Derive simple assessments based on inputs
     const calculatedBmi = Number(bmi); 
+
+    // Determine health assessment based on BMI, BP, sleep, and stress
     let assessment = 'Good';
     const [sys, dia] = bp.split('/').map(Number);
 
@@ -96,25 +107,32 @@ export function HealthDataModule({ records, onAddRecord, onUpdateRecord, onDelet
 
     if (editingRecord) {
       // Update existing record
+      setError(''); // Clear error on successful update attempt
+      const [empId, empName] = selectedEmployee.split('|');
       const updatedRec = {
         ...editingRecord,
-        employeeName: name,
+        // Ensure employeeId and employeeName are from the selected employee,
+        // or keep original if not changed (though dropdown forces selection)
+        employeeId: empId,
+        employeeName: empName,
         department: dept,
         bmi: calculatedBmi,
         bloodPressure: bp,
+
         exerciseHoursPerWeek: Number(exercise),
         sleepHoursPerNight: Number(sleep),
         stressLevel: stress,
         healthAssessment: assessment,
         lastUpdated: new Date().toISOString().split('T')[0]
       };
-      onUpdateRecord(updatedRec);
+      await onUpdateRecord(updatedRec);
+      alert('Health record updated successfully!'); // User feedback
     } else {
       // Add new record
+      const [empId, empName] = selectedEmployee.split('|');
       const newRec = {
-        id: `hr-${Date.now()}`,
-        employeeId: `emp-${100 + records.length + 1}`, // Note: This ID generation is simple and may not be robust
-        employeeName: name,
+        employeeId: empId,
+        employeeName: empName,
         department: dept,
         bmi: calculatedBmi,
         bloodPressure: bp,
@@ -124,20 +142,24 @@ export function HealthDataModule({ records, onAddRecord, onUpdateRecord, onDelet
         healthAssessment: assessment,
         lastUpdated: new Date().toISOString().split('T')[0]
       };
-      onAddRecord(newRec);
+      await onAddRecord(newRec);
+      alert('Health record added successfully!'); // User feedback
     }
 
     setIsAddOpen(false);
-
     // Reset Form
-    setName('');
-    setBmi('22.5');
-    setBp('120/80');
-    setExercise('3.5');
-    setSleep('7');
-    setStress('Medium');
+    setSelectedEmployee('');
+    // setName(''); // Removed as name comes from selectedEmployee
+    setBmi(''); setBp(''); setExercise(''); setSleep(''); setStress('Medium');
     setEditingRecord(null);
+    setError(''); // Clear error after successful submission
   };
+  // Find users who do not have a health record yet for the dropdown
+  const usersWithoutRecords = useMemo(() => {
+    return allUsers.filter(
+      user => !records.some(record => record.employeeId === user.employeeId)
+    );
+  }, [allUsers, records]);
 
   return (
     <div className="space-y-6">
@@ -172,13 +194,20 @@ export function HealthDataModule({ records, onAddRecord, onUpdateRecord, onDelet
         </div>
 
         <button
-          onClick={openAddModal}
+          onClick={() => { openAddModal(); setOpenActionMenu(null); }} // Close any open action menu
           className="w-full md:w-auto px-5 py-2.5 bg-slate-900 hover:bg-slate-800 text-white text-xs font-semibold rounded-lg flex items-center justify-center gap-2 transition-colors cursor-pointer shadow-sm"
         >
           <Plus className="w-4 h-4 text-white" />
           Add Employee's Health Profile
         </button>
       </div>
+
+      {error && (
+        <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-xl text-red-700 text-xs flex items-start gap-2.5 font-medium animate-shake">
+          <ShieldAlert className="w-4 h-4 text-red-500 shrink-0 mt-0.5" />
+          <span>{error}</span>
+        </div>
+      )}
 
       {/* Add Record Modal Popup */}
       {isAddOpen && (
@@ -201,17 +230,30 @@ export function HealthDataModule({ records, onAddRecord, onUpdateRecord, onDelet
 
             <form onSubmit={handleFormSubmit} className="p-6 space-y-4">
               <div className="grid grid-cols-2 gap-4">
-                <div className="col-span-2">
-                  <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1.5">Employee Full Name</label>
-                  <input
-                    type="text"
-                    required
-                    value={name}
-                    onChange={(e) => setName(e.target.value)}
-                    placeholder="Rachel Adams"
-                    className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 focus:border-indigo-500 focus:bg-white rounded-lg text-xs text-slate-800 outline-none"
-                  />
-                </div>
+                {editingRecord ? (
+                  <div className="col-span-2">
+                    <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1.5">Employee</label>
+                    <p className="w-full px-3.5 py-2.5 bg-slate-200 border border-slate-300 rounded-lg text-xs text-slate-600">
+                      {selectedEmployee.split('|')[1]} ({selectedEmployee.split('|')[0]})
+                    </p>
+                  </div>
+                ) : (
+                  <div className="col-span-2">
+                    <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1.5">Select Employee</label>
+                    <select
+                      value={selectedEmployee}
+                      onChange={(e) => setSelectedEmployee(e.target.value)}
+                      className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-lg text-xs text-slate-800 outline-none"
+                    >
+                      <option value="" disabled>-- Select an employee --</option>
+                      {usersWithoutRecords.map(user => (
+                        <option key={user.id} value={`${user.employeeId}|${user.name}`}>
+                          {user.name} ({user.employeeId})
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                )}
 
                 <div>
                   <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1.5">Department</label>
@@ -848,6 +890,7 @@ export function PerformanceDashboard({ kpis, records  }) {
 export default function AdminDashboard({ user,
   onLogout,
   healthRecords,
+  allUsers,
   risks,  
   recommendations = personalRecommendations,
   sentimentList,
@@ -992,6 +1035,7 @@ export default function AdminDashboard({ user,
             {activeTab === 1 && (
               <HealthDataModule
                 records={healthRecords}
+                allUsers={allUsers}
                 onAddRecord={onAddHealthRecord}
                 onUpdateRecord={onUpdateHealthRecord}
                 onDeleteRecord={onDeleteHealthRecord}

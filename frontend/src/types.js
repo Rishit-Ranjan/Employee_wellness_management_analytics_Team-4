@@ -35,7 +35,7 @@ export const personalRecommendations = [
 
 export const sentimentData = [
   {
-    department: 'Development',
+    department: 'Engineering',
     averageStressScore: 7.4,
     sentimentDistribution: {
       positive: 35,
