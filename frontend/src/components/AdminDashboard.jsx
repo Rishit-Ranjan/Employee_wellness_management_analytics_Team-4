@@ -31,7 +31,10 @@ export function HealthDataModule({ records, onAddRecord, onUpdateRecord, onDelet
   // Close menu when clicking outside
   useEffect(() => {
     const handleClickOutside = (event) => {
-      if (actionMenuRef.current && !actionMenuRef.current.contains(event.target)) {
+      // Check if the click is outside the menu and not on the button that opens it.
+      // We identify the button by checking if it's the parent of an svg (the '...' icon).
+      const isToggleButton = event.target.closest('button')?.querySelector('svg');
+      if (actionMenuRef.current && !actionMenuRef.current.contains(event.target) && !isToggleButton) {
         setOpenActionMenu(null);
       }
     };
