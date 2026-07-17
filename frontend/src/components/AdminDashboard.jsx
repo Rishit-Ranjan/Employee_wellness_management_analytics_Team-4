@@ -176,7 +176,7 @@ export function HealthDataModule({ records, onAddRecord, onUpdateRecord, onDelet
           className="w-full md:w-auto px-5 py-2.5 bg-slate-900 hover:bg-slate-800 text-white text-xs font-semibold rounded-lg flex items-center justify-center gap-2 transition-colors cursor-pointer shadow-sm"
         >
           <Plus className="w-4 h-4 text-white" />
-          Add Health Profile
+          Add Employee's Health Profile
         </button>
       </div>
 
