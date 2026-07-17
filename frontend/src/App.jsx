@@ -205,6 +205,10 @@ export default function App() {
     const handleDeleteHealthRecord = async (employeeId) => {
         await api.deleteHealthRecord(employeeId);
         setHealthRecords(healthRecords.filter(r => r.employeeId !== employeeId));
+        // After deleting a record, re-fetch all users to update the 'users without records' list
+        if (currentUser.role === 'admin') {
+            setAllUsers(await api.fetchUsers());
+        }
     };
 
     // Update department sentiment pulse based on new feedback and persist changes
