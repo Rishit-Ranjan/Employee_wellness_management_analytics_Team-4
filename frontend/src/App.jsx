@@ -4,6 +4,7 @@ import SignUp from './components/SignUp';
 import ForgotPassword from './components/ForgotPassword';
 import UserDashboard from './components/UserDashboard';
 import AdminDashboard from './components/AdminDashboard';
+import * as api from './services/api';
 
 // Initial mock data arrays are empty by default so dashboards render without demo data
 const INITIAL_HEALTH_RECORDS = [];
@@ -77,59 +78,48 @@ export default function App() {
     useEffect(() => {
         if (!currentUser)
             return;
-        setTimeout(() => {
-            // 1. Health Records
-            const savedHR = localStorage.getItem('wellness_health_records');
-            let loadedHR = savedHR ? JSON.parse(savedHR) : INITIAL_HEALTH_RECORDS;
-            // Check if the current user has a record. If not, create and seed one!
-            const userEmpId = `user-emp-${currentUser.id}`;
-            const userHasRecord = loadedHR.some((r) => r.employeeId === userEmpId);
-            if (!userHasRecord) {
-                const newUserHR = {
-                    id: `hr-user-${currentUser.id}`,
-                    employeeId: userEmpId,
-                    employeeName: currentUser.name,
-                    department: 'Engineering',
-                    bmi: 23.5,
-                    bloodPressure: '120/80',
-                    exerciseHoursPerWeek: 3.5,
-                    sleepHoursPerNight: 7,
-                    stressLevel: 'Medium',
-                    healthAssessment: 'Good',
-                    lastUpdated: new Date().toISOString().split('T')[0]
-                };
-                loadedHR = [newUserHR, ...loadedHR];
-                localStorage.setItem('wellness_health_records', JSON.stringify(loadedHR));
+
+        const loadData = async () => {
+            try {
+                // 1. Health Records from the backend
+                let loadedHR = await api.fetchHealthRecords();
+                if (loadedHR.length === 0) loadedHR = INITIAL_HEALTH_RECORDS;
+
+                // Check if the current user has a record. If not, create and seed one via the API.
+                const userEmpId = currentUser.employeeId;
+                const userHasRecord = loadedHR.some((r) => r.employeeId === userEmpId);
+                if (!userHasRecord && currentUser.role !== 'admin') {
+                    const newUserHR = {
+                        id: `hr-${userEmpId}`,
+                        employeeId: userEmpId,
+                        employeeName: currentUser.name,
+                        department: 'Engineering',
+                        bmi: 23.5,
+                        bloodPressure: '120/80',
+                        exerciseHoursPerWeek: 3.5,
+                        sleepHoursPerNight: 7,
+                        stressLevel: 'Medium',
+                        healthAssessment: 'Good',
+                        lastUpdated: new Date().toISOString().split('T')[0]
+                    };
+                    // This will add the record to the database and return it
+                    const addedRecord = await api.addHealthRecord(newUserHR);
+                    loadedHR = [addedRecord, ...loadedHR];
+                }
+                setHealthRecords(loadedHR);
+
+                // 2. Other wellness data (still from localStorage for now)
+                const wellnessData = await api.fetchAllWellnessData();
+                setRisks(wellnessData.risks || INITIAL_RISKS);
+                setRecommendations(wellnessData.recommendations || INITIAL_RECOMMENDATIONS);
+                setSentimentList(wellnessData.sentiments || INITIAL_SENTIMENTS);
+            } catch (error) {
+                console.error("Failed to load wellness data:", error);
+                // Here you could set an error state to show a message to the user
             }
-            setHealthRecords(loadedHR);
-            // 2. Risks
-            const savedRisks = localStorage.getItem('wellness_risks');
-            if (savedRisks) {
-                setRisks(JSON.parse(savedRisks));
-            }
-            else {
-                localStorage.setItem('wellness_risks', JSON.stringify(INITIAL_RISKS));
-                setRisks(INITIAL_RISKS);
-            }
-            // 3. Recommendations
-            const savedRecs = localStorage.getItem('wellness_recommendations');
-            if (savedRecs) {
-                setRecommendations(JSON.parse(savedRecs));
-            }
-            else {
-                localStorage.setItem('wellness_recommendations', JSON.stringify(INITIAL_RECOMMENDATIONS));
-                setRecommendations(INITIAL_RECOMMENDATIONS);
-            }
-            // 4. Sentiment
-            const savedSent = localStorage.getItem('wellness_sentiments');
-            if (savedSent) {
-                setSentimentList(JSON.parse(savedSent));
-            }
-            else {
-                localStorage.setItem('wellness_sentiments', JSON.stringify(INITIAL_SENTIMENTS));
-                setSentimentList(INITIAL_SENTIMENTS);
-            }
-        }, 0);
+        };
+
+        loadData();
     }, [currentUser]);
 
     // Sync state modifications and recalculate risks
@@ -185,24 +175,27 @@ export default function App() {
         });
         
         // Defer state update to avoid cascading renders
-        setTimeout(() => {
-            localStorage.setItem('wellness_risks', JSON.stringify(updatedRisks));
-            setRisks(updatedRisks);
-        }, 0);
+        // This part still uses localStorage as risk calculation is on the frontend
+        api.saveRisks(updatedRisks);
+        setRisks(updatedRisks);
     }, [healthRecords]);
 
     // Event Handlers for User Actions
-    const handleAddHealthRecord = (newRecord) => {
-        const updated = [newRecord, ...healthRecords];
-        setHealthRecords(updated);
-        localStorage.setItem('wellness_health_records', JSON.stringify(updated));
+    const handleAddHealthRecord = async (newRecord) => {
+        const addedRecord = await api.addHealthRecord(newRecord);
+        setHealthRecords([addedRecord, ...healthRecords]);
     };
 
     // Update a specific user's health record and persist changes
-    const handleUpdateUserRecord = (updatedRecord) => {
-        const updated = healthRecords.map(r => r.employeeId === updatedRecord.employeeId ? updatedRecord : r);
-        setHealthRecords(updated);
-        localStorage.setItem('wellness_health_records', JSON.stringify(updated));
+    const handleUpdateUserRecord = async (updatedRecord) => {
+        await api.updateHealthRecord(updatedRecord);
+        setHealthRecords(healthRecords.map(r => r.employeeId === updatedRecord.employeeId ? updatedRecord : r));
+    };
+
+    // Delete a health record and persist changes
+    const handleDeleteHealthRecord = async (employeeId) => {
+        await api.deleteHealthRecord(employeeId);
+        setHealthRecords(healthRecords.filter(r => r.employeeId !== employeeId));
     };
 
     // Update department sentiment pulse based on new feedback and persist changes
@@ -245,7 +238,7 @@ export default function App() {
             }
             return s;
         });
-        localStorage.setItem('wellness_sentiments', JSON.stringify(updatedSentiments));
+        api.saveSentiments(updatedSentiments);
         setSentimentList(updatedSentiments);
     };
 
@@ -296,6 +289,8 @@ export default function App() {
                     sentimentList={sentimentList}
                     kpis={derivedKpis}
                     onAddHealthRecord={handleAddHealthRecord}
+                    onDeleteHealthRecord={handleDeleteHealthRecord}
+                    onUpdateHealthRecord={handleUpdateUserRecord}
                      />)
                 :
                 (<UserDashboard

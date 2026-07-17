@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import {
+import { Trash2, Edit,
   Activity, TrendingUp, Lightbulb, Smile, BarChart3, LogOut,
   Search, Plus, X, ShieldAlert, AlertCircle, Check, Sparkles, Dumbbell, Apple, Brain, Clock
 } from 'lucide-react';
@@ -9,11 +9,12 @@ import {personalRecommendations, sentimentData} from '../types'
 // ==========================================
 // MODULE 1: EMPLOYEE HEALTH DATA MANAGEMENT
 // ==========================================
-export function HealthDataModule({ records, onAddRecord  }) {
+export function HealthDataModule({ records, onAddRecord, onUpdateRecord, onDeleteRecord  }) {
   const [search, setSearch] = useState('');
   const [filterDept, setFilterDept] = useState('');
   const [isAddOpen, setIsAddOpen] = useState(false);
-
+  const [editingRecord, setEditingRecord] = useState(null); // Track which record is being edited
+  
   // Form states
   const [name, setName] = useState('');
   const [dept, setDept] = useState('Engineering');
@@ -22,6 +23,22 @@ export function HealthDataModule({ records, onAddRecord  }) {
   const [exercise, setExercise] = useState('3.5');
   const [sleep, setSleep] = useState('7');
   const [stress, setStress] = useState('Medium');
+
+  const openEditModal = (record) => {
+    setEditingRecord(record);
+    setName(record.employeeName);
+    setDept(record.department);
+    setBmi(String(record.bmi));
+    setBp(record.bloodPressure);
+    setExercise(String(record.exerciseHoursPerWeek));
+    setSleep(String(record.sleepHoursPerNight));
+    setStress(record.stressLevel);
+    setIsAddOpen(true);
+  };
+
+  const openAddModal = () => {
+    setIsAddOpen(true);
+  };
 
   const filtered = records.filter(r => {
     const matchSearch = r.employeeName.toLowerCase().includes(search.toLowerCase()) ||
@@ -33,7 +50,7 @@ export function HealthDataModule({ records, onAddRecord  }) {
   const handleFormSubmit = (e) => {
     e.preventDefault();
     if (!name || !bp) return;
-
+    
     // Derive simple assessments based on inputs
     const calculatedBmi = Number(bmi); 
     let assessment = 'Good';
@@ -47,21 +64,39 @@ export function HealthDataModule({ records, onAddRecord  }) {
       assessment = 'Fair';
     }
 
-    const newRec = {
-      id: `hr-${Date.now()}`,
-      employeeId: `emp-${100 + records.length + 1}`,
-      employeeName: name,
-      department: dept,
-      bmi: calculatedBmi,
-      bloodPressure: bp,
-      exerciseHoursPerWeek: Number(exercise),
-      sleepHoursPerNight: Number(sleep),
-      stressLevel: stress,
-      healthAssessment: assessment,
-      lastUpdated: new Date().toISOString().split('T')[0]
-    };
+    if (editingRecord) {
+      // Update existing record
+      const updatedRec = {
+        ...editingRecord,
+        employeeName: name,
+        department: dept,
+        bmi: calculatedBmi,
+        bloodPressure: bp,
+        exerciseHoursPerWeek: Number(exercise),
+        sleepHoursPerNight: Number(sleep),
+        stressLevel: stress,
+        healthAssessment: assessment,
+        lastUpdated: new Date().toISOString().split('T')[0]
+      };
+      onUpdateRecord(updatedRec);
+    } else {
+      // Add new record
+      const newRec = {
+        id: `hr-${Date.now()}`,
+        employeeId: `emp-${100 + records.length + 1}`, // Note: This ID generation is simple and may not be robust
+        employeeName: name,
+        department: dept,
+        bmi: calculatedBmi,
+        bloodPressure: bp,
+        exerciseHoursPerWeek: Number(exercise),
+        sleepHoursPerNight: Number(sleep),
+        stressLevel: stress,
+        healthAssessment: assessment,
+        lastUpdated: new Date().toISOString().split('T')[0]
+      };
+      onAddRecord(newRec);
+    }
 
-    onAddRecord(newRec);
     setIsAddOpen(false);
 
     // Reset Form
@@ -71,6 +106,7 @@ export function HealthDataModule({ records, onAddRecord  }) {
     setExercise('3.5');
     setSleep('7');
     setStress('Medium');
+    setEditingRecord(null);
   };
 
   return (
@@ -106,7 +142,7 @@ export function HealthDataModule({ records, onAddRecord  }) {
         </div>
 
         <button
-          onClick={() => setIsAddOpen(true)}
+          onClick={openAddModal}
           className="w-full md:w-auto px-5 py-2.5 bg-slate-900 hover:bg-slate-800 text-white text-xs font-semibold rounded-lg flex items-center justify-center gap-2 transition-colors cursor-pointer shadow-sm"
         >
           <Plus className="w-4 h-4 text-white" />
@@ -121,10 +157,12 @@ export function HealthDataModule({ records, onAddRecord  }) {
             <div className="bg-slate-50 border-b border-slate-100 px-6 py-4 flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <Activity className="w-5 h-5 text-slate-800" />
-                <h3 className="font-display font-semibold text-sm text-slate-800">Add New Employee Health Record</h3>
+                <h3 className="font-display font-semibold text-sm text-slate-800">
+                  {editingRecord ? 'Update Employee Health Record' : 'Add New Employee Health Record'}
+                </h3>
               </div>
               <button
-                onClick={() => setIsAddOpen(false)}
+                onClick={() => { setIsAddOpen(false); setEditingRecord(null); }}
                 className="text-slate-400 hover:text-slate-600 transition-colors"
               >
                 <X className="w-5 h-5" />
@@ -226,7 +264,7 @@ export function HealthDataModule({ records, onAddRecord  }) {
               <div className="flex gap-3 justify-end pt-5 border-t border-slate-100">
                 <button
                   type="button"
-                  onClick={() => setIsAddOpen(false)}
+                  onClick={() => { setIsAddOpen(false); setEditingRecord(null); }}
                   className="px-4.5 py-2.5 bg-slate-50 hover:bg-slate-100 text-slate-600 text-xs font-semibold rounded-lg transition-colors border border-slate-200"
                 >
                   Cancel
@@ -235,7 +273,7 @@ export function HealthDataModule({ records, onAddRecord  }) {
                   type="submit"
                   className="px-5 py-2.5 bg-slate-900 hover:bg-slate-800 text-white text-xs font-semibold rounded-lg transition-all shadow-sm"
                 >
-                  Save Profile
+                  {editingRecord ? 'Update Profile' : 'Save Profile'}
                 </button>
               </div>
             </form>
@@ -257,12 +295,13 @@ export function HealthDataModule({ records, onAddRecord  }) {
                 <th className="px-5 py-4">Stress Level</th>
                 <th className="px-5 py-4">Status Index</th>
                 <th className="px-5 py-4 text-right">Last Sync</th>
+                <th className="px-5 py-4 text-center">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
               {filtered.length === 0 ? (
                 <tr>
-                  <td colSpan={8} className="text-center py-10 text-slate-400 font-mono">
+                  <td colSpan={9} className="text-center py-10 text-slate-400 font-mono">
                     No records found matching filters.
                   </td>
                 </tr>
@@ -308,6 +347,28 @@ export function HealthDataModule({ records, onAddRecord  }) {
                       </span>
                     </td>
                     <td className="px-5 py-3.5 text-right font-mono text-[10px] text-slate-400">{record.lastUpdated}</td>
+                    <td className="px-5 py-3.5 text-center">
+                      <div className="flex items-center justify-center gap-1">
+                        <button
+                          onClick={() => openEditModal(record)}
+                          className="p-2 text-slate-400 hover:text-indigo-500 transition-colors"
+                          title="Edit Record"
+                        >
+                          <Edit className="w-3.5 h-3.5" />
+                        </button>
+                        <button
+                          onClick={() => {
+                            if (window.confirm(`Are you sure you want to delete the record for ${record.employeeName}?`)) {
+                              onDeleteRecord(record.employeeId);
+                            }
+                          }}
+                          className="p-2 text-slate-400 hover:text-red-500 transition-colors"
+                          title="Delete Record"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    </td>
                   </tr>
                 ))
               )}
@@ -753,7 +814,9 @@ export default function AdminDashboard({ user,
   recommendations = personalRecommendations,
   sentimentList,
   kpis,
-  onAddHealthRecord
+  onAddHealthRecord,
+  onDeleteHealthRecord,
+  onUpdateHealthRecord
  }) {
   const [activeTab, setActiveTab] = useState(1);
 
@@ -892,6 +955,8 @@ export default function AdminDashboard({ user,
               <HealthDataModule
                 records={healthRecords}
                 onAddRecord={onAddHealthRecord}
+                onUpdateRecord={onUpdateHealthRecord}
+                onDeleteRecord={onDeleteHealthRecord}
               />
             )}
 

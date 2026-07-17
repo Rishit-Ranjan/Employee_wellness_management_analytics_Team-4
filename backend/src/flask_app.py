@@ -2,7 +2,14 @@ from flask import Flask, request, jsonify, make_response
 from flask_cors import CORS
 import bcrypt
 
-from flask_jwt_extended import create_access_token, get_jwt_identity, jwt_required, JWTManager
+from flask_jwt_extended import (
+    create_access_token,
+    get_jwt_identity,
+    get_jwt,
+    jwt_required,
+    JWTManager
+)
+
 import os
 from datetime import datetime, timedelta
 from pymongo import MongoClient
@@ -20,15 +27,17 @@ load_dotenv()
 
 # --- App Configuration ---
 MONGO_URI = os.getenv('MONGO_URI', 'mongodb://localhost:27017/employee_wellness_analytics')
-MONGO_DB_NAME = os.getenv('MONGO_DB_NAME', 'wellness_app')
+MONGO_DB_NAME = os.getenv('MONGO_DB_NAME', 'employee_wellness_analytics')
 CORS(app, supports_credentials=True, origins=os.getenv('FRONTEND_ORIGIN', 'http://localhost:5173'))
 
 
 # --- JWT Configuration ---
 app.config["JWT_SECRET_KEY"] = os.getenv("JWT_SECRET_KEY", "default-super-secret-key-for-dev")
 app.config["JWT_ACCESS_TOKEN_EXPIRES"] = timedelta(minutes=int(os.getenv('JWT_EXPIRES_MINUTES', '60')))
+app.config["JWT_TOKEN_LOCATION"] = ["cookies"]
+app.config["JWT_ACCESS_COOKIE_NAME"] = "access_token"
+app.config["JWT_COOKIE_CSRF_PROTECT"] = False
 jwt = JWTManager(app)
-
 
 # --- MongoDB Connection ---
 # Explicit TLS settings to avoid Atlas SSL handshake failures in some environments
@@ -49,6 +58,7 @@ except ConfigurationError:
 users_collection = db.get_collection('users')
 admin_collection = db.get_collection('admin')
 reset_collection = db.get_collection('password_reset_requests')
+health_records_collection = db.get_collection('health_records')
 
 #--- Utility Functions ---
 def hash_password(password: str) -> str:
@@ -124,8 +134,8 @@ def login():
         }
 
         # Create token with user_info as the identity
-        token = create_access_token(identity=user_info)
-
+        # The identity should be a simple string. We'll store user_info in additional claims.
+        token = create_access_token(identity=user_id_str, additional_claims={"user_info": user_info})
         # Set the token in an HTTP-only cookie and return user info
         resp = make_response(jsonify({'user': user_info}))
         resp.set_cookie('access_token', token, httponly=True, samesite='Lax')
@@ -353,21 +363,117 @@ def reset_password():
 @app.route('/api/auth/me', methods=['GET'])
 @jwt_required(locations=["cookies"])
 def me():
-    # We can get the user information from the JWT identity
-    current_user = get_jwt_identity()
-    if not current_user:
-        return jsonify({"detail": "User not found from token"}), 404
+    # The identity is the user ID string. The full user info is in the claims.
+    jwt_payload = get_jwt()
+    user_info = jwt_payload.get("user_info")
+    if not user_info:
+        return jsonify({"detail": "User information not found in token"}), 404
     
-    return jsonify({'user': current_user})
+    return jsonify({'user': user_info})
 
 
 
 @app.route('/api/auth/logout', methods=['POST'])
 def logout():
     """Clears the JWT access token cookie."""
-    resp = make_response(jsonify({'detail': 'Logout successful'}))
+    resp = make_response(jsonify({'detail': 'Logout successful'}), 200)
     resp.set_cookie('access_token', '', expires=0, httponly=True, samesite='Lax')
     return resp
+
+
+# --- Wellness API Endpoints ---
+
+@app.route('/api/wellness/health-records', methods=['GET'])
+@jwt_required(locations=["cookies"])
+def get_health_records():
+    """Fetches all health records from the database."""
+    try:
+        records_cursor = health_records_collection.find({})
+        records = []
+        for record in records_cursor:
+            # The frontend expects 'id' not '_id'. We'll use the string representation of ObjectId.
+            record['id'] = str(record['_id'])
+            del record['_id']
+            records.append(record)
+        # Sort by lastUpdated descending to match frontend logic
+        records.sort(key=lambda r: r.get('lastUpdated', ''), reverse=True)
+        return jsonify(records), 200
+    except Exception as e:
+        app.logger.exception(f"An unexpected error occurred while fetching health records: {e}")
+        return jsonify({'detail': 'Internal Server Error'}), 500
+
+
+@app.route('/api/wellness/health-records', methods=['POST'])
+@jwt_required(locations=["cookies"])
+def add_health_record():
+    """Adds a new health record. Can be initiated by an admin or a new user."""
+    jwt_payload = get_jwt()
+    user_info = jwt_payload.get("user_info")
+    new_record = request.get_json()
+
+    if not new_record or 'employeeId' not in new_record:
+        return jsonify({'detail': 'Missing health record data or employeeId'}), 400
+
+    # Ensure a record with the same employeeId doesn't already exist
+    if health_records_collection.find_one({'employeeId': new_record['employeeId']}):
+        return jsonify({'detail': 'A health record for this employee already exists'}), 409
+
+    try:
+        # The frontend sends an 'id' field, which we don't need to store in Mongo's '_id'
+        if 'id' in new_record:
+            del new_record['id']
+
+        result = health_records_collection.insert_one(new_record)
+        new_record['id'] = str(result.inserted_id)
+        return jsonify(new_record), 201
+    except Exception as e:
+        app.logger.exception(f"An unexpected error occurred while adding a health record: {e}")
+        return jsonify({'detail': 'Internal Server Error'}), 500
+
+
+@app.route('/api/wellness/health-records/<employee_id>', methods=['PUT'])
+@jwt_required(locations=["cookies"])
+def update_health_record(employee_id):
+    """Updates an existing health record for a given employeeId."""
+    jwt_payload = get_jwt()
+    user_info = jwt_payload.get("user_info")
+    updated_data = request.get_json()
+
+    if not updated_data:
+        return jsonify({'detail': 'Missing update data'}), 400
+
+    # The frontend sends an 'id' field, which we don't need to store in Mongo's '_id'
+    if 'id' in updated_data:
+        del updated_data['id']
+
+    try:
+        result = health_records_collection.update_one({'employeeId': employee_id}, {'$set': updated_data})
+        if result.matched_count == 0:
+            return jsonify({'detail': 'Health record not found'}), 404
+        return jsonify({'detail': 'Health record updated successfully'}), 200
+    except Exception as e:
+        app.logger.exception(f"An unexpected error occurred while updating health record for {employee_id}: {e}")
+        return jsonify({'detail': 'Internal Server Error'}), 500
+
+@app.route('/api/wellness/health-records/<employee_id>', methods=['DELETE'])
+@jwt_required(locations=["cookies"])
+def delete_health_record(employee_id):
+    """Deletes an existing health record for a given employeeId."""
+    # Ensure only admins can delete records
+    jwt_payload = get_jwt()
+    user_info = jwt_payload.get("user_info")
+    if not user_info or user_info.get('role') != 'admin':
+        return jsonify({'detail': 'Forbidden: You do not have permission to delete records.'}), 403
+
+    try:
+        result = health_records_collection.delete_one({'employeeId': employee_id})
+        if result.deleted_count == 0:
+            return jsonify({'detail': 'Health record not found'}), 404
+        # Return 204 No Content on successful deletion
+        return '', 204
+    except Exception as e:
+        app.logger.exception(f"An unexpected error occurred while deleting health record for {employee_id}: {e}")
+        return jsonify({'detail': 'Internal Server Error'}), 500
 
 if __name__ == '__main__':
     port = int(os.getenv('PORT', 8000))

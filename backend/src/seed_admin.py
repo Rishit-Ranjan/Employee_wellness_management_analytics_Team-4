@@ -11,7 +11,7 @@ MONGO_DB_NAME = os.getenv('MONGO_DB_NAME', 'employee_wellness_analytics')
 MONGO_URI = os.getenv('MONGO_URI', f'mongodb://localhost:27017/{MONGO_DB_NAME}')
 ADMIN_EMAIL = os.getenv('ADMIN_EMAIL', 'admin@platform.com')
 ADMIN_PASSWORD = os.getenv('ADMIN_PLAIN_PASSWORD', 'AdminPass123!')
-ADMIN_USERNAME = os.getenv('ADMIN_USERNAME', 'employee_wellness_analytics_admin')
+ADMIN_USERNAME = os.getenv('ADMIN_USERNAME', 'Platform Admin')
 ADMIN_ID= os.getenv('ADMIN_ID', 'ADM001')
 
 def seed():
