@@ -11,7 +11,7 @@ from flask_jwt_extended import (
 )
 
 import os
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from pymongo import MongoClient
 from pymongo.errors import ConfigurationError
 from bson import ObjectId
@@ -189,7 +189,7 @@ def signup():
             'email': email,
             'password_hash': pwd_hash,
             'role': 'user',
-            'createdAt': datetime.utcnow().isoformat(),
+            'createdAt': datetime.now(timezone.utc).isoformat(),
         }
 
         # Insert the new user into the users collection
@@ -230,7 +230,7 @@ def forgot_password():
         return jsonify(message_resp), 200
 
     # Generate and store reset request
-    now = datetime.utcnow()
+    now = datetime.now(timezone.utc)
     expires_at = now + timedelta(minutes=15)
 
     # Generate either an OTP or a reset token based on the method
@@ -312,7 +312,7 @@ def reset_password():
             'email': email,
             'used': False,
         }
-        now = datetime.utcnow()
+        now = datetime.now(timezone.utc)
 
         # Add either otp or reset_token to the query if provided
         if otp != '':

@@ -3,6 +3,7 @@ import os
 from pymongo import MongoClient
 from pymongo.errors import ConfigurationError
 import bcrypt
+from datetime import datetime, timezone
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -37,7 +38,7 @@ def seed():
         'adminId': ADMIN_ID,
         'password_hash': pwd_hash,
         'role': 'admin',
-        'createdAt': __import__('datetime').datetime.utcnow().isoformat()
+        'createdAt': datetime.now(timezone.utc).isoformat()
     }
     res = admin_col.insert_one(admin_doc)
     print('Created admin with id', res.inserted_id)
