@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { Trash2, Edit,
+import React, { useState, useRef, useEffect } from 'react';
+import { Trash2, Edit, MoreHorizontal,
   Activity, TrendingUp, Lightbulb, Smile, BarChart3, LogOut,
   Search, Plus, X, ShieldAlert, AlertCircle, Check, Sparkles, Dumbbell, Apple, Brain, Clock
 } from 'lucide-react';
@@ -14,6 +14,8 @@ export function HealthDataModule({ records, onAddRecord, onUpdateRecord, onDelet
   const [filterDept, setFilterDept] = useState('');
   const [isAddOpen, setIsAddOpen] = useState(false);
   const [editingRecord, setEditingRecord] = useState(null); // Track which record is being edited
+  const [menuPosition, setMenuPosition] = useState({ top: 0, left: 0 });
+  const [openActionMenu, setOpenActionMenu] = useState(null); // Track which action menu is open
   
   // Form states
   const [name, setName] = useState('');
@@ -23,6 +25,22 @@ export function HealthDataModule({ records, onAddRecord, onUpdateRecord, onDelet
   const [exercise, setExercise] = useState('3.5');
   const [sleep, setSleep] = useState('7');
   const [stress, setStress] = useState('Medium');
+
+  const actionMenuRef = useRef(null);
+
+  // Close menu when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (actionMenuRef.current && !actionMenuRef.current.contains(event.target)) {
+        setOpenActionMenu(null);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, []);
+
 
   const openEditModal = (record) => {
     setEditingRecord(record);
@@ -36,6 +54,15 @@ export function HealthDataModule({ records, onAddRecord, onUpdateRecord, onDelet
     setIsAddOpen(true);
   };
 
+  const handleMenuToggle = (e, recordId) => {
+    e.stopPropagation(); // Prevent click from bubbling up to document
+    const rect = e.currentTarget.getBoundingClientRect();
+    setMenuPosition({
+      top: rect.bottom + window.scrollY,
+      left: rect.left + window.scrollX - 100, // Adjust for menu width
+    });
+    setOpenActionMenu(openActionMenu === recordId ? null : recordId);
+  };
   const openAddModal = () => {
     setIsAddOpen(true);
   };
@@ -282,7 +309,7 @@ export function HealthDataModule({ records, onAddRecord, onUpdateRecord, onDelet
       )}
 
       {/* Health records Table */}
-      <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+      <div className="bg-white rounded-xl border border-slate-200 shadow-sm">
         <div className="overflow-x-auto">
           <table className="w-full border-collapse text-left text-xs text-slate-600">
             <thead className="bg-slate-50/70 text-[10px] font-bold text-slate-500 uppercase tracking-wider border-b border-slate-200">
@@ -348,32 +375,40 @@ export function HealthDataModule({ records, onAddRecord, onUpdateRecord, onDelet
                     </td>
                     <td className="px-5 py-3.5 text-right font-mono text-[10px] text-slate-400">{record.lastUpdated}</td>
                     <td className="px-5 py-3.5 text-center">
-                      <div className="flex items-center justify-center gap-1">
-                        <button
-                          onClick={() => openEditModal(record)}
-                          className="p-2 text-slate-400 hover:text-indigo-500 transition-colors"
-                          title="Edit Record"
-                        >
-                          <Edit className="w-3.5 h-3.5" />
-                        </button>
-                        <button
-                          onClick={() => {
-                            if (window.confirm(`Are you sure you want to delete the record for ${record.employeeName}?`)) {
-                              onDeleteRecord(record.employeeId);
-                            }
-                          }}
-                          className="p-2 text-slate-400 hover:text-red-500 transition-colors"
-                          title="Delete Record"
-                        >
-                          <Trash2 className="w-3.5 h-3.5" />
-                        </button>
-                      </div>
+                      <button
+                        onClick={(e) => handleMenuToggle(e, record.id)}
+                        className="p-2 text-slate-400 hover:text-slate-600 rounded-md transition-colors"
+                      >
+                        <MoreHorizontal className="w-4 h-4" />
+                      </button>
                     </td>
                   </tr>
                 ))
               )}
             </tbody>
           </table>
+          {openActionMenu && (
+            <div
+              ref={actionMenuRef}
+              style={{ top: `${menuPosition.top}px`, left: `${menuPosition.left}px` }}
+              className="fixed w-32 bg-white rounded-md shadow-lg border border-slate-200 z-50"
+            >
+              <div className="py-1">
+                <button
+                  onClick={() => { openEditModal(records.find(r => r.id === openActionMenu)); setOpenActionMenu(null); }}
+                  className="w-full text-left px-4 py-2 text-xs text-slate-700 hover:bg-slate-100 flex items-center gap-2"
+                >
+                  <Edit className="w-3.5 h-3.5" /> Edit
+                </button>
+                <button
+                  onClick={() => { if (window.confirm(`Are you sure?`)) { onDeleteRecord(records.find(r => r.id === openActionMenu).employeeId); } setOpenActionMenu(null); }}
+                  className="w-full text-left px-4 py-2 text-xs text-red-600 hover:bg-red-50 flex items-center gap-2"
+                >
+                  <Trash2 className="w-3.5 h-3.5" /> Delete
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       </div>
     </div>
