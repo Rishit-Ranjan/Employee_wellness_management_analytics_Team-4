@@ -1,6 +1,7 @@
 from flask import Flask, request, jsonify, make_response
 from flask_cors import CORS
 import bcrypt
+from flask_jwt_extended import create_refresh_token
 
 from flask_jwt_extended import (
     create_access_token,
@@ -33,7 +34,7 @@ CORS(app, supports_credentials=True, origins=os.getenv('FRONTEND_ORIGIN', 'http:
 
 # --- JWT Configuration ---
 app.config["JWT_SECRET_KEY"] = os.getenv("JWT_SECRET_KEY", "default-super-secret-key-for-dev")
-app.config["JWT_ACCESS_TOKEN_EXPIRES"] = timedelta(minutes=int(os.getenv('JWT_EXPIRES_MINUTES', '60')))
+app.config["JWT_ACCESS_TOKEN_EXPIRES"] = timedelta(minutes=int(os.getenv('JWT_EXPIRES_MINUTES', '1440'))) # 24-hour token for presentation
 app.config["JWT_TOKEN_LOCATION"] = ["cookies"]
 app.config["JWT_ACCESS_COOKIE_NAME"] = "access_token"
 app.config["JWT_COOKIE_CSRF_PROTECT"] = False
@@ -135,10 +136,11 @@ def login():
 
         # Create token with user_info as the identity
         # The identity should be a simple string. We'll store user_info in additional claims.
-        token = create_access_token(identity=user_id_str, additional_claims={"user_info": user_info})
+        access_token = create_access_token(identity=user_id_str, additional_claims={"user_info": user_info})
+
         # Set the token in an HTTP-only cookie and return user info
         resp = make_response(jsonify({'user': user_info}))
-        resp.set_cookie('access_token', token, httponly=True, samesite='Lax')
+        resp.set_cookie('access_token', access_token, httponly=True, samesite='Lax')
         return resp
     
     # Handle unexpected errors gracefully
@@ -372,12 +374,11 @@ def me():
     return jsonify({'user': user_info})
 
 
-
 @app.route('/api/auth/logout', methods=['POST'])
 def logout():
-    """Clears the JWT access token cookie."""
+    """Clears the access token cookie."""
     resp = make_response(jsonify({'detail': 'Logout successful'}), 200)
-    resp.set_cookie('access_token', '', expires=0, httponly=True, samesite='Lax')
+    resp.set_cookie('access_token', '', expires=0)
     return resp
 
 

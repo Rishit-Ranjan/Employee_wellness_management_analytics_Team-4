@@ -79,6 +79,10 @@ export function resetPassword({ email, newPassword, otp, resetToken }) {
   });
 }
 
+export function logout() {
+  return request('/auth/logout', { method: 'POST' });
+}
+
 // --- Wellness API ---
 
 /**
@@ -142,4 +146,4 @@ export const saveRisks = (risksData) => saveToStorage('wellness_risks', risksDat
 
 export const saveSentiments = (sentimentsData) => saveToStorage('wellness_sentiments', sentimentsData);
 
-export default { login, signup, me, forgotPassword, resetPassword, fetchHealthRecords, addHealthRecord, updateHealthRecord, deleteHealthRecord, fetchAllWellnessData, saveRisks, saveSentiments };
+export default { login, signup, me, logout, forgotPassword, resetPassword, fetchHealthRecords, addHealthRecord, updateHealthRecord, deleteHealthRecord, fetchAllWellnessData, saveRisks, saveSentiments };

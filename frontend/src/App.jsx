@@ -115,7 +115,10 @@ export default function App() {
                 setSentimentList(wellnessData.sentiments || INITIAL_SENTIMENTS);
             } catch (error) {
                 console.error("Failed to load wellness data:", error);
-                // Here you could set an error state to show a message to the user
+                // If the token has expired, log the user out to show the login screen.
+                if (error.status === 401) {
+                    handleLogout();
+                }
             }
         };
 
@@ -255,7 +258,8 @@ export default function App() {
     };
 
     // Logout handler to clear user session and redirect to login
-    const handleLogout = () => {
+    const handleLogout = async () => {
+        await api.logout().catch(err => console.error('Logout API call failed:', err));
         setCurrentUser(null);
         localStorage.removeItem('wellness_current_user');
         setScreen('login');
