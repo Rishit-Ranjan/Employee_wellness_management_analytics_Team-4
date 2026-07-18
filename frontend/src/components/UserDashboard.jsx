@@ -328,9 +328,7 @@ export function UserProfileModule({ user, records, risks = [], onUpdateRecord, o
       department: dept,
       bmi: calculatedBmi,
       bloodPressure: bp,
-      exerciseDaysPerWeek: Number(exerciseDaysPerWeek),
       exerciseHoursPerWeek: Number(exercise) || 0,
-      sleep_hours: Number(sleep) || 0, // Add sleep_hours for the model
       sleepHoursPerNight: Number(sleep) || 0,
       stressLevel: stress,
       stressScore: Number(stressScore),
@@ -424,50 +422,9 @@ export function UserProfileModule({ user, records, risks = [], onUpdateRecord, o
   const myRiskProfile = risks.find((r) => r.employeeId === user.employeeId);
 
   // Use backend prediction if available; otherwise fall back to the previous heuristic.
-  let riskScore = myRiskProfile?.riskScore ?? 20;
-  let factors = Array.isArray(myRiskProfile?.factors) ? myRiskProfile.factors : [];
-
-  if (!myRiskProfile) {
-    // --- fallback heuristic (kept so UI never breaks) ---
-    factors = [];
-    const [sys, dia] = bp.split('/').map(Number);
-    const currentAge = Number(age);
-    const currentBmi = Number(bmi);
-    const currentSleep = Number(sleep);
-    const currentExerciseDays = Number(exerciseDaysPerWeek);
-    const currentStressScore = Number(stressScore);
-    const currentAttendanceRate = Number(attendanceRate);
-    const currentGlucoseLevel = Number(glucoseLevel);
-
-    if (currentAge > 50) { riskScore += 10; factors.push('Age > 50'); }
-    if (gender === 'Other') { riskScore += 5; factors.push('Non-binary gender (potential unique stressors)'); }
-    if (currentBmi >= 30) { riskScore += 25; factors.push(`Obese BMI: ${currentBmi}`); }
-    else if (currentBmi >= 25) { riskScore += 15; factors.push(`Overweight BMI: ${currentBmi}`); }
-    if (sys >= 140 || dia >= 90) { riskScore += 30; factors.push(`Hypertension BP: ${bp}`); }
-    else if (sys >= 130 || dia >= 80) { riskScore += 15; factors.push(`Elevated BP: ${bp}`); }
-    if (currentSleep < 6) { riskScore += 25; factors.push('Insufficient sleep (< 6 hrs)'); }
-    else if (currentSleep < 7) { riskScore += 10; factors.push('Suboptimal sleep (6-7 hrs)'); }
-    if (currentExerciseDays < 2) { riskScore += 15; factors.push('Low weekly physical activity (< 2 days)'); }
-    else if (currentExerciseDays < 3) { riskScore += 5; factors.push('Moderate weekly physical activity (2 days)'); }
-    if (stress === 'High' || currentStressScore >= 7) {
-      riskScore += 35;
-      factors.push(`High stress level (${stress}, score ${currentStressScore})`);
-    } else if (stress === 'Medium' || currentStressScore >= 5) {
-      riskScore += 15;
-      factors.push(`Medium stress level (${stress}, score ${currentStressScore})`);
-    }
-    if (currentAttendanceRate < 85) { riskScore += 20; factors.push(`Low attendance rate (${currentAttendanceRate}%)`); }
-    if (medicalCondition !== 'No major condition' && medicalCondition !== 'Mild fatigue') { riskScore += 20; factors.push(`Medical condition: ${medicalCondition}`); }
-    if (smoker) { riskScore += 20; factors.push('Smoker'); }
-    if (alcoholUse) { riskScore += 10; factors.push('Alcohol user'); }
-    if (currentGlucoseLevel > 100) { riskScore += 15; factors.push(`Elevated glucose level (${currentGlucoseLevel})`); }
-
-    if (factors.length === 0) {
-      factors.push('Vitals check within ideal levels');
-    }
-
-    riskScore = Math.min(100, riskScore);
-  }
+  const riskScore = myRiskProfile?.riskScore ?? 0;
+  const factors = myRiskProfile?.factors ?? ["Awaiting data..."];
+  const recommendationAction = myRiskProfile?.recommendationAction ?? "Maintain healthy habits.";
 
 
   // State for Blood Pressure info popup

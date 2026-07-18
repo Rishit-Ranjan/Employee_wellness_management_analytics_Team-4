@@ -561,7 +561,7 @@ def map_health_record_to_model_input(record):
         "blood_pressure_systolic": int(record.get("bloodPressureSystolic", 120) or 120),
         "blood_pressure_diastolic": int(record.get("bloodPressureDiastolic", 80) or 80),
         "exercise_days_per_week": int(record.get("exerciseDaysPerWeek", 0) or 0),
-        "sleep_hours": float(record.get("sleepHoursPerNight", 7) or 7),
+        "sleep_hours": float(record.get("sleepHoursPerNight", 7.0) or 7.0),
         "stress_score": int(record.get("stressScore", 5) or 5),
         "attendance_percent": float(record.get("attendanceRate", 95) or 95),
         "glucose_level": float(record.get("glucoseLevel", 90) or 90),
