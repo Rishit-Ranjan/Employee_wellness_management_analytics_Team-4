@@ -1,4 +1,4 @@
-import  { useState, useEffect, useMemo } from 'react';
+import  { useState, useEffect, useMemo, useCallback } from 'react';
 import Login from './components/Login';
 import SignUp from './components/SignUp';
 import ForgotPassword from './components/ForgotPassword';
@@ -21,26 +21,28 @@ const INITIAL_SENTIMENTS = [];
 export default function App() {
     const [screen, setScreen] = useState('login');
     const [currentUser, setCurrentUser] = useState(null);
+    const [loadingSession, setLoadingSession] = useState(true); // New state to indicate session loading
     
 
     // Core Wellness State (Moved from Dashboard)
     const [healthRecords, setHealthRecords] = useState([]);
+    const [dailyHabits, setDailyHabits] = useState([]); // New state for daily habits
+    const [mentalHealthLogs, setMentalHealthLogs] = useState([]); // New state for mental health logs
     const [risks, setRisks] = useState([]);
     const [recommendations, setRecommendations] = useState([]);
     const [allUsers, setAllUsers] = useState([]);
-    const [sentimentList, setSentimentList] = useState([]);
-    const kpis = useState({
+    const [sentimentList, setSentimentList] = useState([]);    const initialKpis = { // Renamed from kpis to initialKpis for clarity
         participationRate: 78,
         absenteeismRate: 4.2,
         productivityTrend: 'up',
         overallHealthRiskScore: 34,
         programEffectiveness: 82
-    });
+    }
 
     // Derived KPIs recalculated whenever healthRecords change
     const derivedKpis = useMemo(() => {
         if (healthRecords.length === 0) {
-            return kpis;
+            return initialKpis; // Use initialKpis here
         }
 
         // Calculate derived KPIs based on health records
@@ -56,26 +58,50 @@ export default function App() {
             overallHealthRiskScore: calculatedRisk,
             programEffectiveness: Math.max(50, 100 - calculatedRisk)
         };
-    }, [healthRecords, kpis]);
+    }, [healthRecords]); // Removed kpis from dependency array, now uses initialKpis implicitly
 
-    // Check if a user is already logged in from a previous session
+    // Memoize handleLogout to prevent unnecessary re-renders in useEffect dependencies
+    const handleLogout = useCallback(async () => {
+        await api.logout().catch(err => console.error('Logout API call failed:', err));
+        setCurrentUser(null);
+        localStorage.removeItem('wellness_current_user');
+        setScreen('login');
+    }, []); // No dependencies, as it only uses setters and localStorage
+
+    // Check if a user is already logged in from a previous session and verify with backend
     useEffect(() => {
-        try {
-            const savedUser = localStorage.getItem('wellness_current_user');
-            if (savedUser) {
-                // Defer state updates to avoid synchronous cascading renders
-                setTimeout(() => {
-                    setCurrentUser(JSON.parse(savedUser));
-                    setScreen('dashboard');
-                }, 0);
+        const checkSession = async () => {
+            setLoadingSession(true);
+            try {
+                const savedUser = localStorage.getItem('wellness_current_user');
+                if (savedUser) {
+                    // Attempt to verify the session with the backend
+                    const response = await api.me();
+                    if (response && response.user) {
+                        setCurrentUser(response.user);
+                        setScreen('dashboard');
+                    } else {
+                        // Backend didn't return user, session might be invalid
+                        console.warn('Backend did not return user info for saved session. Logging out.');
+                        handleLogout();
+                    }
+                } else {
+                    // No saved user in localStorage, stay on login screen
+                    setScreen('login');
+                }
+            } catch (err) {
+                console.error('Failed to verify user session:', err);
+                // If API call fails (e.g., 401 due to expired cookie), log out
+                handleLogout();
+            } finally {
+                setLoadingSession(false);
             }
-        }
-        catch (err) {
-            console.error('Failed to load user session', err);
-        }
-    }, []);
+        };
 
-    // Sync state from localStorage on mount, or write initial data when currentUser changes
+        checkSession();
+    }, [handleLogout]); // Dependency on handleLogout
+
+    // Load wellness data when currentUser changes (and is not null)
     useEffect(() => {
         if (!currentUser)
             return;
@@ -85,6 +111,8 @@ export default function App() {
                 // 0. If admin, fetch all users for the dropdown
                 if (currentUser.role === 'admin') {
                     const users = await api.fetchUsers();
+                    // Filter out admin users from allUsers list
+                    // setAllUsers(users.filter(u => u.role !== 'admin'));
                     setAllUsers(users);
                 }
                 // 1. Health Records from the backend
@@ -96,16 +124,30 @@ export default function App() {
                 const userHasRecord = loadedHR.some((r) => r.employeeId === userEmpId);
                 if (!userHasRecord && currentUser.role !== 'admin') {
                     const newUserHR = {
-                        id: `hr-${userEmpId}`,
+                        // id will be assigned by the backend
                         employeeId: userEmpId,
                         employeeName: currentUser.name,
-                        department: 'Engineering',
-                        bmi: 23.5,
-                        bloodPressure: '120/80',
-                        exerciseHoursPerWeek: 3.5,
-                        sleepHoursPerNight: 7,
-                        stressLevel: 'Medium',
-                        healthAssessment: 'Good',
+                        department: 'Engineering', // Default for dropdown
+                        age: 30, // Default age
+                        gender: 'Male', // Default gender
+                        heightCm: 170, // Default height
+                        weightKg: 70, // Default weight
+                        bmi: 24.2, // Calculated from default height/weight
+                        bloodPressure: '120/80', // Default BP
+                        bloodPressureSystolic: 120,
+                        bloodPressureDiastolic: 80,
+                        exerciseHoursPerWeek: 3.5, // Default exercise
+                        exerciseDaysPerWeek: 3, // Default exercise days
+                        sleepHoursPerNight: 7, // Default sleep
+                        stressLevel: 'Medium', // Default for dropdown
+                        stressScore: 5, // Default stress score
+                        attendanceRate: 95, // Default attendance
+                        medicalNotes: 'No major concerns', // Default
+                        medicalCondition: 'No major condition', // Default
+                        smoker: false, // Default
+                        alcoholUse: false, // Default
+                        glucoseLevel: 90, // Default
+                        healthAssessment: 'Fair', // Neutral default for derived field
                         lastUpdated: new Date().toISOString().split('T')[0]
                     };
                     // This will add the record to the database and return it
@@ -113,6 +155,48 @@ export default function App() {
                     loadedHR = [addedRecord, ...loadedHR];
                 }
                 setHealthRecords(loadedHR);
+
+                // 2. Daily Habits for the current user
+                let loadedDH = null;
+                try {
+                    loadedDH = await api.fetchDailyHabits(userEmpId);
+                } catch (err) {
+                    if (err.status === 404) { // No record found, create one
+                        const newDailyHabit = {
+                            employeeId: userEmpId,
+                            waterCups: 0,
+                            stepsCount: 0,
+                            lastUpdated: new Date().toISOString().split('T')[0]
+                        };
+                        loadedDH = await api.addDailyHabit(newDailyHabit);
+                    } else {
+                        throw err; // Re-throw other errors
+                    }
+                }
+                setDailyHabits(loadedDH ? [loadedDH] : []); // Store as an array for consistency
+
+                // 3. Mental Health Logs for the current user (today's log)
+                let loadedMHL = null;
+                try {
+                    loadedMHL = await api.fetchMentalHealthLogs(userEmpId);
+                } catch (err) {
+                    if (err.status === 404) { // No record found for today, create one
+                        const newMentalHealthLog = {
+                            employeeId: userEmpId,
+                            mood: 'Neutral', // Default mood
+                            stressLevel: 5, // Default stress
+                            feedback: '',
+                            streakDays: 0, // Initial streak
+                            date: new Date().toISOString().split('T')[0]
+                        };
+                        loadedMHL = await api.addMentalHealthLog(newMentalHealthLog);
+                    } else {
+                        throw err; // Re-throw other errors
+                    }
+                }
+                setMentalHealthLogs(loadedMHL ? [loadedMHL] : []); // Store as an array for consistency
+
+
 
                 // 2. Other wellness data (still from localStorage for now)
                 const wellnessData = await api.fetchAllWellnessData();
@@ -129,7 +213,7 @@ export default function App() {
         };
 
         loadData();
-    }, [currentUser]);
+    }, [currentUser, handleLogout]); // Dependency on handleLogout
 
     // Sync state modifications and recalculate risks
     useEffect(() => {
@@ -201,6 +285,30 @@ export default function App() {
         setHealthRecords(healthRecords.map(r => r.employeeId === updatedRecord.employeeId ? updatedRecord : r));
     };
 
+    // Add a new daily habit record
+    const handleAddDailyHabit = async (newHabit) => {
+        const addedHabit = await api.addDailyHabit(newHabit);
+        setDailyHabits([addedHabit]); // Assuming only one daily habit record per user
+    };
+
+    // Update an existing daily habit record
+    const handleUpdateDailyHabit = async (updatedHabit) => {
+        await api.updateDailyHabit(updatedHabit);
+        setDailyHabits([updatedHabit]); // Assuming only one daily habit record per user
+    };
+
+    // Add a new mental health log record
+    const handleAddMentalHealthLog = async (newLog) => {
+        const addedLog = await api.addMentalHealthLog(newLog);
+        setMentalHealthLogs([addedLog]); // Assuming only one log per day per user
+    };
+
+    // Update an existing mental health log record
+    const handleUpdateMentalHealthLog = async (updatedLog) => {
+        await api.updateMentalHealthLog(updatedLog);
+        setMentalHealthLogs([updatedLog]); // Assuming only one log per day per user
+    };
+
     // Delete a health record and persist changes
     const handleDeleteHealthRecord = async (employeeId) => {
         await api.deleteHealthRecord(employeeId);
@@ -267,14 +375,6 @@ export default function App() {
         setScreen('login');
     };
 
-    // Logout handler to clear user session and redirect to login
-    const handleLogout = async () => {
-        await api.logout().catch(err => console.error('Logout API call failed:', err));
-        setCurrentUser(null);
-        localStorage.removeItem('wellness_current_user');
-        setScreen('login');
-    };
-
     // Navigation handler to switch between screens
     const handleNavigate = (targetScreen) => {
         setScreen(targetScreen);
@@ -282,6 +382,13 @@ export default function App() {
 
     // Render the appropriate screen based on current state
     return (
+        // Render a loading screen while checking session
+        // This ensures that the UI doesn't flash login/dashboard before session is verified
+        loadingSession ? (
+            <div className="min-h-screen flex items-center justify-center bg-[#050505] text-[#e0e0e0]">
+                <p>Loading session...</p>
+            </div>
+        ) : (
         <div className="min-h-screen font-sans bg-[#050505] text-[#e0e0e0]">
             
             {screen === 'login' && (<Login onNavigate={handleNavigate}
@@ -312,9 +419,15 @@ export default function App() {
                     user={currentUser}
                     onLogout={handleLogout}
                     healthRecords={healthRecords}
+                    dailyHabits={dailyHabits} // Pass new state
+                    onAddDailyHabit={handleAddDailyHabit} // Pass new handler
+                    onUpdateDailyHabit={handleUpdateDailyHabit} // Pass new handler
+                    mentalHealthLogs={mentalHealthLogs} // Pass new state
+                    onAddHealthRecord={handleAddHealthRecord} // Pass the add handler
                     onUpdateUserRecord={handleUpdateUserRecord}
                     onUpdateSentimentPulse={handleUpdateSentimentPulse} recommendations={recommendations} />)
             )}
         </div>
+        )
     );
 }
