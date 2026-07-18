@@ -207,18 +207,16 @@ export function ChatbotModule({ user, isFloating = false  }) {
 // ==========================================
 export function UserProfileModule({ user, records, onUpdateRecord, onAddSentimentPulse  }) {
   const userEmpId = `user-emp-${user.id}`;
-  const initialUserRecord = records.find(r => r.employeeId === userEmpId) || { // Correctly uses userEmpId for lookup
+  const initialUserRecord = records.find(r => r.employeeId === userEmpId) || {
     id: `hr-user-${user.id}`,
     employeeId: userEmpId,
     employeeName: user.name,
-    department: '',
+    department: 'Engineering',
     bmi: '',
     bloodPressure: '',
+    stressLevel: 'Medium',
     exerciseHoursPerWeek: '',
     sleepHoursPerNight: '',
-    stressLevel: '',
-    healthAssessment: 'Good',
-    lastUpdated: new Date().toISOString().split('T')[0]
   };
 
   const [dept, setDept] = useState(initialUserRecord.department);

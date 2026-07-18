@@ -96,16 +96,16 @@ export default function App() {
                 const userHasRecord = loadedHR.some((r) => r.employeeId === userEmpId);
                 if (!userHasRecord && currentUser.role !== 'admin') {
                     const newUserHR = {
-                        id: `hr-${userEmpId}`,
+                        // id will be assigned by the backend
                         employeeId: userEmpId,
                         employeeName: currentUser.name,
-                        department: 'Engineering',
-                        bmi: 23.5,
-                        bloodPressure: '120/80',
-                        exerciseHoursPerWeek: 3.5,
-                        sleepHoursPerNight: 7,
-                        stressLevel: 'Medium',
-                        healthAssessment: 'Good',
+                        department: 'Engineering', // Default for dropdown
+                        bmi: '', // Empty for user input
+                        bloodPressure: '', // Empty for user input
+                        exerciseHoursPerWeek: '', // Empty for user input
+                        sleepHoursPerNight: '', // Empty for user input
+                        stressLevel: 'Medium', // Default for dropdown
+                        healthAssessment: 'Fair', // Neutral default for derived field
                         lastUpdated: new Date().toISOString().split('T')[0]
                     };
                     // This will add the record to the database and return it
