@@ -240,6 +240,7 @@ export function UserProfileModule({ user, records, onUpdateRecord, onAddSentimen
   }, [records, userEmpId]);
 
   const [showSyncSuccess, setShowSyncSuccess] = useState(false);
+  const [error, setError] = useState(''); // State for form errors
 
   const [waterCups, setWaterCups] = useState(() => {
     const val = localStorage.getItem(`water_${user.id}`);
@@ -260,8 +261,14 @@ export function UserProfileModule({ user, records, onUpdateRecord, onAddSentimen
   const [pulseStress, setPulseStress] = useState(5);
   const [pulseFeedback, setPulseFeedback] = useState('');
   const [pulseSubmitted, setPulseSubmitted] = useState(false);
+  
+  // Clear success/error messages when the component mounts or user record changes
+  useEffect(() => {
+    setShowSyncSuccess(false);
+    setError('');
+  }, [userEmpId]);
 
-  const handleUpdateProfile = (e) => {
+  const handleUpdateProfile = async (e) => {
     e.preventDefault();
     const calculatedBmi = Number(bmi) || 22;
     let assessment = 'Good';
@@ -287,9 +294,15 @@ export function UserProfileModule({ user, records, onUpdateRecord, onAddSentimen
       lastUpdated: new Date().toISOString().split('T')[0]
     };
 
-    onUpdateRecord(updated);
-    setShowSyncSuccess(true);
-    setTimeout(() => setShowSyncSuccess(false), 3000);
+    try {
+      await onUpdateRecord(updated); // Await the update operation
+      setShowSyncSuccess(true);
+      setError(''); // Clear any previous errors
+      setTimeout(() => setShowSyncSuccess(false), 3000);
+    } catch (err) {
+      console.error("Failed to update wellness profile:", err);
+      setError('Failed to update profile. Please try again.');
+    }
   };
 
   const updateWater = (change) => {
@@ -458,6 +471,13 @@ export function UserProfileModule({ user, records, onUpdateRecord, onAddSentimen
               </button>
             </div>
           </form>
+
+          {error && (
+            <div className="bg-red-50 border border-red-200 p-3 rounded-lg text-xs text-red-800 flex items-start gap-2.5 animate-shake font-medium font-sans">
+              <ShieldAlert className="w-4 h-4 text-red-600 shrink-0 mt-0.5" />
+              <span>{error}</span>
+            </div>
+          )}
 
           {showSyncSuccess && (
             <div className="bg-emerald-50 border border-emerald-200 p-3 rounded-lg text-xs text-emerald-800 flex items-center gap-2 animate-fadeIn font-medium font-sans">
