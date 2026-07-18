@@ -157,44 +157,48 @@ export default function App() {
                 setHealthRecords(loadedHR);
 
                 // 2. Daily Habits for the current user
-                let loadedDH = null;
-                try {
-                    loadedDH = await api.fetchDailyHabits(userEmpId);
-                } catch (err) {
-                    if (err.status === 404) { // No record found, create one
-                        const newDailyHabit = {
-                            employeeId: userEmpId,
-                            waterCups: 0,
-                            stepsCount: 0,
-                            lastUpdated: new Date().toISOString().split('T')[0]
-                        };
-                        loadedDH = await api.addDailyHabit(newDailyHabit);
-                    } else {
-                        throw err; // Re-throw other errors
+                if (!userEmpId) {
+                  console.warn("Missing employeeId for current user", currentUser);
+                } else {
+                    let loadedDH = null;
+                    try {
+                        loadedDH = await api.fetchDailyHabits(userEmpId);
+                    } catch (err) {
+                        if (err.status === 404) { // No record found, create one
+                            const newDailyHabit = {
+                                employeeId: userEmpId,
+                                waterCups: 0,
+                                stepsCount: 0,
+                                lastUpdated: new Date().toISOString().split('T')[0]
+                            };
+                            loadedDH = await api.addDailyHabit(newDailyHabit);
+                        } else {
+                            throw err; // Re-throw other errors
+                        }
                     }
-                }
-                setDailyHabits(loadedDH ? [loadedDH] : []); // Store as an array for consistency
+                    setDailyHabits(loadedDH ? [loadedDH] : []); // Store as an array for consistency
 
-                // 3. Mental Health Logs for the current user (today's log)
-                let loadedMHL = null;
-                try {
-                    loadedMHL = await api.fetchMentalHealthLogs(userEmpId);
-                } catch (err) {
-                    if (err.status === 404) { // No record found for today, create one
-                        const newMentalHealthLog = {
-                            employeeId: userEmpId,
-                            mood: 'Neutral', // Default mood
-                            stressLevel: 5, // Default stress
-                            feedback: '',
-                            streakDays: 0, // Initial streak
-                            date: new Date().toISOString().split('T')[0]
-                        };
-                        loadedMHL = await api.addMentalHealthLog(newMentalHealthLog);
-                    } else {
-                        throw err; // Re-throw other errors
+                    // 3. Mental Health Logs for the current user (today's log)
+                    let loadedMHL = null;
+                    try {
+                        loadedMHL = await api.fetchMentalHealthLogs(userEmpId);
+                    } catch (err) {
+                        if (err.status === 404) { // No record found for today, create one
+                            const newMentalHealthLog = {
+                                employeeId: userEmpId,
+                                mood: 'Neutral', // Default mood
+                                stressLevel: 5, // Default stress
+                                feedback: '',
+                                streakDays: 0, // Initial streak
+                                date: new Date().toISOString().split('T')[0]
+                            };
+                            loadedMHL = await api.addMentalHealthLog(newMentalHealthLog);
+                        } else {
+                            throw err; // Re-throw other errors
+                        }
                     }
+                    setMentalHealthLogs(loadedMHL ? [loadedMHL] : []); // Store as an array for consistency
                 }
-                setMentalHealthLogs(loadedMHL ? [loadedMHL] : []); // Store as an array for consistency
 
 
                 // 4. Other wellness data
