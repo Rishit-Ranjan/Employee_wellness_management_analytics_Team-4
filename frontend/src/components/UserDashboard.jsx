@@ -205,52 +205,100 @@ export function ChatbotModule({ user, isFloating = false  }) {
 // ==========================================
 // MODULE 7: PERSONAL USER WELLNESS PROFILE
 // ==========================================
-export function UserProfileModule({ user, records, onUpdateRecord, onAddSentimentPulse  }) {
-  const userEmpId = `user-emp-${user.id}`;
-  const userRecord = records.find(r => r.employeeId === userEmpId) || {
-    id: `hr-user-${user.id}`,
-    employeeId: userEmpId,
-    employeeName: user.name,
+export function UserProfileModule({ user, records, onUpdateRecord, onAddSentimentPulse,
+  dailyHabits, onAddDailyHabit, onUpdateDailyHabit,
+  mentalHealthLogs, onAddMentalHealthLog, onUpdateMentalHealthLog
+}) {
+  const userEmpId = user.employeeId; // Corrected to use actual employeeId
+  const existingRecord = records.find(r => r.employeeId === user.employeeId); // Find existing record using correct employeeId
+  const existingDailyHabit = dailyHabits.find(h => h.employeeId === user.employeeId);
+  const existingMentalHealthLog = mentalHealthLogs.find(l => l.employeeId === user.employeeId);
+
+  const initialUserRecord = existingRecord || { // Use existing record or fallback
+    employeeId: user.employeeId, // Use correct employeeId for new records
+    employeeName: user.name, // Corrected typo
     department: 'Engineering',
-    bmi: 23.5,
-    bloodPressure: '120/80',
-    exerciseHoursPerWeek: 3.5,
-    sleepHoursPerNight: 7,
+    bmi: '',
+    bloodPressure: '',
     stressLevel: 'Medium',
-    healthAssessment: 'Good',
+    exerciseHoursPerWeek: '',
+    sleepHoursPerNight: '',
+    // id is intentionally omitted here for new records; backend will assign _id
+  };
+
+  const initialDailyHabit = existingDailyHabit || {
+    employeeId: user.employeeId,
+    waterCups: 0,
+    stepsCount: 0,
     lastUpdated: new Date().toISOString().split('T')[0]
   };
 
-  const [dept, setDept] = useState(userRecord.department);
-  const [bmi, setBmi] = useState(String(userRecord.bmi));
-  const [bp, setBp] = useState(userRecord.bloodPressure);
-  const [exercise, setExercise] = useState(String(userRecord.exerciseHoursPerWeek));
-  const [sleep, setSleep] = useState(String(userRecord.sleepHoursPerNight));
-  const [stress, setStress] = useState(userRecord.stressLevel);
+  const initialMentalHealthLog = existingMentalHealthLog || {
+    employeeId: user.employeeId,
+    mood: 'Neutral',
+    stressLevel: 5,
+    feedback: '',
+    streakDays: 0,
+    date: new Date().toISOString().split('T')[0]
+  };
+
+  const [dept, setDept] = useState(initialUserRecord.department);
+  const [bmi, setBmi] = useState(String(initialUserRecord.bmi));
+  const [bp, setBp] = useState(initialUserRecord.bloodPressure);
+  const [exercise, setExercise] = useState(String(initialUserRecord.exerciseHoursPerWeek));
+  const [sleep, setSleep] = useState(String(initialUserRecord.sleepHoursPerNight));
+  const [stress, setStress] = useState(initialUserRecord.stressLevel);
+
+  // Effect to update form fields when the user's record changes (e.g., after initial load or admin update)
+  useEffect(() => { // Re-evaluate initial form states if records or userEmpId changes
+    const currentRecord = records.find(r => r.employeeId === user.employeeId);
+    if (currentRecord) {
+      setDept(currentRecord.department);
+      setBmi(String(currentRecord.bmi));
+      setBp(currentRecord.bloodPressure);
+      setExercise(String(currentRecord.exerciseHoursPerWeek));
+      setSleep(String(currentRecord.sleepHoursPerNight));
+      setStress(currentRecord.stressLevel);
+    }
+
+    // Update daily habits form fields
+    if (existingDailyHabit) {
+      setWaterCups(existingDailyHabit.waterCups);
+      setStepsCount(existingDailyHabit.stepsCount);
+    }
+
+    // Update mental health log form fields
+    if (existingMentalHealthLog) {
+      setMood(existingMentalHealthLog.mood);
+      setPulseStress(existingMentalHealthLog.stressLevel);
+      setPulseFeedback(existingMentalHealthLog.feedback);
+      setStreakDays(existingMentalHealthLog.streakDays);
+    }
+  }, [records, user.employeeId, dailyHabits, mentalHealthLogs]); // Add dailyHabits and mentalHealthLogs to dependencies
 
   const [showSyncSuccess, setShowSyncSuccess] = useState(false);
+  // isNewRecord for health vitals is now derived from existingRecord
+  const [isNewHealthRecord, setIsNewHealthRecord] = useState(!existingRecord);
+  const [error, setError] = useState(''); // State for form errors
 
-  const [waterCups, setWaterCups] = useState(() => {
-    const val = localStorage.getItem(`water_${user.id}`);
-    return val ? Number(val) : 0;
-  });
-  const [stepsCount, setStepsCount] = useState(() => {
-    const val = localStorage.getItem(`steps_${user.id}`);
-    return val ? Number(val) : 4200;
-  });
-  const [mood, setMood] = useState(() => {
-    return localStorage.getItem(`mood_${user.id}`) || 'Good';
-  });
-  const [streakDays, setStreakDays] = useState(() => {
-    const val = localStorage.getItem(`streak_${user.id}`);
-    return val ? Number(val) : 3;
-  });
+  // Local states for daily habits and mental health, initialized from props
+  const [waterCups, setWaterCups] = useState(initialDailyHabit.waterCups);
+  const [stepsCount, setStepsCount] = useState(initialDailyHabit.stepsCount);
+  const [mood, setMood] = useState(initialMentalHealthLog.mood);
+  const [streakDays, setStreakDays] = useState(initialMentalHealthLog.streakDays);
 
+  // Local states for pulse check
   const [pulseStress, setPulseStress] = useState(5);
   const [pulseFeedback, setPulseFeedback] = useState('');
   const [pulseSubmitted, setPulseSubmitted] = useState(false);
+  
+  // Clear success/error messages when the component mounts or user record changes
+  useEffect(() => {
+    setIsNewHealthRecord(!records.find(r => r.employeeId === user.employeeId)); // Re-evaluate if it's a new record
+    setError('');
+  }, [userEmpId]);
 
-  const handleUpdateProfile = (e) => {
+  const handleUpdateProfile = async (e) => {
     e.preventDefault();
     const calculatedBmi = Number(bmi) || 22;
     let assessment = 'Good';
@@ -265,7 +313,10 @@ export function UserProfileModule({ user, records, onUpdateRecord, onAddSentimen
     }
 
     const updated = {
-      ...userRecord,
+      // Always include employeeId and employeeName, as they are part of the record structure
+      employeeId: user.employeeId,
+      employeeName: user.name, // Corrected typo
+      ...(existingRecord ? { id: existingRecord.id } : {}), // Only include 'id' if updating an existing record
       department: dept,
       bmi: calculatedBmi,
       bloodPressure: bp,
@@ -276,37 +327,80 @@ export function UserProfileModule({ user, records, onUpdateRecord, onAddSentimen
       lastUpdated: new Date().toISOString().split('T')[0]
     };
 
-    onUpdateRecord(updated);
-    setShowSyncSuccess(true);
-    setTimeout(() => setShowSyncSuccess(false), 3000);
+    try {
+      if (existingRecord) { // If health record exists, update it
+        await onUpdateRecord(updated); // Update existing record
+      } else { // Otherwise, add a new health record
+        await onAddRecord(updated); // Add new record
+      }
+      setShowSyncSuccess(true);
+      setError(''); // Clear any previous errors
+      setTimeout(() => setShowSyncSuccess(false), 3000);
+    } catch (err) {
+      console.error("Failed to update wellness profile:", err);
+      setError('Failed to update profile. Please try again.');
+    }
+    setIsNewHealthRecord(false); // After saving, it's no longer a new record
   };
 
   const updateWater = (change) => {
     const newVal = Math.max(0, waterCups + change);
     setWaterCups(newVal);
-    localStorage.setItem(`water_${user.id}`, String(newVal));
+    const updatedHabit = { ...initialDailyHabit, waterCups: newVal, lastUpdated: new Date().toISOString().split('T')[0] };
+    if (existingDailyHabit) {
+      onUpdateDailyHabit(updatedHabit);
+    } else {
+      onAddDailyHabit(updatedHabit);
+    }
   };
 
   const handleStepsChange = (e) => {
     const val = Number(e.target.value);
     setStepsCount(val);
-    localStorage.setItem(`steps_${user.id}`, String(val));
+    const updatedHabit = { ...initialDailyHabit, stepsCount: val, lastUpdated: new Date().toISOString().split('T')[0] };
+    if (existingDailyHabit) {
+      onUpdateDailyHabit(updatedHabit);
+    } else {
+      onAddDailyHabit(updatedHabit);
+    }
   };
 
   const handleMoodSelect = (selectedMood) => {
     setMood(selectedMood);
-    localStorage.setItem(`mood_${user.id}`, selectedMood);
-    const randomInc = Math.random() > 0.7;
-    if (randomInc) {
-      const nextStreak = streakDays + 1;
-      setStreakDays(nextStreak);
-      localStorage.setItem(`streak_${user.id}`, String(nextStreak));
+    // Update streak logic (can be more sophisticated)
+    const nextStreak = (existingMentalHealthLog && existingMentalHealthLog.mood === selectedMood) ? streakDays : streakDays + 1;
+    setStreakDays(nextStreak);
+
+    const updatedLog = {
+      ...initialMentalHealthLog,
+      mood: selectedMood,
+      streakDays: nextStreak,
+      date: new Date().toISOString().split('T')[0] // Ensure date is current
+    };
+    if (existingMentalHealthLog) {
+      onUpdateMentalHealthLog(updatedLog);
+    } else {
+      onAddMentalHealthLog(updatedLog);
     }
   };
 
   const handlePulseSubmit = (e) => {
     e.preventDefault();
     onAddSentimentPulse(dept, pulseStress, pulseFeedback);
+
+    // Also save to individual mental health log
+    const updatedLog = {
+      ...initialMentalHealthLog,
+      stressLevel: pulseStress,
+      feedback: pulseFeedback,
+      date: new Date().toISOString().split('T')[0]
+    };
+    if (existingMentalHealthLog) {
+      onUpdateMentalHealthLog(updatedLog);
+    } else {
+      onAddMentalHealthLog(updatedLog);
+    }
+
     setPulseSubmitted(true);
     setPulseFeedback('');
     setTimeout(() => setPulseSubmitted(false), 4000);
@@ -350,6 +444,14 @@ export function UserProfileModule({ user, records, onUpdateRecord, onAddSentimen
           </div>
 
           <form onSubmit={handleUpdateProfile} className="space-y-4">
+            <div>
+              <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">My Employee ID</label>
+              <p className="w-full px-3.5 py-2.5 bg-slate-100 border border-slate-200 rounded-lg text-xs text-slate-700 outline-none select-none">
+                {user.employeeId}
+              </p>
+            </div>
+
+
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
                 <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">My Department</label>
@@ -381,7 +483,7 @@ export function UserProfileModule({ user, records, onUpdateRecord, onAddSentimen
               <div>
                 <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">Blood Pressure</label>
                 <input
-                  type="text"
+                  type="text" // Keep as text for "120/80" format
                   required
                   placeholder="e.g. 120/80"
                   value={bp}
@@ -418,7 +520,7 @@ export function UserProfileModule({ user, records, onUpdateRecord, onAddSentimen
               <div>
                 <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">Exercise (Hours/Week)</label>
                 <input
-                  type="number"
+                  type="number" // Keep as number
                   step="0.5"
                   required
                   value={exercise}
@@ -432,13 +534,20 @@ export function UserProfileModule({ user, records, onUpdateRecord, onAddSentimen
               <span className="text-[10px] text-slate-400 font-mono">Last Synchronized</span>
               <button
                 type="submit"
-                className="px-5 py-2.5 bg-indigo-600 text-white hover:bg-indigo-700 text-xs font-semibold rounded-lg flex items-center gap-2 transition-all cursor-pointer shadow-md"
+                className="px-5 py-2.5 bg-indigo-600 text-white hover:bg-indigo-700 text-xs font-semibold rounded-lg flex items-center gap-2 transition-all cursor-pointer shadow-md" // Changed to 'Save Profile' for clarity
               >
                 <Sparkles className="w-4 h-4" />
                 Sync & Save Vitals
               </button>
             </div>
           </form>
+
+          {error && (
+            <div className="bg-red-50 border border-red-200 p-3 rounded-lg text-xs text-red-800 flex items-start gap-2.5 animate-shake font-medium font-sans">
+              <ShieldAlert className="w-4 h-4 text-red-600 shrink-0 mt-0.5" />
+              <span>{error}</span>
+            </div>
+          )}
 
           {showSyncSuccess && (
             <div className="bg-emerald-50 border border-emerald-200 p-3 rounded-lg text-xs text-emerald-800 flex items-center gap-2 animate-fadeIn font-medium font-sans">
@@ -617,9 +726,11 @@ export function UserProfileModule({ user, records, onUpdateRecord, onAddSentimen
               {[
                 { label: '🔋', name: 'Energetic' },
                 { label: '🌸', name: 'Calm' },
+                { label: '🧘', name: 'Relaxed' }, // New Mood
                 { label: '☕', name: 'Tired' },
                 { label: '⚡', name: 'Stressed' },
                 { label: '📉', name: 'Burned' },
+                { label: '🤔', name: 'Neutral' }, // New Mood
               ].map((m) => (
                 <button
                   key={m.name}
@@ -730,6 +841,11 @@ export default function UserDashboard({ user,
   onLogout,
   healthRecords,
   onUpdateUserRecord,
+  dailyHabits, // New prop
+  onAddDailyHabit, // New prop
+  onUpdateDailyHabit, // New prop
+  mentalHealthLogs, // New prop
+  onAddHealthRecord, // Added onAddHealthRecord prop
   onUpdateSentimentPulse,
   recommendations= personalRecommendations
  }) {
@@ -755,6 +871,7 @@ export default function UserDashboard({ user,
           <div className="flex items-center gap-3 text-right">
             <div className="hidden sm:block text-right mr-3">
               <span className="block text-sm font-semibold text-slate-800 leading-tight">{user.name}</span>
+              <span className="block text-[10px] text-slate-400 font-mono mt-0.5">{user.employeeId}</span>
               <span className="inline-block mt-1 px-2 py-0.5 bg-slate-50 border border-slate-200 text-slate-500 text-[9px] font-mono font-bold rounded uppercase tracking-widest leading-none">
                 Employee
               </span>
@@ -862,6 +979,11 @@ export default function UserDashboard({ user,
               <UserProfileModule
                 user={user}
                 records={healthRecords}
+                dailyHabits={dailyHabits} // Pass new state
+                onAddDailyHabit={onAddDailyHabit} // Pass new handler
+                onUpdateDailyHabit={onUpdateDailyHabit} // Pass new handler
+                mentalHealthLogs={mentalHealthLogs} // Pass new state
+                onAddRecord={onAddHealthRecord} // Pass to UserProfileModule
                 onUpdateRecord={onUpdateUserRecord}
                 onAddSentimentPulse={onUpdateSentimentPulse}
               />
