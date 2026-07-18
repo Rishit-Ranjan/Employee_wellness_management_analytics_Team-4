@@ -282,8 +282,8 @@ export function HealthDataModule({ records, allUsers, onAddRecord, onUpdateRecor
       {/* Add Record Modal Popup */}
       {isAddOpen && (
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 z-50 animate-fadeIn">
-          <div className="bg-white rounded-2xl border border-slate-200 w-full max-w-lg overflow-hidden shadow-2xl">
-            <div className="bg-slate-50 border-b border-slate-100 px-6 py-4 flex items-center justify-between">
+          <div className="bg-white rounded-2xl border border-slate-200 w-full max-w-lg shadow-2xl flex flex-col max-h-[90vh]">
+            <div className="bg-slate-50 border-b border-slate-100 px-6 py-4 flex items-center justify-between shrink-0">
               <div className="flex items-center gap-2">
                 <Activity className="w-5 h-5 text-slate-800" />
                 <h3 className="font-display font-semibold text-sm text-slate-800">
@@ -298,7 +298,7 @@ export function HealthDataModule({ records, allUsers, onAddRecord, onUpdateRecor
               </button>
             </div>
 
-            <form onSubmit={handleFormSubmit} className="p-6 space-y-4">
+            <form onSubmit={handleFormSubmit} className="flex-1 overflow-y-auto p-6 space-y-4">
               <div className="grid grid-cols-2 gap-4">
                 {editingRecord ? (
                   <div className="col-span-2">
@@ -467,7 +467,7 @@ export function HealthDataModule({ records, allUsers, onAddRecord, onUpdateRecor
                 </div>
               </div>
 
-              <div className="flex gap-3 justify-end pt-5 border-t border-slate-100">
+              <div className="flex gap-3 justify-end pt-5 border-t border-slate-200 shrink-0">
                 <button
                   type="button"
                   onClick={() => { setIsAddOpen(false); setEditingRecord(null); }}
