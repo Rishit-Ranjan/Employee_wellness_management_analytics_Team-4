@@ -218,7 +218,6 @@ export function UserProfileModule({ user, records, onUpdateRecord, onAddSentimen
     employeeId: user.employeeId, // Use correct employeeId for new records
     employeeName: user.name, // Corrected typo
     department: 'Engineering',
-<<<<<<< HEAD
     age: '',
     gender: 'Male',
     heightCm: '',
@@ -257,44 +256,11 @@ export function UserProfileModule({ user, records, onUpdateRecord, onAddSentimen
   const [smoker, setSmoker] = useState(initialUserRecord.smoker);
   const [alcoholUse, setAlcoholUse] = useState(initialUserRecord.alcoholUse);
   const [glucoseLevel, setGlucoseLevel] = useState(String(initialUserRecord.glucoseLevel));
-=======
-    bmi: '',
-    bloodPressure: '',
-    stressLevel: 'Medium',
-    exerciseHoursPerWeek: '',
-    sleepHoursPerNight: '',
-    // id is intentionally omitted here for new records; backend will assign _id
-  };
-
-  const initialDailyHabit = existingDailyHabit || {
-    employeeId: user.employeeId,
-    waterCups: 0,
-    stepsCount: 0,
-    lastUpdated: new Date().toISOString().split('T')[0]
-  };
-
-  const initialMentalHealthLog = existingMentalHealthLog || {
-    employeeId: user.employeeId,
-    mood: 'Neutral',
-    stressLevel: 5,
-    feedback: '',
-    streakDays: 0,
-    date: new Date().toISOString().split('T')[0]
-  };
-
-  const [dept, setDept] = useState(initialUserRecord.department);
-  const [bmi, setBmi] = useState(String(initialUserRecord.bmi));
-  const [bp, setBp] = useState(initialUserRecord.bloodPressure);
-  const [exercise, setExercise] = useState(String(initialUserRecord.exerciseHoursPerWeek));
-  const [sleep, setSleep] = useState(String(initialUserRecord.sleepHoursPerNight));
-  const [stress, setStress] = useState(initialUserRecord.stressLevel);
->>>>>>> origin/main
 
   // Effect to update form fields when the user's record changes (e.g., after initial load or admin update)
   useEffect(() => { // Re-evaluate initial form states if records or userEmpId changes
     const currentRecord = records.find(r => r.employeeId === user.employeeId);
     if (currentRecord) {
-<<<<<<< HEAD
       setAge(String(currentRecord.age || ''));
       setGender(currentRecord.gender || 'Male');
       setHeightCm(String(currentRecord.heightCm || ''));
@@ -324,41 +290,6 @@ export function UserProfileModule({ user, records, onUpdateRecord, onAddSentimen
   const [stepsCount, setStepsCount] = useState(existingDailyHabit?.stepsCount || 4200);
   const [mood, setMood] = useState(existingMentalHealthLog?.mood || 'Neutral');
   const [streakDays, setStreakDays] = useState(existingMentalHealthLog?.streakDays || 0);
-=======
-      setDept(currentRecord.department);
-      setBmi(String(currentRecord.bmi));
-      setBp(currentRecord.bloodPressure);
-      setExercise(String(currentRecord.exerciseHoursPerWeek));
-      setSleep(String(currentRecord.sleepHoursPerNight));
-      setStress(currentRecord.stressLevel);
-    }
-
-    // Update daily habits form fields
-    if (existingDailyHabit) {
-      setWaterCups(existingDailyHabit.waterCups);
-      setStepsCount(existingDailyHabit.stepsCount);
-    }
-
-    // Update mental health log form fields
-    if (existingMentalHealthLog) {
-      setMood(existingMentalHealthLog.mood);
-      setPulseStress(existingMentalHealthLog.stressLevel);
-      setPulseFeedback(existingMentalHealthLog.feedback);
-      setStreakDays(existingMentalHealthLog.streakDays);
-    }
-  }, [records, user.employeeId, dailyHabits, mentalHealthLogs]); // Add dailyHabits and mentalHealthLogs to dependencies
-
-  const [showSyncSuccess, setShowSyncSuccess] = useState(false);
-  // isNewRecord for health vitals is now derived from existingRecord
-  const [isNewHealthRecord, setIsNewHealthRecord] = useState(!existingRecord);
-  const [error, setError] = useState(''); // State for form errors
-
-  // Local states for daily habits and mental health, initialized from props
-  const [waterCups, setWaterCups] = useState(initialDailyHabit.waterCups);
-  const [stepsCount, setStepsCount] = useState(initialDailyHabit.stepsCount);
-  const [mood, setMood] = useState(initialMentalHealthLog.mood);
-  const [streakDays, setStreakDays] = useState(initialMentalHealthLog.streakDays);
->>>>>>> origin/main
 
   // Local states for pulse check
   const [pulseStress, setPulseStress] = useState(5);
@@ -388,15 +319,11 @@ export function UserProfileModule({ user, records, onUpdateRecord, onAddSentimen
     const updated = {
       // Always include employeeId and employeeName, as they are part of the record structure
       employeeId: user.employeeId,
-<<<<<<< HEAD
       employeeName: user.name,
       age: Number(age),
       gender: gender,
       heightCm: Number(heightCm),
       weightKg: Number(weightKg),
-=======
-      employeeName: user.name, // Corrected typo
->>>>>>> origin/main
       ...(existingRecord ? { id: existingRecord.id } : {}), // Only include 'id' if updating an existing record
       department: dept,
       bmi: calculatedBmi,
@@ -417,15 +344,9 @@ export function UserProfileModule({ user, records, onUpdateRecord, onAddSentimen
     };
 
     try {
-<<<<<<< HEAD
       if (existingRecord) {
         await onUpdateRecord(updated); // Update existing record
       } else {
-=======
-      if (existingRecord) { // If health record exists, update it
-        await onUpdateRecord(updated); // Update existing record
-      } else { // Otherwise, add a new health record
->>>>>>> origin/main
         await onAddRecord(updated); // Add new record
       }
       setShowSyncSuccess(true);
@@ -441,11 +362,7 @@ export function UserProfileModule({ user, records, onUpdateRecord, onAddSentimen
   const updateWater = (change) => {
     const newVal = Math.max(0, waterCups + change);
     setWaterCups(newVal);
-<<<<<<< HEAD
     const updatedHabit = { ...(existingDailyHabit || {}), employeeId: user.employeeId, waterCups: newVal, lastUpdated: new Date().toISOString().split('T')[0] };
-=======
-    const updatedHabit = { ...initialDailyHabit, waterCups: newVal, lastUpdated: new Date().toISOString().split('T')[0] };
->>>>>>> origin/main
     if (existingDailyHabit) {
       onUpdateDailyHabit(updatedHabit);
     } else {
@@ -456,11 +373,7 @@ export function UserProfileModule({ user, records, onUpdateRecord, onAddSentimen
   const handleStepsChange = (e) => {
     const val = Number(e.target.value);
     setStepsCount(val);
-<<<<<<< HEAD
     const updatedHabit = { ...(existingDailyHabit || {}), employeeId: user.employeeId, stepsCount: val, lastUpdated: new Date().toISOString().split('T')[0] };
-=======
-    const updatedHabit = { ...initialDailyHabit, stepsCount: val, lastUpdated: new Date().toISOString().split('T')[0] };
->>>>>>> origin/main
     if (existingDailyHabit) {
       onUpdateDailyHabit(updatedHabit);
     } else {
@@ -470,26 +383,15 @@ export function UserProfileModule({ user, records, onUpdateRecord, onAddSentimen
 
   const handleMoodSelect = (selectedMood) => {
     setMood(selectedMood);
-<<<<<<< HEAD
-=======
-    // Update streak logic (can be more sophisticated)
->>>>>>> origin/main
     const nextStreak = (existingMentalHealthLog && existingMentalHealthLog.mood === selectedMood) ? streakDays : streakDays + 1;
     setStreakDays(nextStreak);
 
     const updatedLog = {
-<<<<<<< HEAD
       ...(existingMentalHealthLog || {}),
       employeeId: user.employeeId,
       mood: selectedMood,
       streakDays: nextStreak,
       date: new Date().toISOString().split('T')[0]
-=======
-      ...initialMentalHealthLog,
-      mood: selectedMood,
-      streakDays: nextStreak,
-      date: new Date().toISOString().split('T')[0] // Ensure date is current
->>>>>>> origin/main
     };
     if (existingMentalHealthLog) {
       onUpdateMentalHealthLog(updatedLog);
@@ -501,16 +403,9 @@ export function UserProfileModule({ user, records, onUpdateRecord, onAddSentimen
   const handlePulseSubmit = (e) => {
     e.preventDefault();
     onAddSentimentPulse(dept, pulseStress, pulseFeedback);
-<<<<<<< HEAD
     const updatedLog = {
       ...(existingMentalHealthLog || {}),
       employeeId: user.employeeId,
-=======
-
-    // Also save to individual mental health log
-    const updatedLog = {
-      ...initialMentalHealthLog,
->>>>>>> origin/main
       stressLevel: pulseStress,
       feedback: pulseFeedback,
       date: new Date().toISOString().split('T')[0]
@@ -520,10 +415,6 @@ export function UserProfileModule({ user, records, onUpdateRecord, onAddSentimen
     } else {
       onAddMentalHealthLog(updatedLog);
     }
-<<<<<<< HEAD
-=======
-
->>>>>>> origin/main
     setPulseSubmitted(true);
     setPulseFeedback('');
     setTimeout(() => setPulseSubmitted(false), 4000);
@@ -600,7 +491,6 @@ export function UserProfileModule({ user, records, onUpdateRecord, onAddSentimen
                 {user.employeeId}
               </p>
             </div>
-<<<<<<< HEAD
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
                 <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">My Age</label>
@@ -623,8 +513,6 @@ export function UserProfileModule({ user, records, onUpdateRecord, onAddSentimen
                 <input type="number" step="0.1" required value={weightKg} onChange={(e) => setWeightKg(e.target.value)} placeholder="70.2" className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 focus:border-indigo-400 focus:bg-white rounded-lg text-xs text-slate-700 outline-none" />
               </div>
             </div>
-=======
->>>>>>> origin/main
 
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">

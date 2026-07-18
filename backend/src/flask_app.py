@@ -17,6 +17,8 @@ from pymongo import MongoClient
 from pymongo.errors import ConfigurationError
 from bson import ObjectId
 from dotenv import load_dotenv
+import joblib
+import pandas as pd
 from email_sender import send_email
 
 
@@ -63,6 +65,21 @@ health_records_collection = db.get_collection('health_records')
 daily_habits_collection = db.get_collection('daily_habits')
 mental_health_logs_collection = db.get_collection('mental_health_logs')
 
+# --- Load ML Model and Metadata ---
+try:
+    # Correctly locate the 'backend' directory from the 'src' directory
+    BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    MODELS_DIR = os.path.join(BASE_DIR, "models")
+    
+    risk_model = joblib.load(os.path.join(MODELS_DIR, "wellness_risk_model.pkl"))
+    target_encoder = joblib.load(os.path.join(MODELS_DIR, "target_encoder.pkl"))
+    feature_columns = joblib.load(os.path.join(MODELS_DIR, "feature_columns.pkl"))
+    app.logger.info("Wellness risk prediction model loaded successfully.")
+except Exception as e:
+    app.logger.error(f"Error loading ML model: {e}")
+    risk_model = None
+    target_encoder = None
+    feature_columns = None
 #--- Utility Functions ---
 def hash_password(password: str) -> str:
     return bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
@@ -532,6 +549,72 @@ def get_all_users():
         return jsonify(users), 200
     except Exception as e:
         app.logger.exception(f"An unexpected error occurred while fetching all users: {e}")
+        return jsonify({'detail': 'Internal Server Error'}), 500
+
+def map_health_record_to_model_input(record):
+    """
+    Transforms a single health record into a pandas DataFrame suitable for the ML model.
+    This includes one-hot encoding for categorical features.
+    """
+    # Create a DataFrame from the single record
+    df = pd.DataFrame([record])
+
+    # One-hot encode categorical features, ensuring consistency with training
+    df = pd.get_dummies(df, columns=["gender", "medical_condition", "smoker", "alcohol_use"], drop_first=True)
+
+    # Reindex the DataFrame to match the model's expected feature columns
+    # `fill_value=0` handles cases where a category in the live data wasn't in the training data
+    df = df.reindex(columns=feature_columns, fill_value=0)
+    
+    return df
+
+@app.route('/api/wellness/risks', methods=['GET'])
+@jwt_required(locations=["cookies"])
+def get_wellness_risks():
+    """
+    Fetches all health records, predicts the wellness risk for each,
+    and returns a list of risk profiles.
+    """
+    if not all([risk_model, target_encoder, feature_columns]):
+        return jsonify({'detail': 'ML model is not available.'}), 503
+
+    try:
+        health_records = list(health_records_collection.find({}))
+        if not health_records:
+            return jsonify([]), 200
+
+        risk_profiles = []
+        for record in health_records:
+            # Prepare the record for the model
+            model_input_df = map_health_record_to_model_input(record)
+
+            # Predict the risk
+            prediction_encoded = risk_model.predict(model_input_df)
+            prediction_label = target_encoder.inverse_transform(prediction_encoded)[0]
+
+            # Basic logic to determine risk score and factors (can be enhanced)
+            risk_score = 0
+            if prediction_label == 'High':
+                risk_score = 80
+            elif prediction_label == 'Medium':
+                risk_score = 55
+            elif prediction_label == 'Low':
+                risk_score = 25
+
+            # Construct the risk profile object
+            risk_profile = {
+                "employeeId": record.get("employeeId"),
+                "employeeName": record.get("employeeName"),
+                "riskType": prediction_label,
+                "riskScore": risk_score,
+                "factors": [f"Predicted as {prediction_label} risk by model."],
+                "recommendationAction": f"Follow standard protocol for {prediction_label} risk employees."
+            }
+            risk_profiles.append(risk_profile)
+
+        return jsonify(risk_profiles), 200
+    except Exception as e:
+        app.logger.exception(f"An unexpected error occurred during risk prediction: {e}")
         return jsonify({'detail': 'Internal Server Error'}), 500
 
 # --- Daily Habits API Endpoints ---

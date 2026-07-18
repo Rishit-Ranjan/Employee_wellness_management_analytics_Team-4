@@ -197,10 +197,10 @@ export default function App() {
                 setMentalHealthLogs(loadedMHL ? [loadedMHL] : []); // Store as an array for consistency
 
 
-
-                // 2. Other wellness data (still from localStorage for now)
+                // 4. Other wellness data
+                const loadedRisks = await api.fetchRisks();
+                setRisks(loadedRisks || INITIAL_RISKS);
                 const wellnessData = await api.fetchAllWellnessData();
-                setRisks(wellnessData.risks || INITIAL_RISKS);
                 setRecommendations(wellnessData.recommendations || INITIAL_RECOMMENDATIONS);
                 setSentimentList(wellnessData.sentiments || INITIAL_SENTIMENTS);
             } catch (error) {
@@ -214,64 +214,6 @@ export default function App() {
 
         loadData();
     }, [currentUser, handleLogout]); // Dependency on handleLogout
-
-    // Sync state modifications and recalculate risks
-    useEffect(() => {
-        if (healthRecords.length === 0)
-            return;
-        // Auto-update wellness risk list dynamically based on updated health records
-        const updatedRisks = healthRecords.map(r => {
-            let score = 20;
-            const factors = [];
-            let riskType = 'None';
-            let action = 'Maintain current healthy habit levels and claim monthly gym rewards.';
-            const [sys, dia] = r.bloodPressure.split('/').map(Number);
-            if (r.stressLevel === 'High') {
-                score += 35;
-                factors.push('High self-reported stress');
-            }
-            if (r.sleepHoursPerNight < 6) {
-                score += 25;
-                factors.push('Insufficient sleep (< 6 hrs)');
-            }
-            if (r.bmi >= 30) {
-                score += 25;
-                factors.push(`Obese BMI: ${r.bmi}`);
-                riskType = 'Obesity';
-            }
-            if (sys >= 140 || dia >= 90) {
-                score += 30;
-                factors.push(`Hypertension BP: ${r.bloodPressure}`);
-                riskType = 'Hypertension';
-            }
-            if (r.exerciseHoursPerWeek === 0) {
-                score += 15;
-                factors.push('Sedentary lifestyle (0 exercise)');
-            }
-            if (score >= 70) {
-                if (riskType === 'None')
-                    riskType = 'Burnout';
-                action = `Schedule wellness check-up, mandate rest days, and advise joining the ${riskType === 'Hypertension' ? 'Cardio endurance plan' : 'Stress Reduction program'}.`;
-            }
-            else if (score >= 45) {
-                riskType = 'Stress';
-                action = 'Offer guided ergonomic workspace reviews and recommend the Diaphragmatic Breathing program.';
-            }
-            return {
-                employeeId: r.employeeId,
-                employeeName: r.employeeName,
-                riskType,
-                riskScore: Math.min(100, score),
-                factors: factors.length > 0 ? factors : ['Vitals check within ideal levels'],
-                recommendationAction: action
-            };
-        });
-        
-        // Defer state update to avoid cascading renders
-        // This part still uses localStorage as risk calculation is on the frontend
-        api.saveRisks(updatedRisks);
-        setRisks(updatedRisks);
-    }, [healthRecords]);
 
     // Event Handlers for User Actions
     const handleAddHealthRecord = async (newRecord) => {
