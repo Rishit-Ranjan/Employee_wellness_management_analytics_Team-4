@@ -207,26 +207,39 @@ export function ChatbotModule({ user, isFloating = false  }) {
 // ==========================================
 export function UserProfileModule({ user, records, onUpdateRecord, onAddSentimentPulse  }) {
   const userEmpId = `user-emp-${user.id}`;
-  const userRecord = records.find(r => r.employeeId === userEmpId) || {
+  const initialUserRecord = records.find(r => r.employeeId === userEmpId) || { // Correctly uses userEmpId for lookup
     id: `hr-user-${user.id}`,
     employeeId: userEmpId,
     employeeName: user.name,
-    department: 'Engineering',
-    bmi: 23.5,
-    bloodPressure: '120/80',
-    exerciseHoursPerWeek: 3.5,
-    sleepHoursPerNight: 7,
-    stressLevel: 'Medium',
+    department: '',
+    bmi: '',
+    bloodPressure: '',
+    exerciseHoursPerWeek: '',
+    sleepHoursPerNight: '',
+    stressLevel: '',
     healthAssessment: 'Good',
     lastUpdated: new Date().toISOString().split('T')[0]
   };
 
-  const [dept, setDept] = useState(userRecord.department);
-  const [bmi, setBmi] = useState(String(userRecord.bmi));
-  const [bp, setBp] = useState(userRecord.bloodPressure);
-  const [exercise, setExercise] = useState(String(userRecord.exerciseHoursPerWeek));
-  const [sleep, setSleep] = useState(String(userRecord.sleepHoursPerNight));
-  const [stress, setStress] = useState(userRecord.stressLevel);
+  const [dept, setDept] = useState(initialUserRecord.department);
+  const [bmi, setBmi] = useState(String(initialUserRecord.bmi));
+  const [bp, setBp] = useState(initialUserRecord.bloodPressure);
+  const [exercise, setExercise] = useState(String(initialUserRecord.exerciseHoursPerWeek));
+  const [sleep, setSleep] = useState(String(initialUserRecord.sleepHoursPerNight));
+  const [stress, setStress] = useState(initialUserRecord.stressLevel);
+
+  // Effect to update form fields when the user's record changes (e.g., after initial load or admin update)
+  useEffect(() => {
+    const currentRecord = records.find(r => r.employeeId === userEmpId);
+    if (currentRecord) {
+      setDept(currentRecord.department);
+      setBmi(String(currentRecord.bmi));
+      setBp(currentRecord.bloodPressure);
+      setExercise(String(currentRecord.exerciseHoursPerWeek));
+      setSleep(String(currentRecord.sleepHoursPerNight));
+      setStress(currentRecord.stressLevel);
+    }
+  }, [records, userEmpId]);
 
   const [showSyncSuccess, setShowSyncSuccess] = useState(false);
 
@@ -265,7 +278,7 @@ export function UserProfileModule({ user, records, onUpdateRecord, onAddSentimen
     }
 
     const updated = {
-      ...userRecord,
+      ...initialUserRecord, // Use initialUserRecord to retain original ID and name
       department: dept,
       bmi: calculatedBmi,
       bloodPressure: bp,
@@ -350,6 +363,14 @@ export function UserProfileModule({ user, records, onUpdateRecord, onAddSentimen
           </div>
 
           <form onSubmit={handleUpdateProfile} className="space-y-4">
+            <div>
+              <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">My Employee ID</label>
+              <p className="w-full px-3.5 py-2.5 bg-slate-100 border border-slate-200 rounded-lg text-xs text-slate-700 outline-none select-none">
+                {user.employeeId}
+              </p>
+            </div>
+
+
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
                 <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">My Department</label>
@@ -755,6 +776,7 @@ export default function UserDashboard({ user,
           <div className="flex items-center gap-3 text-right">
             <div className="hidden sm:block text-right mr-3">
               <span className="block text-sm font-semibold text-slate-800 leading-tight">{user.name}</span>
+              <span className="block text-[10px] text-slate-400 font-mono mt-0.5">{user.employeeId}</span>
               <span className="inline-block mt-1 px-2 py-0.5 bg-slate-50 border border-slate-200 text-slate-500 text-[9px] font-mono font-bold rounded uppercase tracking-widest leading-none">
                 Employee
               </span>
