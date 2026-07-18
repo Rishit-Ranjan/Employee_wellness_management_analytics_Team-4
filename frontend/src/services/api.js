@@ -123,6 +123,12 @@ export const updateHealthRecord = (updatedRecord) => request(`/wellness/health-r
  * @returns {Promise<Object>} A promise that resolves on successful deletion.
  */
 export const deleteHealthRecord = (employeeId) => request(`/wellness/health-records/${employeeId}`, { method: 'DELETE' });
+
+/**
+ * Fetches all wellness risk predictions from the backend.
+ * @returns {Promise<Array<Object>>} A promise that resolves to the list of risk profiles.
+ */
+export const fetchRisks = () => request('/wellness/risks');
 // --- LocalStorage helpers for non-persistent prototype data ---
 const getFromStorage = (key, defaultValue) => {
     try {
@@ -143,13 +149,10 @@ const saveToStorage = (key, data) => {
 };
 
 export const fetchAllWellnessData = async () => ({
-    risks: getFromStorage('wellness_risks', []),
     recommendations: getFromStorage('wellness_recommendations', []),
     sentiments: getFromStorage('wellness_sentiments', []),
 });
 
-export const saveRisks = (risksData) => saveToStorage('wellness_risks', risksData);
-
 export const saveSentiments = (sentimentsData) => saveToStorage('wellness_sentiments', sentimentsData);
 
-export default { login, signup, me, logout, forgotPassword, resetPassword, fetchUsers, fetchHealthRecords, addHealthRecord, updateHealthRecord, deleteHealthRecord, fetchAllWellnessData, saveRisks, saveSentiments };
+export default { login, signup, me, logout, forgotPassword, resetPassword, fetchUsers, fetchHealthRecords, addHealthRecord, updateHealthRecord, deleteHealthRecord, fetchRisks, fetchAllWellnessData, saveSentiments };

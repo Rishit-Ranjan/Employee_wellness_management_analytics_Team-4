@@ -19,12 +19,24 @@ export function HealthDataModule({ records, allUsers, onAddRecord, onUpdateRecor
   
   // Form states (using selectedEmployee to hold "employeeId|employeeName")
   const [selectedEmployee, setSelectedEmployee] = useState('');
+  const [age, setAge] = useState('');
+  const [gender, setGender] = useState('Male');
+  const [heightCm, setHeightCm] = useState('');
+  const [weightKg, setWeightKg] = useState('');
   const [dept, setDept] = useState('Engineering');
   const [bmi, setBmi] = useState('');
   const [bp, setBp] = useState('');
+  const [exerciseDaysPerWeek, setExerciseDaysPerWeek] = useState('');
   const [exercise, setExercise] = useState('');
   const [sleep, setSleep] = useState('');
   const [stress, setStress] = useState('');
+  const [stressScore, setStressScore] = useState('');
+  const [attendanceRate, setAttendanceRate] = useState('');
+  const [medicalNotes, setMedicalNotes] = useState('');
+  const [medicalCondition, setMedicalCondition] = useState('No major condition');
+  const [smoker, setSmoker] = useState(false);
+  const [alcoholUse, setAlcoholUse] = useState(false);
+  const [glucoseLevel, setGlucoseLevel] = useState('');
 
   const actionMenuRef = useRef(null);
 
@@ -49,11 +61,23 @@ export function HealthDataModule({ records, allUsers, onAddRecord, onUpdateRecor
     setEditingRecord(record);
     setSelectedEmployee(`${record.employeeId}|${record.employeeName}`); // Store combined ID and Name for pre-filling dropdown
     setDept(record.department);
+    setAge(String(record.age));
+    setGender(record.gender);
+    setHeightCm(String(record.heightCm));
+    setWeightKg(String(record.weightKg));
     setBmi(String(record.bmi));
     setBp(record.bloodPressure);
+    setExerciseDaysPerWeek(String(record.exerciseDaysPerWeek));
     setExercise(String(record.exerciseHoursPerWeek));
     setSleep(String(record.sleepHoursPerNight));
     setStress(record.stressLevel);
+    setStressScore(String(record.stressScore));
+    setAttendanceRate(String(record.attendanceRate));
+    setMedicalNotes(record.medicalNotes);
+    setMedicalCondition(record.medicalCondition);
+    setSmoker(record.smoker);
+    setAlcoholUse(record.alcoholUse);
+    setGlucoseLevel(String(record.glucoseLevel));
     setIsAddOpen(true);
     setError(''); // Clear any previous errors when opening modal
   };
@@ -72,7 +96,18 @@ export function HealthDataModule({ records, allUsers, onAddRecord, onUpdateRecor
     setEditingRecord(null); // Ensure we're in add mode
     setSelectedEmployee(''); // Clear selected employee
     // Reset other form fields to default/empty
-    setDept('Engineering'); setBmi(''); setBp(''); setExercise(''); setSleep(''); setStress('Medium');
+    setAge('');
+    setGender('Male');
+    setHeightCm('');
+    setWeightKg('');
+    setDept('Engineering');
+    setBmi(''); setBp('');
+    setExerciseDaysPerWeek('');
+    setExercise(''); setSleep('');
+    setStress('Medium');
+    setStressScore('');
+    setAttendanceRate('');
+    setMedicalNotes(''); setMedicalCondition('No major condition'); setSmoker(false); setAlcoholUse(false); setGlucoseLevel('');
     setIsAddOpen(true);
     setError(''); // Clear any previous errors when opening modal
   };
@@ -86,7 +121,7 @@ export function HealthDataModule({ records, allUsers, onAddRecord, onUpdateRecor
   
   const handleFormSubmit = async (e) => {
     e.preventDefault();
-    if (!selectedEmployee || !dept || !bmi || !bp || !exercise || !sleep || !stress) {
+    if (!selectedEmployee || !age || !gender || !heightCm || !weightKg || !dept || !bmi || !bp || !exerciseDaysPerWeek || !exercise || !sleep || !stress || !stressScore || !attendanceRate || !medicalCondition || !glucoseLevel) {
       setError('Please fill in all required fields.');
       return;
     }
@@ -97,10 +132,20 @@ export function HealthDataModule({ records, allUsers, onAddRecord, onUpdateRecor
     let assessment = 'Good';
     const [sys, dia] = bp.split('/').map(Number);
 
-    if (stress === 'High' || sys >= 140 || calculatedBmi >= 30) {
+    if (stress === 'High' || Number(stressScore) >= 7 || sys >= 140 || calculatedBmi >= 30) {
       assessment = 'Needs Attention';
-    } else if (stress === 'Low' && calculatedBmi < 25 && calculatedBmi >= 18.5 && Number(sleep) >= 7) {
+    } else if (stress === 'Low' && Number(stressScore) <= 3 && calculatedBmi < 25 && calculatedBmi >= 18.5 && Number(sleep) >= 7 && Number(exerciseDaysPerWeek) >= 3) {
       assessment = 'Excellent';
+    } else if (Number(attendanceRate) < 85) {
+      assessment = 'Fair';
+    } else if (medicalCondition !== 'No major condition') {
+      assessment = 'Fair';
+    } else if (smoker || alcoholUse) {
+      assessment = 'Fair';
+    } else if (Number(glucoseLevel) > 100) {
+      assessment = 'Fair';
+    } else if (Number(exerciseDaysPerWeek) < 2) {
+      assessment = 'Fair';
     } else if (Number(sleep) < 6) {
       assessment = 'Fair';
     }
@@ -115,13 +160,25 @@ export function HealthDataModule({ records, allUsers, onAddRecord, onUpdateRecor
         // or keep original if not changed (though dropdown forces selection)
         employeeId: empId,
         employeeName: empName,
+        age: Number(age),
+        gender: gender,
+        heightCm: Number(heightCm),
+        weightKg: Number(weightKg),
         department: dept,
         bmi: calculatedBmi,
         bloodPressure: bp,
-
-        exerciseHoursPerWeek: Number(exercise),
+        exerciseDaysPerWeek: Number(exerciseDaysPerWeek),
+        exerciseHoursPerWeek: Number(exercise) || 0,
+        sleep_hours: Number(sleep) || 0,
         sleepHoursPerNight: Number(sleep),
         stressLevel: stress,
+        stressScore: Number(stressScore),
+        attendanceRate: Number(attendanceRate),
+        medicalNotes: medicalNotes,
+        medicalCondition: medicalCondition,
+        smoker: smoker,
+        alcoholUse: alcoholUse,
+        glucoseLevel: Number(glucoseLevel),
         healthAssessment: assessment,
         lastUpdated: new Date().toISOString().split('T')[0]
       };
@@ -133,12 +190,25 @@ export function HealthDataModule({ records, allUsers, onAddRecord, onUpdateRecor
       const newRec = {
         employeeId: empId,
         employeeName: empName,
+        age: Number(age),
+        gender: gender,
+        heightCm: Number(heightCm),
+        weightKg: Number(weightKg),
         department: dept,
         bmi: calculatedBmi,
         bloodPressure: bp,
         exerciseHoursPerWeek: Number(exercise),
-        sleepHoursPerNight: Number(sleep),
+        exerciseDaysPerWeek: Number(exerciseDaysPerWeek),
+        sleep_hours: Number(sleep) || 0,
+        sleepHoursPerNight: Number(sleep) || 0,
         stressLevel: stress,
+        stressScore: Number(stressScore),
+        attendanceRate: Number(attendanceRate),
+        medicalNotes: medicalNotes,
+        medicalCondition: medicalCondition,
+        smoker: smoker,
+        alcoholUse: alcoholUse,
+        glucoseLevel: Number(glucoseLevel),
         healthAssessment: assessment,
         lastUpdated: new Date().toISOString().split('T')[0]
       };
@@ -149,8 +219,10 @@ export function HealthDataModule({ records, allUsers, onAddRecord, onUpdateRecor
     setIsAddOpen(false);
     // Reset Form
     setSelectedEmployee('');
-    // setName(''); // Removed as name comes from selectedEmployee
-    setBmi(''); setBp(''); setExercise(''); setSleep(''); setStress('Medium');
+    setAge(''); setGender('Male'); setHeightCm(''); setWeightKg('');
+    setBmi(''); setBp(''); setExerciseDaysPerWeek(''); setExercise(''); setSleep('');
+    setStress('Medium'); setStressScore(''); setAttendanceRate('');
+    setMedicalNotes(''); setMedicalCondition('No major condition'); setSmoker(false); setAlcoholUse(false); setGlucoseLevel('');
     setEditingRecord(null);
     setError(''); // Clear error after successful submission
   };
@@ -212,8 +284,8 @@ export function HealthDataModule({ records, allUsers, onAddRecord, onUpdateRecor
       {/* Add Record Modal Popup */}
       {isAddOpen && (
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 z-50 animate-fadeIn">
-          <div className="bg-white rounded-2xl border border-slate-200 w-full max-w-lg overflow-hidden shadow-2xl">
-            <div className="bg-slate-50 border-b border-slate-100 px-6 py-4 flex items-center justify-between">
+          <div className="bg-white rounded-2xl border border-slate-200 w-full max-w-lg shadow-2xl flex flex-col max-h-[90vh]">
+            <div className="bg-slate-50 border-b border-slate-100 px-6 py-4 flex items-center justify-between shrink-0">
               <div className="flex items-center gap-2">
                 <Activity className="w-5 h-5 text-slate-800" />
                 <h3 className="font-display font-semibold text-sm text-slate-800">
@@ -228,7 +300,7 @@ export function HealthDataModule({ records, allUsers, onAddRecord, onUpdateRecor
               </button>
             </div>
 
-            <form onSubmit={handleFormSubmit} className="p-6 space-y-4">
+            <form onSubmit={handleFormSubmit} className="flex-1 overflow-y-auto p-6 space-y-4">
               <div className="grid grid-cols-2 gap-4">
                 {editingRecord ? (
                   <div className="col-span-2">
@@ -254,6 +326,28 @@ export function HealthDataModule({ records, allUsers, onAddRecord, onUpdateRecor
                     </select>
                   </div>
                 )}
+
+                {/* New fields */}
+                <div>
+                  <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1.5">Age</label>
+                  <input type="number" required value={age} onChange={(e) => setAge(e.target.value)} placeholder="30" className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 focus:border-indigo-500 focus:bg-white rounded-lg text-xs text-slate-800 outline-none" />
+                </div>
+                <div>
+                  <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1.5">Gender</label>
+                  <select value={gender} onChange={(e) => setGender(e.target.value)} className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-lg text-xs text-slate-800 outline-none">
+                    <option value="Male">Male</option>
+                    <option value="Female">Female</option>
+                    <option value="Other">Other</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1.5">Height (cm)</label>
+                  <input type="number" step="0.1" required value={heightCm} onChange={(e) => setHeightCm(e.target.value)} placeholder="170.5" className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 focus:border-indigo-500 focus:bg-white rounded-lg text-xs text-slate-800 outline-none" />
+                </div>
+                <div>
+                  <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1.5">Weight (kg)</label>
+                  <input type="number" step="0.1" required value={weightKg} onChange={(e) => setWeightKg(e.target.value)} placeholder="70.2" className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 focus:border-indigo-500 focus:bg-white rounded-lg text-xs text-slate-800 outline-none" />
+                </div>
 
                 <div>
                   <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1.5">Department</label>
@@ -296,6 +390,11 @@ export function HealthDataModule({ records, allUsers, onAddRecord, onUpdateRecor
                 </div>
 
                 <div>
+                  <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1.5">Exercise (Days/wk)</label>
+                  <input type="number" required value={exerciseDaysPerWeek} onChange={(e) => setExerciseDaysPerWeek(e.target.value)} placeholder="3" className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 focus:border-indigo-500 focus:bg-white rounded-lg text-xs text-slate-800 outline-none" />
+                </div>
+
+                <div>
                   <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1.5">Exercise (Hours/wk)</label>
                   <input
                     type="number"
@@ -331,9 +430,46 @@ export function HealthDataModule({ records, allUsers, onAddRecord, onUpdateRecor
                     <option value="High">High</option>
                   </select>
                 </div>
+                <div>
+                  <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1.5">Stress Score (1-10)</label>
+                  <input type="number" min="1" max="10" step="0.1" required value={stressScore} onChange={(e) => setStressScore(e.target.value)} placeholder="5.5" className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 focus:border-indigo-500 focus:bg-white rounded-lg text-xs text-slate-800 outline-none" />
+                </div>
+                <div>
+                  <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1.5">Attendance Rate (%)</label>
+                  <input type="number" min="0" max="100" step="0.1" required value={attendanceRate} onChange={(e) => setAttendanceRate(e.target.value)} placeholder="95" className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 focus:border-indigo-500 focus:bg-white rounded-lg text-xs text-slate-800 outline-none" />
+                </div>
+                <div className="col-span-2">
+                  <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1.5">Medical Condition</label>
+                  <select value={medicalCondition} onChange={(e) => setMedicalCondition(e.target.value)} className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-lg text-xs text-slate-800 outline-none">
+                    <option value="No major condition">No major condition</option>
+                    <option value="Stress-related fatigue">Stress-related fatigue</option>
+                    <option value="Mild fatigue">Mild fatigue</option>
+                    <option value="Chronic pain">Chronic pain</option>
+                    <option value="Allergies">Allergies</option>
+                    <option value="Other">Other</option>
+                  </select>
+                </div>
+                <div className="col-span-2">
+                  <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1.5">Medical Notes</label>
+                  <textarea value={medicalNotes} onChange={(e) => setMedicalNotes(e.target.value)} placeholder="Any relevant medical notes..." rows="2" className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 focus:border-indigo-500 focus:bg-white rounded-lg text-xs text-slate-800 outline-none"></textarea>
+                </div>
+                <div>
+                  <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1.5">Glucose Level</label>
+                  <input type="number" step="0.1" required value={glucoseLevel} onChange={(e) => setGlucoseLevel(e.target.value)} placeholder="90" className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 focus:border-indigo-500 focus:bg-white rounded-lg text-xs text-slate-800 outline-none" />
+                </div>
+                <div className="flex items-center gap-4">
+                  <label className="flex items-center gap-2 text-xs text-slate-800">
+                    <input type="checkbox" checked={smoker} onChange={(e) => setSmoker(e.target.checked)} className="form-checkbox h-3.5 w-3.5 text-indigo-600 rounded border-slate-300" />
+                    Smoker
+                  </label>
+                  <label className="flex items-center gap-2 text-xs text-slate-800">
+                    <input type="checkbox" checked={alcoholUse} onChange={(e) => setAlcoholUse(e.target.checked)} className="form-checkbox h-3.5 w-3.5 text-indigo-600 rounded border-slate-300" />
+                    Alcohol User
+                  </label>
+                </div>
               </div>
 
-              <div className="flex gap-3 justify-end pt-5 border-t border-slate-100">
+              <div className="flex gap-3 justify-end pt-5 border-t border-slate-200 shrink-0">
                 <button
                   type="button"
                   onClick={() => { setIsAddOpen(false); setEditingRecord(null); }}
@@ -353,112 +489,127 @@ export function HealthDataModule({ records, allUsers, onAddRecord, onUpdateRecor
         </div>
       )}
 
-      {/* Health records Table */}
-      <div className="bg-white rounded-xl border border-slate-200 shadow-sm">
-        <div className="overflow-x-auto">
-          <table className="w-full border-collapse text-left text-xs text-slate-600">
-            <thead className="bg-slate-50/70 text-[10px] font-bold text-slate-500 uppercase tracking-wider border-b border-slate-200">
-              <tr>
-                <th className="px-5 py-4">Employee</th>
-                <th className="px-5 py-4">Department</th>
-                <th className="px-5 py-4">BMI</th>
-                <th className="px-5 py-4">BP Vitals</th>
-                <th className="px-5 py-4">Exercise (hrs/wk)</th>
-                <th className="px-5 py-4">Sleep (hrs/night)</th>
-                <th className="px-5 py-4">Stress Level</th>
-                <th className="px-5 py-4">Status Index</th>
-                <th className="px-5 py-4 text-right">Last Sync</th>
-                <th className="px-5 py-4 text-center">Actions</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100">
-              {filtered.length === 0 ? (
-                <tr>
-                  <td colSpan={10} className="text-center py-10 text-slate-400 font-mono">
-                    No records found matching filters.
-                  </td>
-                </tr>
-              ) : (
-                filtered.map((record) => (
-                  <tr key={record.id} className="hover:bg-slate-50/60 transition-colors">
-                    <td className="px-5 py-3.5 font-semibold text-slate-800">
-                      <div>{record.employeeName}</div>
-                      <div className="text-[10px] text-slate-400 font-mono mt-0.5">{record.employeeId}</div>
-                    </td>
-                    <td className="px-5 py-3.5 text-slate-600 font-medium">{record.department}</td>
-                    <td className="px-5 py-3.5">
-                      <span className="font-semibold font-mono text-slate-850">{record.bmi}</span>
-                      <span className="text-[10px] text-slate-400 ml-1.5 font-mono">
-                        {record.bmi >= 30 ? 'Obese' : record.bmi >= 25 ? 'Overweight' : 'Normal'}
-                      </span>
-                    </td>
-                    <td className="px-5 py-3.5 font-semibold font-mono text-slate-500">{record.bloodPressure}</td>
-                    <td className="px-5 py-3.5 font-semibold font-mono text-slate-600">
-                      {record.exerciseHoursPerWeek}
-                    </td>
-                    <td className="px-5 py-3.5 font-semibold font-mono text-slate-600">
-                      {record.sleepHoursPerNight}
-                    </td>
-                    <td className="px-5 py-3.5">
-                      <span className={`px-2.5 py-1 rounded-md text-[10px] font-bold ${
-                        record.stressLevel === 'Low' ? 'bg-emerald-50 border border-emerald-100 text-emerald-700' :
-                        record.stressLevel === 'Medium' ? 'bg-amber-50 border border-amber-100 text-amber-700' :
-                        'bg-red-50 border border-red-100 text-red-700'
-                      }`}>
-                        {record.stressLevel}
-                      </span>
-                    </td>
-                    <td className="px-5 py-3.5">
-                      <span className={`px-2.5 py-1 rounded-md text-[10px] font-bold ${
-                        record.healthAssessment === 'Excellent' ? 'bg-emerald-50 text-emerald-700 border border-emerald-100' :
-                        record.healthAssessment === 'Good' ? 'bg-indigo-50 text-indigo-700 border border-indigo-100' :
-                        record.healthAssessment === 'Fair' ? 'bg-amber-50 text-amber-700 border border-amber-100' :
-                        'bg-red-50 text-red-700 border border-red-100'
-                      }`}>
-                        {record.healthAssessment}
-                      </span>
-                    </td>
-                    <td className="px-5 py-3.5 text-right font-mono text-[10px] text-slate-400">{record.lastUpdated}</td>
-                    <td className="px-5 py-3.5 text-center">
-                      <button
-                        onClick={(e) => handleMenuToggle(e, record.id)}
-                        className="p-2 text-slate-400 hover:text-slate-600 rounded-md transition-colors"
-                      >
-                        <MoreHorizontal className="w-4 h-4" />
-                      </button>
-                    </td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-          {openActionMenu && (
-            <div
-              ref={actionMenuRef}
-              style={{ top: `${menuPosition.top}px`, left: `${menuPosition.left}px` }}
-              className="fixed w-32 bg-white rounded-md shadow-lg border border-slate-200 z-50"
-            >
-              <div className="py-1">
-                <button
-                  onClick={() => { openEditModal(records.find(r => r.id === openActionMenu)); setOpenActionMenu(null); }}
-                  className="w-full text-left px-4 py-2 text-xs text-slate-700 hover:bg-slate-100 flex items-center gap-2"
-                >
-                  <Edit className="w-3.5 h-3.5" /> Edit
-                </button>
-                <button
-                  onClick={() => { if (window.confirm(`Are you sure?`)) { onDeleteRecord(records.find(r => r.id === openActionMenu).employeeId); } setOpenActionMenu(null); }}
-                  className="w-full text-left px-4 py-2 text-xs text-red-600 hover:bg-red-50 flex items-center gap-2"
-                >
-                  <Trash2 className="w-3.5 h-3.5" /> Delete
-                </button>
+      {/* Health records Card View */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+        {filtered.length === 0 ? (
+          <div className="col-span-full bg-white border border-slate-200 rounded-xl p-10 text-center font-mono text-xs text-slate-400 shadow-sm">
+            No records found matching filters.
+          </div>
+        ) : (
+          <>
+            {filtered.map((record) => (
+              <div key={record.id} className="bg-white rounded-xl border border-slate-200 p-5 space-y-4 shadow-sm relative">
+                <div className="absolute top-3 right-3">
+                  <button
+                    onClick={(e) => handleMenuToggle(e, record.id)}
+                    className="p-1.5 text-slate-400 hover:text-slate-600 rounded-md transition-colors"
+                    data-record-id={record.id}
+                  >
+                    <MoreHorizontal className="w-4 h-4" />
+                  </button>
+                </div>
+
+                <div className="flex items-center gap-3">
+                  <div className="w-9 h-9 rounded-full bg-slate-100 border border-slate-200 flex items-center justify-center font-bold text-sm text-slate-700">
+                    {record.employeeName.substring(0, 2).toUpperCase()}
+                  </div>
+                  <div>
+                    <h4 className="font-semibold text-slate-800">{record.employeeName}</h4>
+                    <div className="text-[10px] text-slate-400 font-mono">{record.employeeId}</div>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-x-4 gap-y-2 text-xs text-slate-600">
+                  <div className="flex items-center gap-2">
+                    <span className="font-medium text-slate-500">Dept:</span>
+                    <span className="font-semibold">{record.department}</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="font-medium text-slate-500">Age:</span>
+                    <span className="font-semibold">{record.age}</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="font-medium text-slate-500">BMI:</span>
+                    <span className="font-semibold font-mono">{record.bmi}</span>
+                    <span className="text-[9px] text-slate-400 ml-0.5">
+                      {record.bmi >= 30 ? 'Obese' : record.bmi >= 25 ? 'Overweight' : 'Normal'}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="font-medium text-slate-500">BP:</span>
+                    <span className="font-semibold font-mono">{record.bloodPressure}</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="font-medium text-slate-500">Ex (hrs/wk):</span>
+                    <span className="font-semibold font-mono">{record.exerciseHoursPerWeek}</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="font-medium text-slate-500">Sleep (hrs/nt):</span>
+                    <span className="font-semibold font-mono">{record.sleepHoursPerNight}</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="font-medium text-slate-500">Stress:</span>
+                    <span className={`px-2 py-0.5 rounded-md text-[9px] font-bold ${
+                      record.stressLevel === 'Low' ? 'bg-emerald-50 border border-emerald-100 text-emerald-700' :
+                      record.stressLevel === 'Medium' ? 'bg-amber-50 border border-amber-100 text-amber-700' :
+                      'bg-red-50 border border-red-100 text-red-700'
+                    }`}>
+                      {record.stressLevel}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="font-medium text-slate-500">Glucose:</span>
+                    <span className="font-semibold font-mono">{record.glucoseLevel}</span>
+                  </div>
+                  <div className="flex items-center gap-2 col-span-2">
+                    <span className="font-medium text-slate-500">Condition:</span>
+                    <span className="font-semibold text-[10px]">{record.medicalCondition}</span>
+                  </div>
+                </div>
+
+                <div className="pt-4 border-t border-slate-100 flex items-center justify-between text-[10px] text-slate-400 font-mono">
+                  <span>Last Sync: {record.lastUpdated}</span>
+                  <span className={`px-2.5 py-1 rounded-md text-[10px] font-bold ${
+                    record.healthAssessment === 'Excellent' ? 'bg-emerald-50 text-emerald-700 border border-emerald-100' :
+                    record.healthAssessment === 'Good' ? 'bg-indigo-50 text-indigo-700 border border-indigo-100' :
+                    record.healthAssessment === 'Fair' ? 'bg-amber-50 text-amber-700 border border-amber-100' :
+                    'bg-red-50 text-red-700 border border-red-100'
+                  }`}>
+                    {record.healthAssessment}
+                  </span>
+                </div>
               </div>
-            </div>
-          )}
-        </div>
+            ))}
+          </>
+        )}
       </div>
+
+      {openActionMenu && (
+        <div
+          ref={actionMenuRef}
+          style={{ top: `${menuPosition.top}px`, left: `${menuPosition.left}px` }}
+          className="fixed w-32 bg-white rounded-md shadow-lg border border-slate-200 z-50"
+        >
+          <div className="py-1">
+            <button
+              onClick={() => { openEditModal(records.find(r => r.id === openActionMenu)); setOpenActionMenu(null); }}
+              className="w-full text-left px-4 py-2 text-xs text-slate-700 hover:bg-slate-100 flex items-center gap-2"
+            >
+              <Edit className="w-3.5 h-3.5" /> Edit
+            </button>
+            <button
+              onClick={() => { if (window.confirm(`Are you sure?`)) { onDeleteRecord(records.find(r => r.id === openActionMenu).employeeId); } setOpenActionMenu(null); }}
+              className="w-full text-left px-4 py-2 text-xs text-red-600 hover:bg-red-50 flex items-center gap-2"
+            >
+              <Trash2 className="w-3.5 h-3.5" /> Delete
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
+
 
 // ==========================================
 // MODULE 2: WELLNESS RISK PREDICTION
@@ -466,11 +617,19 @@ export function HealthDataModule({ records, allUsers, onAddRecord, onUpdateRecor
 export function RiskPredictionModule({ risks  }) {
   const [filter, setFilter] = useState('ALL');
 
-  const highCount = risks.filter(r => r.riskScore >= 70).length;
-  const mediumCount = risks.filter(r => r.riskScore >= 45 && r.riskScore < 70).length;
-  const lowCount = risks.filter(r => r.riskScore < 45).length;
+  const normalizedRisks = (risks || []).map((r) => ({
+    ...r,
+    riskScore: Number(r.riskScore),
+    factors: Array.isArray(r.factors) ? r.factors : [],
+    recommendationAction: r.recommendationAction || '',
+  }));
 
-  const filteredRisks = risks.filter(r => {
+  const highCount = normalizedRisks.filter(r => r.riskScore >= 70).length;
+  const mediumCount = normalizedRisks.filter(r => r.riskScore >= 45 && r.riskScore < 70).length;
+  const lowCount = normalizedRisks.filter(r => r.riskScore < 45).length;
+
+
+  const filteredRisks = normalizedRisks.filter(r => {
     if (filter === 'HIGH') return r.riskScore >= 70;
     if (filter === 'MEDIUM') return r.riskScore >= 45 && r.riskScore < 70;
     if (filter === 'LOW') return r.riskScore < 45;
@@ -605,7 +764,7 @@ export function RiskPredictionModule({ risks  }) {
                 <div className="flex justify-between items-start">
                   <div>
                     <h4 className="font-semibold text-slate-800">{risk.employeeName}</h4>
-                    <span className="text-[10px] text-slate-400 font-mono">ID</span>
+                    <span className="text-[10px] text-slate-400 font-mono">{risk.employeeId}</span>
                   </div>
                   <div className="flex flex-col items-end gap-1">
                     <span className={`px-2 py-0.5 rounded text-[8px] font-bold uppercase tracking-wider ${

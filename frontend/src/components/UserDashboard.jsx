@@ -205,7 +205,7 @@ export function ChatbotModule({ user, isFloating = false  }) {
 // ==========================================
 // MODULE 7: PERSONAL USER WELLNESS PROFILE
 // ==========================================
-export function UserProfileModule({ user, records, onUpdateRecord, onAddSentimentPulse,
+export function UserProfileModule({ user, records, risks = [], onUpdateRecord, onAddRecord, onAddSentimentPulse,
   dailyHabits, onAddDailyHabit, onUpdateDailyHabit,
   mentalHealthLogs, onAddMentalHealthLog, onUpdateMentalHealthLog
 }) {
@@ -218,74 +218,78 @@ export function UserProfileModule({ user, records, onUpdateRecord, onAddSentimen
     employeeId: user.employeeId, // Use correct employeeId for new records
     employeeName: user.name, // Corrected typo
     department: 'Engineering',
+    age: '',
+    gender: 'Male',
+    heightCm: '',
+    weightKg: '',
     bmi: '',
     bloodPressure: '',
+    exerciseDaysPerWeek: '',
     stressLevel: 'Medium',
+    stressScore: '',
+    attendanceRate: '',
+    medicalNotes: '',
+    medicalCondition: 'No major condition',
+    smoker: false,
+    alcoholUse: false,
+    glucoseLevel: '',
     exerciseHoursPerWeek: '',
     sleepHoursPerNight: '',
     // id is intentionally omitted here for new records; backend will assign _id
   };
 
-  const initialDailyHabit = existingDailyHabit || {
-    employeeId: user.employeeId,
-    waterCups: 0,
-    stepsCount: 0,
-    lastUpdated: new Date().toISOString().split('T')[0]
-  };
-
-  const initialMentalHealthLog = existingMentalHealthLog || {
-    employeeId: user.employeeId,
-    mood: 'Neutral',
-    stressLevel: 5,
-    feedback: '',
-    streakDays: 0,
-    date: new Date().toISOString().split('T')[0]
-  };
-
   const [dept, setDept] = useState(initialUserRecord.department);
+  const [age, setAge] = useState(String(initialUserRecord.age));
+  const [gender, setGender] = useState(initialUserRecord.gender);
+  const [heightCm, setHeightCm] = useState(String(initialUserRecord.heightCm));
+  const [weightKg, setWeightKg] = useState(String(initialUserRecord.weightKg));
   const [bmi, setBmi] = useState(String(initialUserRecord.bmi));
   const [bp, setBp] = useState(initialUserRecord.bloodPressure);
+  const [exerciseDaysPerWeek, setExerciseDaysPerWeek] = useState(String(initialUserRecord.exerciseDaysPerWeek));
   const [exercise, setExercise] = useState(String(initialUserRecord.exerciseHoursPerWeek));
   const [sleep, setSleep] = useState(String(initialUserRecord.sleepHoursPerNight));
   const [stress, setStress] = useState(initialUserRecord.stressLevel);
+  const [stressScore, setStressScore] = useState(String(initialUserRecord.stressScore));
+  const [attendanceRate, setAttendanceRate] = useState(String(initialUserRecord.attendanceRate));
+  const [medicalNotes, setMedicalNotes] = useState(initialUserRecord.medicalNotes);
+  const [medicalCondition, setMedicalCondition] = useState(initialUserRecord.medicalCondition);
+  const [smoker, setSmoker] = useState(initialUserRecord.smoker);
+  const [alcoholUse, setAlcoholUse] = useState(initialUserRecord.alcoholUse);
+  const [glucoseLevel, setGlucoseLevel] = useState(String(initialUserRecord.glucoseLevel));
 
   // Effect to update form fields when the user's record changes (e.g., after initial load or admin update)
   useEffect(() => { // Re-evaluate initial form states if records or userEmpId changes
     const currentRecord = records.find(r => r.employeeId === user.employeeId);
     if (currentRecord) {
+      setAge(String(currentRecord.age || ''));
+      setGender(currentRecord.gender || 'Male');
+      setHeightCm(String(currentRecord.heightCm || ''));
+      setWeightKg(String(currentRecord.weightKg || ''));
       setDept(currentRecord.department);
       setBmi(String(currentRecord.bmi));
       setBp(currentRecord.bloodPressure);
+      setExerciseDaysPerWeek(String(currentRecord.exerciseDaysPerWeek || ''));
       setExercise(String(currentRecord.exerciseHoursPerWeek));
       setSleep(String(currentRecord.sleepHoursPerNight));
       setStress(currentRecord.stressLevel);
+      setStressScore(String(currentRecord.stressScore || ''));
+      setAttendanceRate(String(currentRecord.attendanceRate || ''));
+      setMedicalNotes(currentRecord.medicalNotes || '');
+      setMedicalCondition(currentRecord.medicalCondition || 'No major condition');
+      setSmoker(currentRecord.smoker || false);
+      setAlcoholUse(currentRecord.alcoholUse || false);
+      setGlucoseLevel(String(currentRecord.glucoseLevel || ''));
     }
-
-    // Update daily habits form fields
-    if (existingDailyHabit) {
-      setWaterCups(existingDailyHabit.waterCups);
-      setStepsCount(existingDailyHabit.stepsCount);
-    }
-
-    // Update mental health log form fields
-    if (existingMentalHealthLog) {
-      setMood(existingMentalHealthLog.mood);
-      setPulseStress(existingMentalHealthLog.stressLevel);
-      setPulseFeedback(existingMentalHealthLog.feedback);
-      setStreakDays(existingMentalHealthLog.streakDays);
-    }
-  }, [records, user.employeeId, dailyHabits, mentalHealthLogs]); // Add dailyHabits and mentalHealthLogs to dependencies
+  }, [records, user.employeeId]);
 
   const [showSyncSuccess, setShowSyncSuccess] = useState(false);
-  // isNewRecord for health vitals is now derived from existingRecord
-  const [isNewHealthRecord, setIsNewHealthRecord] = useState(!existingRecord);
+  const [isNewHealthRecord, setIsNewHealthRecord] = useState(!existingRecord); // Renamed for clarity
   const [error, setError] = useState(''); // State for form errors
 
-  // Local states for daily habits and mental health, initialized from props
-  const [waterCups, setWaterCups] = useState(initialDailyHabit.waterCups);
-  const [stepsCount, setStepsCount] = useState(initialDailyHabit.stepsCount);
-  const [mood, setMood] = useState(initialMentalHealthLog.mood);
-  const [streakDays, setStreakDays] = useState(initialMentalHealthLog.streakDays);
+  const [waterCups, setWaterCups] = useState(existingDailyHabit?.waterCups || 0);
+  const [stepsCount, setStepsCount] = useState(existingDailyHabit?.stepsCount || 4200);
+  const [mood, setMood] = useState(existingMentalHealthLog?.mood || 'Neutral');
+  const [streakDays, setStreakDays] = useState(existingMentalHealthLog?.streakDays || 0);
 
   // Local states for pulse check
   const [pulseStress, setPulseStress] = useState(5);
@@ -315,22 +319,34 @@ export function UserProfileModule({ user, records, onUpdateRecord, onAddSentimen
     const updated = {
       // Always include employeeId and employeeName, as they are part of the record structure
       employeeId: user.employeeId,
-      employeeName: user.name, // Corrected typo
+      employeeName: user.name,
+      age: Number(age),
+      gender: gender,
+      heightCm: Number(heightCm),
+      weightKg: Number(weightKg),
       ...(existingRecord ? { id: existingRecord.id } : {}), // Only include 'id' if updating an existing record
       department: dept,
       bmi: calculatedBmi,
       bloodPressure: bp,
+      exerciseDaysPerWeek: Number(exerciseDaysPerWeek),
       exerciseHoursPerWeek: Number(exercise) || 0,
       sleepHoursPerNight: Number(sleep) || 0,
       stressLevel: stress,
+      stressScore: Number(stressScore),
+      attendanceRate: Number(attendanceRate),
+      medicalNotes: medicalNotes,
+      medicalCondition: medicalCondition,
+      smoker: smoker,
+      alcoholUse: alcoholUse,
+      glucoseLevel: Number(glucoseLevel),
       healthAssessment: assessment,
       lastUpdated: new Date().toISOString().split('T')[0]
     };
 
     try {
-      if (existingRecord) { // If health record exists, update it
+      if (existingRecord) {
         await onUpdateRecord(updated); // Update existing record
-      } else { // Otherwise, add a new health record
+      } else {
         await onAddRecord(updated); // Add new record
       }
       setShowSyncSuccess(true);
@@ -346,7 +362,7 @@ export function UserProfileModule({ user, records, onUpdateRecord, onAddSentimen
   const updateWater = (change) => {
     const newVal = Math.max(0, waterCups + change);
     setWaterCups(newVal);
-    const updatedHabit = { ...initialDailyHabit, waterCups: newVal, lastUpdated: new Date().toISOString().split('T')[0] };
+    const updatedHabit = { ...(existingDailyHabit || {}), employeeId: user.employeeId, waterCups: newVal, lastUpdated: new Date().toISOString().split('T')[0] };
     if (existingDailyHabit) {
       onUpdateDailyHabit(updatedHabit);
     } else {
@@ -357,7 +373,7 @@ export function UserProfileModule({ user, records, onUpdateRecord, onAddSentimen
   const handleStepsChange = (e) => {
     const val = Number(e.target.value);
     setStepsCount(val);
-    const updatedHabit = { ...initialDailyHabit, stepsCount: val, lastUpdated: new Date().toISOString().split('T')[0] };
+    const updatedHabit = { ...(existingDailyHabit || {}), employeeId: user.employeeId, stepsCount: val, lastUpdated: new Date().toISOString().split('T')[0] };
     if (existingDailyHabit) {
       onUpdateDailyHabit(updatedHabit);
     } else {
@@ -367,15 +383,15 @@ export function UserProfileModule({ user, records, onUpdateRecord, onAddSentimen
 
   const handleMoodSelect = (selectedMood) => {
     setMood(selectedMood);
-    // Update streak logic (can be more sophisticated)
     const nextStreak = (existingMentalHealthLog && existingMentalHealthLog.mood === selectedMood) ? streakDays : streakDays + 1;
     setStreakDays(nextStreak);
 
     const updatedLog = {
-      ...initialMentalHealthLog,
+      ...(existingMentalHealthLog || {}),
+      employeeId: user.employeeId,
       mood: selectedMood,
       streakDays: nextStreak,
-      date: new Date().toISOString().split('T')[0] // Ensure date is current
+      date: new Date().toISOString().split('T')[0]
     };
     if (existingMentalHealthLog) {
       onUpdateMentalHealthLog(updatedLog);
@@ -387,10 +403,9 @@ export function UserProfileModule({ user, records, onUpdateRecord, onAddSentimen
   const handlePulseSubmit = (e) => {
     e.preventDefault();
     onAddSentimentPulse(dept, pulseStress, pulseFeedback);
-
-    // Also save to individual mental health log
     const updatedLog = {
-      ...initialMentalHealthLog,
+      ...(existingMentalHealthLog || {}),
+      employeeId: user.employeeId,
       stressLevel: pulseStress,
       feedback: pulseFeedback,
       date: new Date().toISOString().split('T')[0]
@@ -400,37 +415,18 @@ export function UserProfileModule({ user, records, onUpdateRecord, onAddSentimen
     } else {
       onAddMentalHealthLog(updatedLog);
     }
-
     setPulseSubmitted(true);
     setPulseFeedback('');
     setTimeout(() => setPulseSubmitted(false), 4000);
   };
 
-  let riskScore = 20;
-  const factors = [];
-  const [sys, dia] = bp.split('/').map(Number);
+  const myRiskProfile = risks.find((r) => r.employeeId === user.employeeId);
 
-  if (stress === 'High') {
-    riskScore += 35;
-    factors.push('High self-reported stress');
-  }
-  if (Number(sleep) < 6) {
-    riskScore += 25;
-    factors.push('Insufficient rest hours');
-  }
-  if (Number(bmi) >= 30) {
-    riskScore += 25;
-    factors.push('Obese BMI range');
-  }
-  if (sys >= 140 || dia >= 90) {
-    riskScore += 30;
-    factors.push('Elevated systolic/diastolic blood pressure');
-  }
-  if (Number(exercise) < 2) {
-    riskScore += 15;
-    factors.push('Low weekly physical activity');
-  }
-  riskScore = Math.min(100, riskScore);
+  // Use backend prediction if available; otherwise fall back to the previous heuristic.
+  const riskScore = myRiskProfile?.riskScore ?? 0;
+  const factors = myRiskProfile?.factors ?? ["Awaiting data..."];
+  const recommendationAction = myRiskProfile?.recommendationAction ?? "Maintain healthy habits.";
+
 
   // State for Blood Pressure info popup
   const [showBpInfoPopup, setShowBpInfoPopup] = useState(false);
@@ -463,6 +459,28 @@ export function UserProfileModule({ user, records, onUpdateRecord, onAddSentimen
               <p className="w-full px-3.5 py-2.5 bg-slate-100 border border-slate-200 rounded-lg text-xs text-slate-700 outline-none select-none">
                 {user.employeeId}
               </p>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">My Age</label>
+                <input type="number" required value={age} onChange={(e) => setAge(e.target.value)} placeholder="30" className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 focus:border-indigo-400 focus:bg-white rounded-lg text-xs text-slate-700 outline-none" />
+              </div>
+              <div>
+                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">My Gender</label>
+                <select value={gender} onChange={(e) => setGender(e.target.value)} className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-lg text-xs text-slate-700 outline-none cursor-pointer focus:bg-white">
+                  <option value="Male">Male</option>
+                  <option value="Female">Female</option>
+                  <option value="Other">Other</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">My Height (cm)</label>
+                <input type="number" step="0.1" required value={heightCm} onChange={(e) => setHeightCm(e.target.value)} placeholder="170.5" className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 focus:border-indigo-400 focus:bg-white rounded-lg text-xs text-slate-700 outline-none" />
+              </div>
+              <div>
+                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">My Weight (kg)</label>
+                <input type="number" step="0.1" required value={weightKg} onChange={(e) => setWeightKg(e.target.value)} placeholder="70.2" className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 focus:border-indigo-400 focus:bg-white rounded-lg text-xs text-slate-700 outline-none" />
+              </div>
             </div>
 
 
@@ -547,17 +565,24 @@ export function UserProfileModule({ user, records, onUpdateRecord, onAddSentimen
                   <option value="High">High Stress</option>
                 </select>
               </div>
-
               <div>
                 <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">Sleep (Hours/Night)</label>
-                <input
-                  type="number"
-                  step="0.5"
-                  required
-                  value={sleep}
-                  onChange={(e) => setSleep(e.target.value)}
-                  className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 focus:border-indigo-400 focus:bg-white rounded-lg text-xs text-slate-700 outline-none"
+                <input type="number" step="0.5" required value={sleep} onChange={(e) => setSleep(e.target.value)} className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 focus:border-indigo-400 focus:bg-white rounded-lg text-xs text-slate-700 outline-none"
                 />
+              </div>
+
+              <div>
+                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">My Stress Score (1-10)</label>
+                <input type="number" min="1" max="10" step="0.1" required value={stressScore} onChange={(e) => setStressScore(e.target.value)} placeholder="5.5" className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 focus:border-indigo-400 focus:bg-white rounded-lg text-xs text-slate-700 outline-none" />
+              </div>
+              <div>
+                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">My Attendance Rate (%)</label>
+                <input type="number" min="0" max="100" step="0.1" required value={attendanceRate} onChange={(e) => setAttendanceRate(e.target.value)} placeholder="95" className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 focus:border-indigo-400 focus:bg-white rounded-lg text-xs text-slate-700 outline-none" />
+              </div>
+
+              <div>
+                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">Exercise (Days/Week)</label>
+                <input type="number" required value={exerciseDaysPerWeek} onChange={(e) => setExerciseDaysPerWeek(e.target.value)} placeholder="3" className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 focus:border-indigo-400 focus:bg-white rounded-lg text-xs text-slate-700 outline-none" />
               </div>
 
               <div>
@@ -570,6 +595,37 @@ export function UserProfileModule({ user, records, onUpdateRecord, onAddSentimen
                   onChange={(e) => setExercise(e.target.value)}
                   className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 focus:border-indigo-400 focus:bg-white rounded-lg text-xs text-slate-700 outline-none"
                 />
+              </div>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="col-span-2">
+                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">My Medical Condition</label>
+                <select value={medicalCondition} onChange={(e) => setMedicalCondition(e.target.value)} className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-lg text-xs text-slate-700 outline-none cursor-pointer focus:bg-white">
+                  <option value="No major condition">No major condition</option>
+                  <option value="Stress-related fatigue">Stress-related fatigue</option>
+                  <option value="Mild fatigue">Mild fatigue</option>
+                  <option value="Chronic pain">Chronic pain</option>
+                  <option value="Allergies">Allergies</option>
+                  <option value="Other">Other</option>
+                </select>
+              </div>
+              <div className="col-span-2">
+                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">Medical Notes</label>
+                <textarea value={medicalNotes} onChange={(e) => setMedicalNotes(e.target.value)} placeholder="Any relevant medical notes..." rows="2" className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 focus:border-indigo-400 focus:bg-white rounded-lg text-xs text-slate-700 outline-none"></textarea>
+              </div>
+              <div>
+                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">My Glucose Level</label>
+                <input type="number" step="0.1" required value={glucoseLevel} onChange={(e) => setGlucoseLevel(e.target.value)} placeholder="90" className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 focus:border-indigo-400 focus:bg-white rounded-lg text-xs text-slate-700 outline-none" />
+              </div>
+              <div className="flex items-center gap-4">
+                <label className="flex items-center gap-2 text-xs text-slate-800">
+                  <input type="checkbox" checked={smoker} onChange={(e) => setSmoker(e.target.checked)} className="form-checkbox h-3.5 w-3.5 text-indigo-600 rounded border-slate-300" />
+                  Smoker
+                </label>
+                <label className="flex items-center gap-2 text-xs text-slate-800">
+                  <input type="checkbox" checked={alcoholUse} onChange={(e) => setAlcoholUse(e.target.checked)} className="form-checkbox h-3.5 w-3.5 text-indigo-600 rounded border-slate-300" />
+                  Alcohol User
+                </label>
               </div>
             </div>
 
@@ -883,6 +939,8 @@ export function UserProfileModule({ user, records, onUpdateRecord, onAddSentimen
 export default function UserDashboard({ user,
   onLogout,
   healthRecords,
+  risks = [],
+  onAddRecord,
   onUpdateUserRecord,
   dailyHabits, // New prop
   onAddDailyHabit, // New prop
@@ -892,6 +950,7 @@ export default function UserDashboard({ user,
   onUpdateSentimentPulse,
   recommendations= personalRecommendations
  }) {
+
   const [activeTab, setActiveTab] = useState(7);
   const [isChatOpen, setIsChatOpen] = useState(false);
 
@@ -1026,7 +1085,7 @@ export default function UserDashboard({ user,
                 onAddDailyHabit={onAddDailyHabit} // Pass new handler
                 onUpdateDailyHabit={onUpdateDailyHabit} // Pass new handler
                 mentalHealthLogs={mentalHealthLogs} // Pass new state
-                onAddRecord={onAddHealthRecord} // Pass to UserProfileModule
+                onAddRecord={onAddRecord || onAddHealthRecord} // Pass to UserProfileModule
                 onUpdateRecord={onUpdateUserRecord}
                 onAddSentimentPulse={onUpdateSentimentPulse}
               />
