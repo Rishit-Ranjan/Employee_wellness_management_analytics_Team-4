@@ -560,7 +560,7 @@ def map_health_record_to_model_input(record):
     df = pd.DataFrame([record])
 
     # One-hot encode categorical features, ensuring consistency with training
-    df = pd.get_dummies(df, columns=["gender", "medical_condition", "smoker", "alcohol_use"], drop_first=True)
+    df = pd.get_dummies(df, columns=["gender", "medical_condition"], drop_first=True)
 
     # Reindex the DataFrame to match the model's expected feature columns
     # `fill_value=0` handles cases where a category in the live data wasn't in the training data

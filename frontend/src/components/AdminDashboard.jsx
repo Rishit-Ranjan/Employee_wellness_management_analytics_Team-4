@@ -615,9 +615,17 @@ export function HealthDataModule({ records, allUsers, onAddRecord, onUpdateRecor
 export function RiskPredictionModule({ risks  }) {
   const [filter, setFilter] = useState('ALL');
 
-  const highCount = risks.filter(r => r.riskScore >= 70).length;
-  const mediumCount = risks.filter(r => r.riskScore >= 45 && r.riskScore < 70).length;
-  const lowCount = risks.filter(r => r.riskScore < 45).length;
+  const normalizedRisks = (risks || []).map((r) => ({
+    ...r,
+    riskScore: Number(r.riskScore),
+    factors: Array.isArray(r.factors) ? r.factors : [],
+    recommendationAction: r.recommendationAction || '',
+  }));
+
+  const highCount = normalizedRisks.filter(r => r.riskScore >= 70).length;
+  const mediumCount = normalizedRisks.filter(r => r.riskScore >= 45 && r.riskScore < 70).length;
+  const lowCount = normalizedRisks.filter(r => r.riskScore < 45).length;
+
 
   const filteredRisks = risks.filter(r => {
     if (filter === 'HIGH') return r.riskScore >= 70;

@@ -361,13 +361,16 @@ export default function App() {
                     user={currentUser}
                     onLogout={handleLogout}
                     healthRecords={healthRecords}
+                    risks={risks}
                     dailyHabits={dailyHabits} // Pass new state
                     onAddDailyHabit={handleAddDailyHabit} // Pass new handler
                     onUpdateDailyHabit={handleUpdateDailyHabit} // Pass new handler
                     mentalHealthLogs={mentalHealthLogs} // Pass new state
                     onAddHealthRecord={handleAddHealthRecord} // Pass the add handler
                     onUpdateUserRecord={handleUpdateUserRecord}
-                    onUpdateSentimentPulse={handleUpdateSentimentPulse} recommendations={recommendations} />)
+                    onUpdateSentimentPulse={handleUpdateSentimentPulse}
+                    recommendations={recommendations}
+                />)
             )}
         </div>
         )
