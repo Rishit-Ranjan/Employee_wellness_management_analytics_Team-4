@@ -83,6 +83,12 @@ export function logout() {
   return request('/auth/logout', { method: 'POST' });
 }
 
+/**
+ * Fetches all employee users. Admin-only.
+ * @returns {Promise<Array<Object>>} A promise that resolves to the list of users.
+ */
+export const fetchUsers = () => request('/users');
+
 // --- Wellness API ---
 
 /**
@@ -146,4 +152,4 @@ export const saveRisks = (risksData) => saveToStorage('wellness_risks', risksDat
 
 export const saveSentiments = (sentimentsData) => saveToStorage('wellness_sentiments', sentimentsData);
 
-export default { login, signup, me, logout, forgotPassword, resetPassword, fetchHealthRecords, addHealthRecord, updateHealthRecord, deleteHealthRecord, fetchAllWellnessData, saveRisks, saveSentiments };
+export default { login, signup, me, logout, forgotPassword, resetPassword, fetchUsers, fetchHealthRecords, addHealthRecord, updateHealthRecord, deleteHealthRecord, fetchAllWellnessData, saveRisks, saveSentiments };

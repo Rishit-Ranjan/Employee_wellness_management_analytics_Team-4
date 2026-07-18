@@ -27,6 +27,7 @@ export default function App() {
     const [healthRecords, setHealthRecords] = useState([]);
     const [risks, setRisks] = useState([]);
     const [recommendations, setRecommendations] = useState([]);
+    const [allUsers, setAllUsers] = useState([]);
     const [sentimentList, setSentimentList] = useState([]);
     const kpis = useState({
         participationRate: 78,
@@ -81,6 +82,11 @@ export default function App() {
 
         const loadData = async () => {
             try {
+                // 0. If admin, fetch all users for the dropdown
+                if (currentUser.role === 'admin') {
+                    const users = await api.fetchUsers();
+                    setAllUsers(users);
+                }
                 // 1. Health Records from the backend
                 let loadedHR = await api.fetchHealthRecords();
                 if (loadedHR.length === 0) loadedHR = INITIAL_HEALTH_RECORDS;
@@ -199,6 +205,10 @@ export default function App() {
     const handleDeleteHealthRecord = async (employeeId) => {
         await api.deleteHealthRecord(employeeId);
         setHealthRecords(healthRecords.filter(r => r.employeeId !== employeeId));
+        // After deleting a record, re-fetch all users to update the 'users without records' list
+        if (currentUser.role === 'admin') {
+            setAllUsers(await api.fetchUsers());
+        }
     };
 
     // Update department sentiment pulse based on new feedback and persist changes
@@ -287,6 +297,7 @@ export default function App() {
                 (<AdminDashboard
                     user={currentUser}
                     onLogout={handleLogout}
+                    allUsers={allUsers}
                     healthRecords={healthRecords}
                     risks={risks}
                     recommendations={recommendations}

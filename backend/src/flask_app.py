@@ -476,6 +476,28 @@ def delete_health_record(employee_id):
         app.logger.exception(f"An unexpected error occurred while deleting health record for {employee_id}: {e}")
         return jsonify({'detail': 'Internal Server Error'}), 500
 
+@app.route('/api/users', methods=['GET'])
+@jwt_required(locations=["cookies"])
+def get_all_users():
+    """ Fetches all users with the 'user' role. Admin-only endpoint. """
+    jwt_payload = get_jwt()
+    user_info = jwt_payload.get("user_info")
+    if not user_info or user_info.get('role') != 'admin':
+        return jsonify({'detail': 'Forbidden: You do not have permission to access this resource.'}), 403
+
+    try:
+        users_cursor = users_collection.find({}, {'password_hash': 0}) # Exclude password hash
+        users = []
+        for user in users_cursor:
+            user['id'] = str(user['_id'])
+            del user['_id']
+            users.append(user)
+        return jsonify(users), 200
+    except Exception as e:
+        app.logger.exception(f"An unexpected error occurred while fetching all users: {e}")
+        return jsonify({'detail': 'Internal Server Error'}), 500
+
+
 if __name__ == '__main__':
     port = int(os.getenv('PORT', 8000))
     app.run(host='0.0.0.0', port=port, debug=True)
