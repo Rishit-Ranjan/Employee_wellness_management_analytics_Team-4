@@ -1,4 +1,4 @@
-import  { useState, useEffect, useMemo } from 'react';
+import  { useState, useEffect, useMemo, useCallback } from 'react';
 import Login from './components/Login';
 import SignUp from './components/SignUp';
 import ForgotPassword from './components/ForgotPassword';
@@ -21,6 +21,7 @@ const INITIAL_SENTIMENTS = [];
 export default function App() {
     const [screen, setScreen] = useState('login');
     const [currentUser, setCurrentUser] = useState(null);
+    const [loadingSession, setLoadingSession] = useState(true); // New state to indicate session loading
     
 
     // Core Wellness State (Moved from Dashboard)
@@ -28,19 +29,18 @@ export default function App() {
     const [risks, setRisks] = useState([]);
     const [recommendations, setRecommendations] = useState([]);
     const [allUsers, setAllUsers] = useState([]);
-    const [sentimentList, setSentimentList] = useState([]);
-    const kpis = useState({
+    const [sentimentList, setSentimentList] = useState([]);    const initialKpis = { // Renamed from kpis to initialKpis for clarity
         participationRate: 78,
         absenteeismRate: 4.2,
         productivityTrend: 'up',
         overallHealthRiskScore: 34,
         programEffectiveness: 82
-    });
+    }
 
     // Derived KPIs recalculated whenever healthRecords change
     const derivedKpis = useMemo(() => {
         if (healthRecords.length === 0) {
-            return kpis;
+            return initialKpis; // Use initialKpis here
         }
 
         // Calculate derived KPIs based on health records
@@ -56,26 +56,50 @@ export default function App() {
             overallHealthRiskScore: calculatedRisk,
             programEffectiveness: Math.max(50, 100 - calculatedRisk)
         };
-    }, [healthRecords, kpis]);
+    }, [healthRecords]); // Removed kpis from dependency array, now uses initialKpis implicitly
 
-    // Check if a user is already logged in from a previous session
+    // Memoize handleLogout to prevent unnecessary re-renders in useEffect dependencies
+    const handleLogout = useCallback(async () => {
+        await api.logout().catch(err => console.error('Logout API call failed:', err));
+        setCurrentUser(null);
+        localStorage.removeItem('wellness_current_user');
+        setScreen('login');
+    }, []); // No dependencies, as it only uses setters and localStorage
+
+    // Check if a user is already logged in from a previous session and verify with backend
     useEffect(() => {
-        try {
-            const savedUser = localStorage.getItem('wellness_current_user');
-            if (savedUser) {
-                // Defer state updates to avoid synchronous cascading renders
-                setTimeout(() => {
-                    setCurrentUser(JSON.parse(savedUser));
-                    setScreen('dashboard');
-                }, 0);
+        const checkSession = async () => {
+            setLoadingSession(true);
+            try {
+                const savedUser = localStorage.getItem('wellness_current_user');
+                if (savedUser) {
+                    // Attempt to verify the session with the backend
+                    const response = await api.me();
+                    if (response && response.user) {
+                        setCurrentUser(response.user);
+                        setScreen('dashboard');
+                    } else {
+                        // Backend didn't return user, session might be invalid
+                        console.warn('Backend did not return user info for saved session. Logging out.');
+                        handleLogout();
+                    }
+                } else {
+                    // No saved user in localStorage, stay on login screen
+                    setScreen('login');
+                }
+            } catch (err) {
+                console.error('Failed to verify user session:', err);
+                // If API call fails (e.g., 401 due to expired cookie), log out
+                handleLogout();
+            } finally {
+                setLoadingSession(false);
             }
-        }
-        catch (err) {
-            console.error('Failed to load user session', err);
-        }
-    }, []);
+        };
 
-    // Sync state from localStorage on mount, or write initial data when currentUser changes
+        checkSession();
+    }, [handleLogout]); // Dependency on handleLogout
+
+    // Load wellness data when currentUser changes (and is not null)
     useEffect(() => {
         if (!currentUser)
             return;
@@ -129,7 +153,7 @@ export default function App() {
         };
 
         loadData();
-    }, [currentUser]);
+    }, [currentUser, handleLogout]); // Dependency on handleLogout
 
     // Sync state modifications and recalculate risks
     useEffect(() => {
@@ -267,14 +291,6 @@ export default function App() {
         setScreen('login');
     };
 
-    // Logout handler to clear user session and redirect to login
-    const handleLogout = async () => {
-        await api.logout().catch(err => console.error('Logout API call failed:', err));
-        setCurrentUser(null);
-        localStorage.removeItem('wellness_current_user');
-        setScreen('login');
-    };
-
     // Navigation handler to switch between screens
     const handleNavigate = (targetScreen) => {
         setScreen(targetScreen);
@@ -282,6 +298,13 @@ export default function App() {
 
     // Render the appropriate screen based on current state
     return (
+        // Render a loading screen while checking session
+        // This ensures that the UI doesn't flash login/dashboard before session is verified
+        loadingSession ? (
+            <div className="min-h-screen flex items-center justify-center bg-[#050505] text-[#e0e0e0]">
+                <p>Loading session...</p>
+            </div>
+        ) : (
         <div className="min-h-screen font-sans bg-[#050505] text-[#e0e0e0]">
             
             {screen === 'login' && (<Login onNavigate={handleNavigate}
@@ -316,5 +339,6 @@ export default function App() {
                     onUpdateSentimentPulse={handleUpdateSentimentPulse} recommendations={recommendations} />)
             )}
         </div>
+        )
     );
 }
