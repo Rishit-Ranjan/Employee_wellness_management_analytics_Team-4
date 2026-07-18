@@ -128,7 +128,6 @@ export default function App() {
                         employeeId: userEmpId,
                         employeeName: currentUser.name,
                         department: 'Engineering', // Default for dropdown
-<<<<<<< HEAD
                         age: 30, // Default age
                         gender: 'Male', // Default gender
                         heightCm: 170, // Default height
@@ -148,13 +147,6 @@ export default function App() {
                         smoker: false, // Default
                         alcoholUse: false, // Default
                         glucoseLevel: 90, // Default
-=======
-                        bmi: '', // Empty for user input
-                        bloodPressure: '', // Empty for user input
-                        exerciseHoursPerWeek: '', // Empty for user input
-                        sleepHoursPerNight: '', // Empty for user input
-                        stressLevel: 'Medium', // Default for dropdown
->>>>>>> origin/main
                         healthAssessment: 'Fair', // Neutral default for derived field
                         lastUpdated: new Date().toISOString().split('T')[0]
                     };
