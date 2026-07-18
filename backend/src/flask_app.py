@@ -34,7 +34,7 @@ CORS(app, supports_credentials=True, origins=os.getenv('FRONTEND_ORIGIN', 'http:
 
 # --- JWT Configuration ---
 app.config["JWT_SECRET_KEY"] = os.getenv("JWT_SECRET_KEY", "default-super-secret-key-for-dev")
-app.config["JWT_ACCESS_TOKEN_EXPIRES"] = timedelta(minutes=int(os.getenv('JWT_EXPIRES_MINUTES', '1440'))) # 24-hour token for presentation
+app.config["JWT_ACCESS_TOKEN_EXPIRES"] = timedelta(hours=int(os.getenv('JWT_EXPIRES_HOURS', '24'))) # 1-day token for presentation
 app.config["JWT_TOKEN_LOCATION"] = ["cookies"]
 app.config["JWT_ACCESS_COOKIE_NAME"] = "access_token"
 app.config["JWT_COOKIE_CSRF_PROTECT"] = False
@@ -385,7 +385,8 @@ def logout():
 # --- Wellness API Endpoints ---
 
 @app.route('/api/wellness/health-records', methods=['GET'])
-@jwt_required(locations=["cookies"])
+# @jwt_required(locations=["cookies"]) # Removed JWT authentication
+@jwt_required(locations=["cookies"]) # Re-enabling JWT authentication for security
 def get_health_records():
     """Fetches all health records from the database."""
     try:
@@ -405,7 +406,8 @@ def get_health_records():
 
 
 @app.route('/api/wellness/health-records', methods=['POST'])
-@jwt_required(locations=["cookies"])
+# @jwt_required(locations=["cookies"]) # Removed JWT authentication
+@jwt_required(locations=["cookies"]) # Re-enabling JWT authentication for security
 def add_health_record():
     """Adds a new health record. Can be initiated by an admin or a new user."""
     jwt_payload = get_jwt()
@@ -433,7 +435,8 @@ def add_health_record():
 
 
 @app.route('/api/wellness/health-records/<employee_id>', methods=['PUT'])
-@jwt_required(locations=["cookies"])
+# @jwt_required(locations=["cookies"]) # Removed JWT authentication
+@jwt_required(locations=["cookies"]) # Re-enabling JWT authentication for security
 def update_health_record(employee_id):
     """Updates an existing health record for a given employeeId."""
     jwt_payload = get_jwt()
@@ -457,7 +460,8 @@ def update_health_record(employee_id):
         return jsonify({'detail': 'Internal Server Error'}), 500
 
 @app.route('/api/wellness/health-records/<employee_id>', methods=['DELETE'])
-@jwt_required(locations=["cookies"])
+# @jwt_required(locations=["cookies"]) # Removed JWT authentication
+@jwt_required(locations=["cookies"]) # Re-enabling JWT authentication for security
 def delete_health_record(employee_id):
     """Deletes an existing health record for a given employeeId."""
     # Ensure only admins can delete records
@@ -477,13 +481,9 @@ def delete_health_record(employee_id):
         return jsonify({'detail': 'Internal Server Error'}), 500
 
 @app.route('/api/users', methods=['GET'])
-@jwt_required(locations=["cookies"])
+# Removed @jwt_required and admin role check to make this endpoint publicly accessible
 def get_all_users():
-    """ Fetches all users with the 'user' role. Admin-only endpoint. """
-    jwt_payload = get_jwt()
-    user_info = jwt_payload.get("user_info")
-    if not user_info or user_info.get('role') != 'admin':
-        return jsonify({'detail': 'Forbidden: You do not have permission to access this resource.'}), 403
+    """ Fetches all users with the 'user' role. Publicly accessible. """
 
     try:
         users_cursor = users_collection.find({}, {'password_hash': 0}) # Exclude password hash
@@ -496,7 +496,6 @@ def get_all_users():
     except Exception as e:
         app.logger.exception(f"An unexpected error occurred while fetching all users: {e}")
         return jsonify({'detail': 'Internal Server Error'}), 500
-
 
 if __name__ == '__main__':
     port = int(os.getenv('PORT', 8000))
