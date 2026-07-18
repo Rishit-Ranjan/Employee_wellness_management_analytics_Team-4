@@ -205,7 +205,7 @@ export function ChatbotModule({ user, isFloating = false  }) {
 // ==========================================
 // MODULE 7: PERSONAL USER WELLNESS PROFILE
 // ==========================================
-export function UserProfileModule({ user, records, risks = [], onUpdateRecord, onAddSentimentPulse,
+export function UserProfileModule({ user, records, risks = [], onUpdateRecord, onAddRecord, onAddSentimentPulse,
   dailyHabits, onAddDailyHabit, onUpdateDailyHabit,
   mentalHealthLogs, onAddMentalHealthLog, onUpdateMentalHealthLog
 }) {
@@ -328,6 +328,7 @@ export function UserProfileModule({ user, records, risks = [], onUpdateRecord, o
       department: dept,
       bmi: calculatedBmi,
       bloodPressure: bp,
+      exerciseDaysPerWeek: Number(exerciseDaysPerWeek),
       exerciseHoursPerWeek: Number(exercise) || 0,
       sleepHoursPerNight: Number(sleep) || 0,
       stressLevel: stress,
@@ -939,6 +940,7 @@ export default function UserDashboard({ user,
   onLogout,
   healthRecords,
   risks = [],
+  onAddRecord,
   onUpdateUserRecord,
   dailyHabits, // New prop
   onAddDailyHabit, // New prop
@@ -1083,7 +1085,7 @@ export default function UserDashboard({ user,
                 onAddDailyHabit={onAddDailyHabit} // Pass new handler
                 onUpdateDailyHabit={onUpdateDailyHabit} // Pass new handler
                 mentalHealthLogs={mentalHealthLogs} // Pass new state
-                onAddRecord={onAddHealthRecord} // Pass to UserProfileModule
+                onAddRecord={onAddRecord || onAddHealthRecord} // Pass to UserProfileModule
                 onUpdateRecord={onUpdateUserRecord}
                 onAddSentimentPulse={onUpdateSentimentPulse}
               />

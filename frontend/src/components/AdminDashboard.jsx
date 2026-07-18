@@ -121,7 +121,7 @@ export function HealthDataModule({ records, allUsers, onAddRecord, onUpdateRecor
   
   const handleFormSubmit = async (e) => {
     e.preventDefault();
-    if (!selectedEmployee || !age || !gender || !heightCm || !weightKg || !dept || !bmi || !bp || !exerciseDaysPerWeek || !exercise || !sleep || !stress || !stressScore || !attendanceRate || !medicalNotes || !medicalCondition || !glucoseLevel) {
+    if (!selectedEmployee || !age || !gender || !heightCm || !weightKg || !dept || !bmi || !bp || !exerciseDaysPerWeek || !exercise || !sleep || !stress || !stressScore || !attendanceRate || !medicalCondition || !glucoseLevel) {
       setError('Please fill in all required fields.');
       return;
     }

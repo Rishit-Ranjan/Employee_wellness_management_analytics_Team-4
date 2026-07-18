@@ -598,10 +598,21 @@ def get_risk_predictions():
                 encoded_pred = risk_model.predict(model_input_df)[0]
                 risk_label = target_encoder.inverse_transform([encoded_pred])[0]
 
-                risk_score = 50
                 if hasattr(risk_model, "predict_proba"):
+                    # Extract probabilities for specific classes safely
                     risk_probabilities = risk_model.predict_proba(model_input_df)[0]
-                    risk_score = round(float(max(risk_probabilities)) * 100)
+                    class_labels = target_encoder.classes_
+                    prob_dict = dict(zip(class_labels, risk_probabilities))
+
+                    # Map the score appropriately based on the true prediction label
+                    if risk_label == "High":
+                        risk_score = round(70 + (prob_dict.get("High", 0.7) * 30))
+                    elif risk_label == "Medium":
+                        risk_score = round(45 + (prob_dict.get("Medium", 0.5) * 24))
+                    else: # Low risk
+                        risk_score = round(prob_dict.get("Low", 0.1) * 44)
+                else:
+                    risk_score = 50 # Fallback score
 
                 factors = []
                 if model_input_df.get("stress_score", pd.Series([0])).iloc[0] >= 7:
