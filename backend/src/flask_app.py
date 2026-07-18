@@ -497,7 +497,6 @@ def get_all_users():
         app.logger.exception(f"An unexpected error occurred while fetching all users: {e}")
         return jsonify({'detail': 'Internal Server Error'}), 500
 
-
 if __name__ == '__main__':
     port = int(os.getenv('PORT', 8000))
     app.run(host='0.0.0.0', port=port, debug=True)
