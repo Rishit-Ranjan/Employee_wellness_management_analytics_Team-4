@@ -207,28 +207,30 @@ export function ChatbotModule({ user, isFloating = false  }) {
 // ==========================================
 export function UserProfileModule({ user, records, onUpdateRecord, onAddSentimentPulse  }) {
   const userEmpId = `user-emp-${user.id}`;
-  const initialUserRecord = records.find(r => r.employeeId === userEmpId) || {
-    id: `hr-user-${user.id}`,
-    employeeId: userEmpId,
-    employeeName: user.name,
+  const existingRecord = records.find(r => r.employeeId === user.employeeId); // Find existing record using correct employeeId
+
+  const initialUserRecord = existingRecord || { // Use existing record or fallback
+    employeeId: user.employeeId, // Use correct employeeId for new records
+    employeeName: user.name, // Corrected typo
     department: 'Engineering',
     bmi: '',
     bloodPressure: '',
     stressLevel: 'Medium',
     exerciseHoursPerWeek: '',
     sleepHoursPerNight: '',
+    // id is intentionally omitted here for new records; backend will assign _id
   };
 
   const [dept, setDept] = useState(initialUserRecord.department);
-  const [bmi, setBmi] = useState(String(initialUserRecord.bmi));
+  const [bmi, setBmi] = useState(String(initialUserRecord.bmi)); // Ensure string conversion for input value
   const [bp, setBp] = useState(initialUserRecord.bloodPressure);
   const [exercise, setExercise] = useState(String(initialUserRecord.exerciseHoursPerWeek));
   const [sleep, setSleep] = useState(String(initialUserRecord.sleepHoursPerNight));
   const [stress, setStress] = useState(initialUserRecord.stressLevel);
 
   // Effect to update form fields when the user's record changes (e.g., after initial load or admin update)
-  useEffect(() => {
-    const currentRecord = records.find(r => r.employeeId === userEmpId);
+  useEffect(() => { // Re-evaluate initial form states if records or userEmpId changes
+    const currentRecord = records.find(r => r.employeeId === user.employeeId);
     if (currentRecord) {
       setDept(currentRecord.department);
       setBmi(String(currentRecord.bmi));
@@ -237,9 +239,10 @@ export function UserProfileModule({ user, records, onUpdateRecord, onAddSentimen
       setSleep(String(currentRecord.sleepHoursPerNight));
       setStress(currentRecord.stressLevel);
     }
-  }, [records, userEmpId]);
+  }, [records, user.employeeId]);
 
   const [showSyncSuccess, setShowSyncSuccess] = useState(false);
+  const [isNewRecord, setIsNewRecord] = useState(!existingRecord); // Track if we are creating a new record based on initial check
   const [error, setError] = useState(''); // State for form errors
 
   const [waterCups, setWaterCups] = useState(() => {
@@ -264,7 +267,7 @@ export function UserProfileModule({ user, records, onUpdateRecord, onAddSentimen
   
   // Clear success/error messages when the component mounts or user record changes
   useEffect(() => {
-    setShowSyncSuccess(false);
+    setIsNewRecord(!records.find(r => r.employeeId === user.employeeId)); // Re-evaluate if it's a new record
     setError('');
   }, [userEmpId]);
 
@@ -283,7 +286,10 @@ export function UserProfileModule({ user, records, onUpdateRecord, onAddSentimen
     }
 
     const updated = {
-      ...initialUserRecord, // Use initialUserRecord to retain original ID and name
+      // Always include employeeId and employeeName, as they are part of the record structure
+      employeeId: user.employeeId,
+      employeeName: user.name,
+      ...(existingRecord ? { id: existingRecord.id } : {}), // Only include 'id' if updating an existing record
       department: dept,
       bmi: calculatedBmi,
       bloodPressure: bp,
@@ -295,7 +301,11 @@ export function UserProfileModule({ user, records, onUpdateRecord, onAddSentimen
     };
 
     try {
-      await onUpdateRecord(updated); // Await the update operation
+      if (existingRecord) {
+        await onUpdateRecord(updated); // Update existing record
+      } else {
+        await onAddRecord(updated); // Add new record
+      }
       setShowSyncSuccess(true);
       setError(''); // Clear any previous errors
       setTimeout(() => setShowSyncSuccess(false), 3000);
@@ -303,6 +313,7 @@ export function UserProfileModule({ user, records, onUpdateRecord, onAddSentimen
       console.error("Failed to update wellness profile:", err);
       setError('Failed to update profile. Please try again.');
     }
+    setIsNewRecord(false); // After saving, it's no longer a new record
   };
 
   const updateWater = (change) => {
@@ -403,7 +414,7 @@ export function UserProfileModule({ user, records, onUpdateRecord, onAddSentimen
                 <input
                   type="number"
                   step="0.1"
-                  required
+                  required // Always required for health vitals
                   value={bmi}
                   onChange={(e) => setBmi(e.target.value)}
                   className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 focus:border-indigo-400 focus:bg-white rounded-lg text-xs text-slate-700 outline-none"
@@ -413,7 +424,7 @@ export function UserProfileModule({ user, records, onUpdateRecord, onAddSentimen
               <div>
                 <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">Blood Pressure</label>
                 <input
-                  type="text"
+                  type="text" // Keep as text for "120/80" format
                   required
                   placeholder="e.g. 120/80"
                   value={bp}
@@ -440,7 +451,7 @@ export function UserProfileModule({ user, records, onUpdateRecord, onAddSentimen
                 <input
                   type="number"
                   step="0.5"
-                  required
+                  required // Always required for health vitals
                   value={sleep}
                   onChange={(e) => setSleep(e.target.value)}
                   className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 focus:border-indigo-400 focus:bg-white rounded-lg text-xs text-slate-700 outline-none"
@@ -450,7 +461,7 @@ export function UserProfileModule({ user, records, onUpdateRecord, onAddSentimen
               <div>
                 <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">Exercise (Hours/Week)</label>
                 <input
-                  type="number"
+                  type="number" // Keep as number
                   step="0.5"
                   required
                   value={exercise}
@@ -464,7 +475,7 @@ export function UserProfileModule({ user, records, onUpdateRecord, onAddSentimen
               <span className="text-[10px] text-slate-400 font-mono">Last Synchronized</span>
               <button
                 type="submit"
-                className="px-5 py-2.5 bg-indigo-600 text-white hover:bg-indigo-700 text-xs font-semibold rounded-lg flex items-center gap-2 transition-all cursor-pointer shadow-md"
+                className="px-5 py-2.5 bg-indigo-600 text-white hover:bg-indigo-700 text-xs font-semibold rounded-lg flex items-center gap-2 transition-all cursor-pointer shadow-md" // Changed to 'Save Profile' for clarity
               >
                 <Sparkles className="w-4 h-4" />
                 Sync & Save Vitals
@@ -769,6 +780,7 @@ export default function UserDashboard({ user,
   onLogout,
   healthRecords,
   onUpdateUserRecord,
+  onAddHealthRecord, // Added onAddHealthRecord prop
   onUpdateSentimentPulse,
   recommendations= personalRecommendations
  }) {
@@ -902,6 +914,7 @@ export default function UserDashboard({ user,
               <UserProfileModule
                 user={user}
                 records={healthRecords}
+                onAddRecord={onAddHealthRecord} // Pass to UserProfileModule
                 onUpdateRecord={onUpdateUserRecord}
                 onAddSentimentPulse={onUpdateSentimentPulse}
               />

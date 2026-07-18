@@ -335,6 +335,7 @@ export default function App() {
                     user={currentUser}
                     onLogout={handleLogout}
                     healthRecords={healthRecords}
+                    onAddHealthRecord={handleAddHealthRecord} // Pass the add handler
                     onUpdateUserRecord={handleUpdateUserRecord}
                     onUpdateSentimentPulse={handleUpdateSentimentPulse} recommendations={recommendations} />)
             )}
