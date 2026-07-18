@@ -627,7 +627,7 @@ export function RiskPredictionModule({ risks  }) {
   const lowCount = normalizedRisks.filter(r => r.riskScore < 45).length;
 
 
-  const filteredRisks = risks.filter(r => {
+  const filteredRisks = normalizedRisks.filter(r => {
     if (filter === 'HIGH') return r.riskScore >= 70;
     if (filter === 'MEDIUM') return r.riskScore >= 45 && r.riskScore < 70;
     if (filter === 'LOW') return r.riskScore < 45;
@@ -762,7 +762,7 @@ export function RiskPredictionModule({ risks  }) {
                 <div className="flex justify-between items-start">
                   <div>
                     <h4 className="font-semibold text-slate-800">{risk.employeeName}</h4>
-                    <span className="text-[10px] text-slate-400 font-mono">ID</span>
+                    <span className="text-[10px] text-slate-400 font-mono">{risk.employeeId}</span>
                   </div>
                   <div className="flex flex-col items-end gap-1">
                     <span className={`px-2 py-0.5 rounded text-[8px] font-bold uppercase tracking-wider ${
