@@ -432,6 +432,20 @@ export function UserProfileModule({ user, records, onUpdateRecord, onAddSentimen
   }
   riskScore = Math.min(100, riskScore);
 
+  // State for Blood Pressure info popup
+  const [showBpInfoPopup, setShowBpInfoPopup] = useState(false);
+  const bpInfoRef = useRef(null);
+
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (bpInfoRef.current && !bpInfoRef.current.contains(event.target)) {
+        setShowBpInfoPopup(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
   return (
     <div className="space-y-8 pb-10">
 
@@ -481,13 +495,42 @@ export function UserProfileModule({ user, records, onUpdateRecord, onAddSentimen
               </div>
 
               <div>
-                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">Blood Pressure</label>
+                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">Blood Pressure (Systolic/Diastolic){' '}
+                  <span
+                    ref={bpInfoRef}
+                    className="relative ml-1.5 text-slate-500 cursor-pointer"
+                    onClick={() => setShowBpInfoPopup(!showBpInfoPopup)}
+                  >
+                    <span
+                      style={{
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        width: '1.18em', // Adjust size as needed
+                        height: '1.17em',
+                        borderRadius: '50%',
+                        border: '1px solid currentColor', // Use current text color for border
+                        fontSize: '0.9em', // Adjust font size of 'i' inside circle
+                        fontWeight: 'bold',
+                        lineHeight: '1.8', // Ensure 'i' is centered vertically
+                      }}
+                    >i</span>
+                    {showBpInfoPopup && (
+                      <div className="absolute z-10 w-64 p-3 -top-2 left-full ml-2 bg-white border border-slate-200 rounded-lg shadow-lg text-xs text-slate-700 animate-fadeIn">
+                        <div className="absolute -left-1 top-3 w-2 h-2 bg-white border-l border-t border-slate-200 transform rotate-45 -translate-x-1/2" />
+                        Systolic is the top number (pressure when heart beats), Diastolic is the bottom number (pressure when heart rests).
+                      </div>
+                    )}
+                  </span>
+                </label>
                 <input
                   type="text" // Keep as text for "120/80" format
                   required
                   placeholder="e.g. 120/80"
                   value={bp}
                   onChange={(e) => setBp(e.target.value)}
+                  onFocus={() => setShowBpInfoPopup(false)} // Close popup if input is focused
+                  onBlur={() => setTimeout(() => setShowBpInfoPopup(false), 100)} // Close popup on blur, with slight delay to allow click on popup
                   className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 focus:border-indigo-400 focus:bg-white rounded-lg text-xs text-slate-700 outline-none"
                 />
               </div>
