@@ -60,6 +60,8 @@ users_collection = db.get_collection('users')
 admin_collection = db.get_collection('admin')
 reset_collection = db.get_collection('password_reset_requests')
 health_records_collection = db.get_collection('health_records')
+daily_habits_collection = db.get_collection('daily_habits')
+mental_health_logs_collection = db.get_collection('mental_health_logs')
 
 #--- Utility Functions ---
 def hash_password(password: str) -> str:
@@ -507,6 +509,171 @@ def get_all_users():
         return jsonify(users), 200
     except Exception as e:
         app.logger.exception(f"An unexpected error occurred while fetching all users: {e}")
+        return jsonify({'detail': 'Internal Server Error'}), 500
+
+# --- Daily Habits API Endpoints ---
+@app.route('/api/wellness/daily-habits/<employee_id>', methods=['GET'])
+@jwt_required(locations=["cookies"])
+def get_daily_habits(employee_id):
+    """Fetches a specific user's daily habits record."""
+    jwt_payload = get_jwt()
+    user_info = jwt_payload.get("user_info")
+    # Ensure user can only fetch their own record unless they are an admin
+    if user_info.get('role') != 'admin' and user_info.get('employeeId') != employee_id:
+        return jsonify({'detail': 'Forbidden: You can only view your own daily habits.'}), 403
+
+    try:
+        habit_record = daily_habits_collection.find_one({'employeeId': employee_id})
+        if not habit_record:
+            return jsonify({'detail': 'Daily habits record not found'}), 404
+        habit_record['id'] = str(habit_record['_id'])
+        del habit_record['_id']
+        return jsonify(habit_record), 200
+    except Exception as e:
+        app.logger.exception(f"An unexpected error occurred while fetching daily habits for {employee_id}: {e}")
+        return jsonify({'detail': 'Internal Server Error'}), 500
+
+@app.route('/api/wellness/daily-habits', methods=['POST'])
+@jwt_required(locations=["cookies"])
+def add_daily_habit():
+    """Adds a new daily habit record."""
+    jwt_payload = get_jwt()
+    user_info = jwt_payload.get("user_info")
+    new_habit = request.get_json()
+
+    if not new_habit or 'employeeId' not in new_habit:
+        return jsonify({'detail': 'Missing daily habit data or employeeId'}), 400
+
+    # Ensure user can only add their own record unless they are an admin
+    if user_info.get('role') != 'admin' and user_info.get('employeeId') != new_habit['employeeId']:
+        return jsonify({'detail': 'Forbidden: You can only add your own daily habits.'}), 403
+
+    if daily_habits_collection.find_one({'employeeId': new_habit['employeeId']}):
+        return jsonify({'detail': 'Daily habits record for this employee already exists'}), 409
+
+    try:
+        if 'id' in new_habit:
+            del new_habit['id']
+        result = daily_habits_collection.insert_one(new_habit)
+        new_habit['id'] = str(result.inserted_id)
+        return jsonify(new_habit), 201
+    except Exception as e:
+        app.logger.exception(f"An unexpected error occurred while adding a daily habit record: {e}")
+        return jsonify({'detail': 'Internal Server Error'}), 500
+
+@app.route('/api/wellness/daily-habits/<employee_id>', methods=['PUT'])
+@jwt_required(locations=["cookies"])
+def update_daily_habit(employee_id):
+    """Updates an existing daily habit record for a given employeeId."""
+    jwt_payload = get_jwt()
+    user_info = jwt_payload.get("user_info")
+    updated_data = request.get_json()
+
+    if not updated_data:
+        return jsonify({'detail': 'Missing update data'}), 400
+
+    # Ensure user can only update their own record unless they are an admin
+    if user_info.get('role') != 'admin' and user_info.get('employeeId') != employee_id:
+        return jsonify({'detail': 'Forbidden: You can only update your own daily habits.'}), 403
+
+    if 'id' in updated_data:
+        del updated_data['id']
+
+    try:
+        result = daily_habits_collection.update_one({'employeeId': employee_id}, {'$set': updated_data})
+        if result.matched_count == 0:
+            return jsonify({'detail': 'Daily habits record not found'}), 404
+        return jsonify({'detail': 'Daily habits record updated successfully'}), 200
+    except Exception as e:
+        app.logger.exception(f"An unexpected error occurred while updating daily habits for {employee_id}: {e}")
+        return jsonify({'detail': 'Internal Server Error'}), 500
+
+# --- Mental Health Logs API Endpoints ---
+@app.route('/api/wellness/mental-health-logs/<employee_id>', methods=['GET'])
+@jwt_required(locations=["cookies"])
+def get_mental_health_logs(employee_id):
+    """Fetches a specific user's mental health logs."""
+    jwt_payload = get_jwt()
+    user_info = jwt_payload.get("user_info")
+    if user_info.get('role') != 'admin' and user_info.get('employeeId') != employee_id:
+        return jsonify({'detail': 'Forbidden: You can only view your own mental health logs.'}), 403
+
+    try:
+        # For simplicity, we'll store one log per day, so find the latest one for today
+        today_start = datetime.now(timezone.utc).replace(hour=0, minute=0, second=0, microsecond=0)
+        log_record = mental_health_logs_collection.find_one(
+            {'employeeId': employee_id, 'date': {'$gte': today_start.isoformat()}},
+            sort=[('date', -1)]
+        )
+        if not log_record:
+            return jsonify({'detail': 'Mental health log not found for today'}), 404
+        log_record['id'] = str(log_record['_id'])
+        del log_record['_id']
+        return jsonify(log_record), 200
+    except Exception as e:
+        app.logger.exception(f"An unexpected error occurred while fetching mental health logs for {employee_id}: {e}")
+        return jsonify({'detail': 'Internal Server Error'}), 500
+
+
+@app.route('/api/wellness/mental-health-logs', methods=['POST'])
+@jwt_required(locations=["cookies"])
+def add_mental_health_log():
+    """Adds a new mental health log record."""
+    jwt_payload = get_jwt()
+    user_info = jwt_payload.get("user_info")
+    new_log = request.get_json()
+
+    if not new_log or 'employeeId' not in new_log:
+        return jsonify({'detail': 'Missing mental health log data or employeeId'}), 400
+
+    if user_info.get('role') != 'admin' and user_info.get('employeeId') != new_log['employeeId']:
+        return jsonify({'detail': 'Forbidden: You can only add your own mental health logs.'}), 403
+
+    # For simplicity, prevent adding multiple logs for the same employee on the same day
+    today_start = datetime.now(timezone.utc).replace(hour=0, minute=0, second=0, microsecond=0)
+    if mental_health_logs_collection.find_one({'employeeId': new_log['employeeId'], 'date': {'$gte': today_start.isoformat()}}):
+        return jsonify({'detail': 'Mental health log already exists for this employee today. Please update instead.'}), 409
+
+    try:
+        if 'id' in new_log:
+            del new_log['id']
+        new_log['date'] = datetime.now(timezone.utc).isoformat() # Ensure date is set by backend
+        result = mental_health_logs_collection.insert_one(new_log)
+        new_log['id'] = str(result.inserted_id)
+        return jsonify(new_log), 201
+    except Exception as e:
+        app.logger.exception(f"An unexpected error occurred while adding a mental health log: {e}")
+        return jsonify({'detail': 'Internal Server Error'}), 500
+
+@app.route('/api/wellness/mental-health-logs/<employee_id>', methods=['PUT'])
+@jwt_required(locations=["cookies"])
+def update_mental_health_log(employee_id):
+    """Updates an existing mental health log for a given employeeId for today."""
+    jwt_payload = get_jwt()
+    user_info = jwt_payload.get("user_info")
+    updated_data = request.get_json()
+
+    if not updated_data:
+        return jsonify({'detail': 'Missing update data'}), 400
+
+    if user_info.get('role') != 'admin' and user_info.get('employeeId') != employee_id:
+        return jsonify({'detail': 'Forbidden: You can only update your own mental health logs.'}), 403
+
+    if 'id' in updated_data:
+        del updated_data['id']
+    
+    # Only update today's log
+    today_start = datetime.now(timezone.utc).replace(hour=0, minute=0, second=0, microsecond=0)
+    try:
+        result = mental_health_logs_collection.update_one(
+            {'employeeId': employee_id, 'date': {'$gte': today_start.isoformat()}},
+            {'$set': updated_data}
+        )
+        if result.matched_count == 0:
+            return jsonify({'detail': 'Mental health log not found for today'}), 404
+        return jsonify({'detail': 'Mental health log updated successfully'}), 200
+    except Exception as e:
+        app.logger.exception(f"An unexpected error occurred while updating mental health log for {employee_id}: {e}")
         return jsonify({'detail': 'Internal Server Error'}), 500
 
 

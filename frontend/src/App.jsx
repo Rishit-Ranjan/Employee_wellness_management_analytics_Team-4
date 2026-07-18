@@ -26,6 +26,8 @@ export default function App() {
 
     // Core Wellness State (Moved from Dashboard)
     const [healthRecords, setHealthRecords] = useState([]);
+    const [dailyHabits, setDailyHabits] = useState([]); // New state for daily habits
+    const [mentalHealthLogs, setMentalHealthLogs] = useState([]); // New state for mental health logs
     const [risks, setRisks] = useState([]);
     const [recommendations, setRecommendations] = useState([]);
     const [allUsers, setAllUsers] = useState([]);
@@ -109,6 +111,8 @@ export default function App() {
                 // 0. If admin, fetch all users for the dropdown
                 if (currentUser.role === 'admin') {
                     const users = await api.fetchUsers();
+                    // Filter out admin users from allUsers list
+                    // setAllUsers(users.filter(u => u.role !== 'admin'));
                     setAllUsers(users);
                 }
                 // 1. Health Records from the backend
@@ -137,6 +141,48 @@ export default function App() {
                     loadedHR = [addedRecord, ...loadedHR];
                 }
                 setHealthRecords(loadedHR);
+
+                // 2. Daily Habits for the current user
+                let loadedDH = null;
+                try {
+                    loadedDH = await api.fetchDailyHabits(userEmpId);
+                } catch (err) {
+                    if (err.status === 404) { // No record found, create one
+                        const newDailyHabit = {
+                            employeeId: userEmpId,
+                            waterCups: 0,
+                            stepsCount: 0,
+                            lastUpdated: new Date().toISOString().split('T')[0]
+                        };
+                        loadedDH = await api.addDailyHabit(newDailyHabit);
+                    } else {
+                        throw err; // Re-throw other errors
+                    }
+                }
+                setDailyHabits(loadedDH ? [loadedDH] : []); // Store as an array for consistency
+
+                // 3. Mental Health Logs for the current user (today's log)
+                let loadedMHL = null;
+                try {
+                    loadedMHL = await api.fetchMentalHealthLogs(userEmpId);
+                } catch (err) {
+                    if (err.status === 404) { // No record found for today, create one
+                        const newMentalHealthLog = {
+                            employeeId: userEmpId,
+                            mood: 'Neutral', // Default mood
+                            stressLevel: 5, // Default stress
+                            feedback: '',
+                            streakDays: 0, // Initial streak
+                            date: new Date().toISOString().split('T')[0]
+                        };
+                        loadedMHL = await api.addMentalHealthLog(newMentalHealthLog);
+                    } else {
+                        throw err; // Re-throw other errors
+                    }
+                }
+                setMentalHealthLogs(loadedMHL ? [loadedMHL] : []); // Store as an array for consistency
+
+
 
                 // 2. Other wellness data (still from localStorage for now)
                 const wellnessData = await api.fetchAllWellnessData();
@@ -223,6 +269,30 @@ export default function App() {
     const handleUpdateUserRecord = async (updatedRecord) => {
         await api.updateHealthRecord(updatedRecord);
         setHealthRecords(healthRecords.map(r => r.employeeId === updatedRecord.employeeId ? updatedRecord : r));
+    };
+
+    // Add a new daily habit record
+    const handleAddDailyHabit = async (newHabit) => {
+        const addedHabit = await api.addDailyHabit(newHabit);
+        setDailyHabits([addedHabit]); // Assuming only one daily habit record per user
+    };
+
+    // Update an existing daily habit record
+    const handleUpdateDailyHabit = async (updatedHabit) => {
+        await api.updateDailyHabit(updatedHabit);
+        setDailyHabits([updatedHabit]); // Assuming only one daily habit record per user
+    };
+
+    // Add a new mental health log record
+    const handleAddMentalHealthLog = async (newLog) => {
+        const addedLog = await api.addMentalHealthLog(newLog);
+        setMentalHealthLogs([addedLog]); // Assuming only one log per day per user
+    };
+
+    // Update an existing mental health log record
+    const handleUpdateMentalHealthLog = async (updatedLog) => {
+        await api.updateMentalHealthLog(updatedLog);
+        setMentalHealthLogs([updatedLog]); // Assuming only one log per day per user
     };
 
     // Delete a health record and persist changes
@@ -335,6 +405,10 @@ export default function App() {
                     user={currentUser}
                     onLogout={handleLogout}
                     healthRecords={healthRecords}
+                    dailyHabits={dailyHabits} // Pass new state
+                    onAddDailyHabit={handleAddDailyHabit} // Pass new handler
+                    onUpdateDailyHabit={handleUpdateDailyHabit} // Pass new handler
+                    mentalHealthLogs={mentalHealthLogs} // Pass new state
                     onAddHealthRecord={handleAddHealthRecord} // Pass the add handler
                     onUpdateUserRecord={handleUpdateUserRecord}
                     onUpdateSentimentPulse={handleUpdateSentimentPulse} recommendations={recommendations} />)
