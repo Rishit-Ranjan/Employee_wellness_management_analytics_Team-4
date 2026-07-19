@@ -17,6 +17,8 @@ from pymongo import MongoClient
 from pymongo.errors import ConfigurationError
 from bson import ObjectId
 from dotenv import load_dotenv
+import joblib
+import pandas as pd
 from email_sender import send_email
 
 
@@ -63,6 +65,21 @@ health_records_collection = db.get_collection('health_records')
 daily_habits_collection = db.get_collection('daily_habits')
 mental_health_logs_collection = db.get_collection('mental_health_logs')
 
+# --- Load ML Model and Metadata ---
+try:
+    # Correctly locate the 'backend' directory from the 'src' directory
+    BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    MODELS_DIR = os.path.join(BASE_DIR, "models")
+    
+    risk_model = joblib.load(os.path.join(MODELS_DIR, "wellness_risk_model.pkl"))
+    target_encoder = joblib.load(os.path.join(MODELS_DIR, "target_encoder.pkl"))
+    feature_columns = joblib.load(os.path.join(MODELS_DIR, "feature_columns.pkl"))
+    app.logger.info("Wellness risk prediction model loaded successfully.")
+except Exception as e:
+    app.logger.error(f"Error loading ML model: {e}")
+    risk_model = None
+    target_encoder = None
+    feature_columns = None
 #--- Utility Functions ---
 def hash_password(password: str) -> str:
     return bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
@@ -429,6 +446,17 @@ def add_health_record():
     if not new_record or 'employeeId' not in new_record:
         return jsonify({'detail': 'Missing health record data or employeeId'}), 400
 
+    # Parse bloodPressure into systolic and diastolic
+    if 'bloodPressure' in new_record and isinstance(new_record['bloodPressure'], str):
+        bp_parts = new_record['bloodPressure'].split('/')
+        if len(bp_parts) == 2:
+            try:
+                new_record['bloodPressureSystolic'] = int(bp_parts[0])
+                new_record['bloodPressureDiastolic'] = int(bp_parts[1])
+            except ValueError:
+                app.logger.warning(f"Invalid bloodPressure format for {new_record.get('employeeId')}: {new_record['bloodPressure']}")
+                # Optionally, you could return an error here or just proceed without parsing
+
     # Ensure a record with the same employeeId doesn't already exist
     if health_records_collection.find_one({'employeeId': new_record['employeeId']}):
         return jsonify({'detail': 'A health record for this employee already exists'}), 409
@@ -437,6 +465,8 @@ def add_health_record():
         # The frontend sends an 'id' field, which we don't need to store in Mongo's '_id'
         if 'id' in new_record:
             del new_record['id']
+
+        new_record['createdAt'] = datetime.now(timezone.utc).isoformat()
 
         result = health_records_collection.insert_one(new_record)
         new_record['id'] = str(result.inserted_id)
@@ -456,6 +486,16 @@ def update_health_record(employee_id):
 
     if not updated_data:
         return jsonify({'detail': 'Missing update data'}), 400
+
+    # Parse bloodPressure into systolic and diastolic
+    if 'bloodPressure' in updated_data and isinstance(updated_data['bloodPressure'], str):
+        bp_parts = updated_data['bloodPressure'].split('/')
+        if len(bp_parts) == 2:
+            try:
+                updated_data['bloodPressureSystolic'] = int(bp_parts[0])
+                updated_data['bloodPressureDiastolic'] = int(bp_parts[1])
+            except ValueError:
+                app.logger.warning(f"Invalid bloodPressure format for {employee_id}: {updated_data['bloodPressure']}")
 
     # The frontend sends an 'id' field, which we don't need to store in Mongo's '_id'
     if 'id' in updated_data:
@@ -509,6 +549,182 @@ def get_all_users():
         return jsonify(users), 200
     except Exception as e:
         app.logger.exception(f"An unexpected error occurred while fetching all users: {e}")
+        return jsonify({'detail': 'Internal Server Error'}), 500
+
+def map_health_record_to_model_input(record):
+    normalized = {
+        "age": int(record.get("age", 30) or 30),
+        "gender": record.get("gender", "Male") or "Male",
+        "height_cm": float(record.get("heightCm", 170) or 170),
+        "weight_kg": float(record.get("weightKg", 70) or 70),
+        "bmi": float(record.get("bmi", 24.0) or 24.0),
+        "blood_pressure_systolic": int(record.get("bloodPressureSystolic", 120) or 120),
+        "blood_pressure_diastolic": int(record.get("bloodPressureDiastolic", 80) or 80),
+        "exercise_days_per_week": int(record.get("exerciseDaysPerWeek", 0) or 0),
+        "sleep_hours": float(record.get("sleepHoursPerNight", 7.0) or 7.0),
+        "stress_score": int(record.get("stressScore", 5) or 5),
+        "attendance_percent": float(record.get("attendanceRate", 95) or 95),
+        "glucose_level": float(record.get("glucoseLevel", 90) or 90),
+        "smoker": int(bool(record.get("smoker", False))),
+        "alcohol_use": int(bool(record.get("alcoholUse", False))),
+        "medical_condition": record.get("medicalCondition", "No major condition") or "No major condition",
+    }
+
+    df = pd.DataFrame([normalized])
+
+    categorical_cols = [col for col in ["gender", "medical_condition"] if col in df.columns]
+    df = pd.get_dummies(df, columns=categorical_cols, drop_first=True)
+
+    df = df.reindex(columns=feature_columns, fill_value=0)
+    return df
+
+@app.route('/api/wellness/risks', methods=['GET'])
+@jwt_required(locations=["cookies"])
+def get_risk_predictions():
+    if risk_model is None or target_encoder is None or feature_columns is None:
+        return jsonify({"detail": "ML model artifacts are not loaded on the server."}), 500
+
+    try:
+        records_cursor = health_records_collection.find({})
+        results = []
+
+        for record in records_cursor:
+            try:
+                employee_id = record.get("employeeId")
+                employee_name = record.get("employeeName", "Unknown Employee")
+
+                model_input_df = map_health_record_to_model_input(record)
+
+                encoded_pred = risk_model.predict(model_input_df)[0]
+                risk_label = target_encoder.inverse_transform([encoded_pred])[0]
+
+                if hasattr(risk_model, "predict_proba"):
+                    # Extract probabilities for specific classes safely
+                    risk_probabilities = risk_model.predict_proba(model_input_df)[0]
+                    class_labels = target_encoder.classes_
+                    prob_dict = dict(zip(class_labels, risk_probabilities))
+
+                    # Map the score appropriately based on the true prediction label
+                    if risk_label == "High":
+                        risk_score = round(70 + (prob_dict.get("High", 0.7) * 30))
+                    elif risk_label == "Medium":
+                        risk_score = round(45 + (prob_dict.get("Medium", 0.5) * 24))
+                    else: # Low risk
+                        risk_score = round(prob_dict.get("Low", 0.1) * 44)
+                else:
+                    risk_score = 50 # Fallback score
+
+                factors = []
+                if model_input_df.get("stress_score", pd.Series([0])).iloc[0] >= 7:
+                    factors.append("High stress score")
+                if model_input_df.get("sleep_hours", pd.Series([0])).iloc[0] < 6:
+                    factors.append("Insufficient sleep")
+                if model_input_df.get("bmi", pd.Series([0])).iloc[0] >= 30:
+                    factors.append("High BMI")
+                if (
+                    model_input_df.get("blood_pressure_systolic", pd.Series([0])).iloc[0] >= 140
+                    or model_input_df.get("blood_pressure_diastolic", pd.Series([0])).iloc[0] >= 90
+                ):
+                    factors.append("Elevated blood pressure")
+                if model_input_df.get("exercise_days_per_week", pd.Series([0])).iloc[0] <= 1:
+                    factors.append("Low weekly exercise")
+                if model_input_df.get("glucose_level", pd.Series([0])).iloc[0] >= 126:
+                    factors.append("Elevated glucose level")
+
+                if risk_label == "High":
+                    recommendation_action = "Immediate clinical review, stress intervention, and close vitals monitoring recommended."
+                elif risk_label == "Medium":
+                    recommendation_action = "Moderate risk detected. Improve sleep, exercise, and review biometric trends weekly."
+                else:
+                    recommendation_action = "Low risk profile. Maintain current healthy routines and continue periodic monitoring."
+
+                results.append({
+                    "employeeId": employee_id,
+                    "employeeName": employee_name,
+                    "riskType": risk_label,
+                    "riskScore": risk_score,
+                    "factors": factors if factors else ["Vitals check within ideal levels"],
+                    "recommendationAction": recommendation_action
+                })
+
+            except Exception as row_error:
+                app.logger.exception(
+                    "Risk prediction failed for employeeId=%s: %s",
+                    record.get("employeeId"),
+                    str(row_error)
+                )
+                results.append({
+                    "employeeId": record.get("employeeId"),
+                    "employeeName": record.get("employeeName"),
+                    "riskType": "Unknown",
+                    "riskScore": 0,
+                    "factors": [f"Prediction failed: {str(row_error)}"],
+                    "recommendationAction": "Review this employee's health record fields."
+                })
+
+        results.sort(key=lambda item: item["riskScore"], reverse=True)
+        return jsonify(results), 200
+
+    except Exception as e:
+        app.logger.exception(f"Failed to generate wellness risks: {e}")
+        return jsonify({"detail": "Risk prediction failed"}), 500
+
+
+@app.route('/api/wellness/risks_old', methods=['GET'])
+@jwt_required(locations=["cookies"])
+def get_wellness_risks_old():
+    if risk_model is None or target_encoder is None or feature_columns is None:
+        return jsonify({'detail': 'ML model is not available.'}), 503
+
+    try:
+        health_records = list(health_records_collection.find({}))
+        if not health_records:
+            return jsonify([]), 200
+
+        risk_profiles = []
+
+        for record in health_records:
+            try:
+                model_input_df = map_health_record_to_model_input(record)
+
+                prediction_encoded = risk_model.predict(model_input_df)
+                prediction_label = target_encoder.inverse_transform(prediction_encoded)[0]
+
+                risk_score = 25
+                if prediction_label == 'High':
+                    risk_score = 80
+                elif prediction_label == 'Medium':
+                    risk_score = 55
+
+                risk_profiles.append({
+                    "employeeId": record.get("employeeId"),
+                    "employeeName": record.get("employeeName"),
+                    "riskType": prediction_label,
+                    "riskScore": risk_score,
+                    "factors": [f"Predicted as {prediction_label} risk by model."],
+                    "recommendationAction": f"Follow standard protocol for {prediction_label} risk employees."
+                })
+
+            except Exception as row_error:
+                app.logger.exception(
+                    "Risk prediction failed for employeeId=%s: %s",
+                    record.get("employeeId"),
+                    str(row_error)
+                )
+
+                risk_profiles.append({
+                    "employeeId": record.get("employeeId"),
+                    "employeeName": record.get("employeeName"),
+                    "riskType": "Unknown",
+                    "riskScore": 0,
+                    "factors": [f"Prediction failed: {str(row_error)}"],
+                    "recommendationAction": "Review this employee's health record fields."
+                })
+
+        return jsonify(risk_profiles), 200
+
+    except Exception as e:
+        app.logger.exception(f"An unexpected error occurred during risk prediction: {e}")
         return jsonify({'detail': 'Internal Server Error'}), 500
 
 # --- Daily Habits API Endpoints ---

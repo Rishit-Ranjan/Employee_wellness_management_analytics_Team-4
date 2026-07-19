@@ -128,11 +128,25 @@ export default function App() {
                         employeeId: userEmpId,
                         employeeName: currentUser.name,
                         department: 'Engineering', // Default for dropdown
-                        bmi: '', // Empty for user input
-                        bloodPressure: '', // Empty for user input
-                        exerciseHoursPerWeek: '', // Empty for user input
-                        sleepHoursPerNight: '', // Empty for user input
+                        age: 30, // Default age
+                        gender: 'Male', // Default gender
+                        heightCm: 170, // Default height
+                        weightKg: 70, // Default weight
+                        bmi: 24.2, // Calculated from default height/weight
+                        bloodPressure: '120/80', // Default BP
+                        bloodPressureSystolic: 120,
+                        bloodPressureDiastolic: 80,
+                        exerciseHoursPerWeek: 3.5, // Default exercise
+                        exerciseDaysPerWeek: 3, // Default exercise days
+                        sleepHoursPerNight: 7, // Default sleep
                         stressLevel: 'Medium', // Default for dropdown
+                        stressScore: 5, // Default stress score
+                        attendanceRate: 95, // Default attendance
+                        medicalNotes: 'No major concerns', // Default
+                        medicalCondition: 'No major condition', // Default
+                        smoker: false, // Default
+                        alcoholUse: false, // Default
+                        glucoseLevel: 90, // Default
                         healthAssessment: 'Fair', // Neutral default for derived field
                         lastUpdated: new Date().toISOString().split('T')[0]
                     };
@@ -143,50 +157,54 @@ export default function App() {
                 setHealthRecords(loadedHR);
 
                 // 2. Daily Habits for the current user
-                let loadedDH = null;
-                try {
-                    loadedDH = await api.fetchDailyHabits(userEmpId);
-                } catch (err) {
-                    if (err.status === 404) { // No record found, create one
-                        const newDailyHabit = {
-                            employeeId: userEmpId,
-                            waterCups: 0,
-                            stepsCount: 0,
-                            lastUpdated: new Date().toISOString().split('T')[0]
-                        };
-                        loadedDH = await api.addDailyHabit(newDailyHabit);
-                    } else {
-                        throw err; // Re-throw other errors
+                if (!userEmpId) {
+                  console.warn("Missing employeeId for current user", currentUser);
+                } else {
+                    let loadedDH = null;
+                    try {
+                        loadedDH = await api.fetchDailyHabits(userEmpId);
+                    } catch (err) {
+                        if (err.status === 404) { // No record found, create one
+                            const newDailyHabit = {
+                                employeeId: userEmpId,
+                                waterCups: 0,
+                                stepsCount: 0,
+                                lastUpdated: new Date().toISOString().split('T')[0]
+                            };
+                            loadedDH = await api.addDailyHabit(newDailyHabit);
+                        } else {
+                            throw err; // Re-throw other errors
+                        }
                     }
-                }
-                setDailyHabits(loadedDH ? [loadedDH] : []); // Store as an array for consistency
+                    setDailyHabits(loadedDH ? [loadedDH] : []); // Store as an array for consistency
 
-                // 3. Mental Health Logs for the current user (today's log)
-                let loadedMHL = null;
-                try {
-                    loadedMHL = await api.fetchMentalHealthLogs(userEmpId);
-                } catch (err) {
-                    if (err.status === 404) { // No record found for today, create one
-                        const newMentalHealthLog = {
-                            employeeId: userEmpId,
-                            mood: 'Neutral', // Default mood
-                            stressLevel: 5, // Default stress
-                            feedback: '',
-                            streakDays: 0, // Initial streak
-                            date: new Date().toISOString().split('T')[0]
-                        };
-                        loadedMHL = await api.addMentalHealthLog(newMentalHealthLog);
-                    } else {
-                        throw err; // Re-throw other errors
+                    // 3. Mental Health Logs for the current user (today's log)
+                    let loadedMHL = null;
+                    try {
+                        loadedMHL = await api.fetchMentalHealthLogs(userEmpId);
+                    } catch (err) {
+                        if (err.status === 404) { // No record found for today, create one
+                            const newMentalHealthLog = {
+                                employeeId: userEmpId,
+                                mood: 'Neutral', // Default mood
+                                stressLevel: 5, // Default stress
+                                feedback: '',
+                                streakDays: 0, // Initial streak
+                                date: new Date().toISOString().split('T')[0]
+                            };
+                            loadedMHL = await api.addMentalHealthLog(newMentalHealthLog);
+                        } else {
+                            throw err; // Re-throw other errors
+                        }
                     }
+                    setMentalHealthLogs(loadedMHL ? [loadedMHL] : []); // Store as an array for consistency
                 }
-                setMentalHealthLogs(loadedMHL ? [loadedMHL] : []); // Store as an array for consistency
 
 
-
-                // 2. Other wellness data (still from localStorage for now)
+                // 4. Other wellness data
+                const loadedRisks = await api.fetchRisks();
+                setRisks(loadedRisks || INITIAL_RISKS);
                 const wellnessData = await api.fetchAllWellnessData();
-                setRisks(wellnessData.risks || INITIAL_RISKS);
                 setRecommendations(wellnessData.recommendations || INITIAL_RECOMMENDATIONS);
                 setSentimentList(wellnessData.sentiments || INITIAL_SENTIMENTS);
             } catch (error) {
@@ -200,64 +218,6 @@ export default function App() {
 
         loadData();
     }, [currentUser, handleLogout]); // Dependency on handleLogout
-
-    // Sync state modifications and recalculate risks
-    useEffect(() => {
-        if (healthRecords.length === 0)
-            return;
-        // Auto-update wellness risk list dynamically based on updated health records
-        const updatedRisks = healthRecords.map(r => {
-            let score = 20;
-            const factors = [];
-            let riskType = 'None';
-            let action = 'Maintain current healthy habit levels and claim monthly gym rewards.';
-            const [sys, dia] = r.bloodPressure.split('/').map(Number);
-            if (r.stressLevel === 'High') {
-                score += 35;
-                factors.push('High self-reported stress');
-            }
-            if (r.sleepHoursPerNight < 6) {
-                score += 25;
-                factors.push('Insufficient sleep (< 6 hrs)');
-            }
-            if (r.bmi >= 30) {
-                score += 25;
-                factors.push(`Obese BMI: ${r.bmi}`);
-                riskType = 'Obesity';
-            }
-            if (sys >= 140 || dia >= 90) {
-                score += 30;
-                factors.push(`Hypertension BP: ${r.bloodPressure}`);
-                riskType = 'Hypertension';
-            }
-            if (r.exerciseHoursPerWeek === 0) {
-                score += 15;
-                factors.push('Sedentary lifestyle (0 exercise)');
-            }
-            if (score >= 70) {
-                if (riskType === 'None')
-                    riskType = 'Burnout';
-                action = `Schedule wellness check-up, mandate rest days, and advise joining the ${riskType === 'Hypertension' ? 'Cardio endurance plan' : 'Stress Reduction program'}.`;
-            }
-            else if (score >= 45) {
-                riskType = 'Stress';
-                action = 'Offer guided ergonomic workspace reviews and recommend the Diaphragmatic Breathing program.';
-            }
-            return {
-                employeeId: r.employeeId,
-                employeeName: r.employeeName,
-                riskType,
-                riskScore: Math.min(100, score),
-                factors: factors.length > 0 ? factors : ['Vitals check within ideal levels'],
-                recommendationAction: action
-            };
-        });
-        
-        // Defer state update to avoid cascading renders
-        // This part still uses localStorage as risk calculation is on the frontend
-        api.saveRisks(updatedRisks);
-        setRisks(updatedRisks);
-    }, [healthRecords]);
 
     // Event Handlers for User Actions
     const handleAddHealthRecord = async (newRecord) => {
@@ -405,13 +365,17 @@ export default function App() {
                     user={currentUser}
                     onLogout={handleLogout}
                     healthRecords={healthRecords}
+                    risks={risks}
                     dailyHabits={dailyHabits} // Pass new state
                     onAddDailyHabit={handleAddDailyHabit} // Pass new handler
                     onUpdateDailyHabit={handleUpdateDailyHabit} // Pass new handler
                     mentalHealthLogs={mentalHealthLogs} // Pass new state
+                    onAddRecord={handleAddHealthRecord}
                     onAddHealthRecord={handleAddHealthRecord} // Pass the add handler
                     onUpdateUserRecord={handleUpdateUserRecord}
-                    onUpdateSentimentPulse={handleUpdateSentimentPulse} recommendations={recommendations} />)
+                    onUpdateSentimentPulse={handleUpdateSentimentPulse}
+                    recommendations={recommendations}
+                />)
             )}
         </div>
         )
