@@ -97,8 +97,6 @@ def _generate_reset_otp(length: int = 6) -> str:
     # numeric OTP, zero-padded
     return str(int.from_bytes(os.urandom(4), 'big') % (10 ** length)).zfill(length)
 
-
-
 def _generate_reset_token(num_bytes: int = 32) -> str:
     # URL-safe-ish token
     return os.urandom(num_bytes).hex()
