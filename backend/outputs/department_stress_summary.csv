@@ -1,0 +1,5 @@
+department,total_feedback,avg_compound_sentiment,negative_feedback_count,high_stress_count,medium_stress_count,negative_feedback_pct,high_stress_pct
+Finance,1,-0.25,1,1,0,100.0,100.0
+Sales,1,-0.7506,1,1,0,100.0,100.0
+Engineering,2,-0.12045,1,2,0,50.0,100.0
+HR,1,0.6249,0,0,0,0.0,0.0

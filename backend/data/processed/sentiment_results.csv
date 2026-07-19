@@ -1,0 +1,6 @@
+feedback_id,department,feedback_text,feedback_date,cleaned_feedback,neg,neu,pos,compound,sentiment_label,stress_term_count,stress_terms_found,stress_risk
+1,Engineering,Workload has been very intense and I feel mentally exhausted.,2026-07-01,workload intense feel mentally exhausted,0.225,0.631,0.144,-0.228,Negative,2,"exhausted, workload",High
+2,HR,The team culture is supportive and I feel good about my work.,2026-07-01,team culture supportive feel good work,0.0,0.638,0.362,0.6249,Positive,0,,Low
+3,Sales,Targets are stressful and work-life balance is getting worse.,2026-07-02,targets stressful worklife balance getting worse,0.478,0.522,0.0,-0.7506,Negative,1,stress,High
+4,Engineering,Manager support is helpful but deadlines are causing pressure.,2026-07-02,manager support helpful deadlines causing pressure,0.223,0.478,0.299,-0.0129,Neutral,2,"pressure, deadline",High
+5,Finance,I feel burned out and anxious about the month-end workload.,2026-07-03,feel burned anxious monthend workload,0.2,0.8,0.0,-0.25,Negative,3,"burned out, anxious, workload",High

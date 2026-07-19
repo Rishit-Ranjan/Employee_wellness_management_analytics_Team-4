@@ -14,3 +14,4 @@ joblib
 matplotlib
 seaborn
 flask-jwt-extended
+nltk
