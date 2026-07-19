@@ -826,50 +826,69 @@ export function RiskPredictionModule({ risks  }) {
 // ==========================================
 // MODULE 3: PERSONALIZED RECOMMENDATIONS
 // ==========================================
-export function RecommendationModule({ recommendations = [] }) {
+export function RecommendationModule({ recommendations = [] }) { // recommendations now is an array of {employeeId, employeeName, riskProfile, recommendations}
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+    <div className="space-y-6">
       {recommendations.length === 0 ? (
         <div className="col-span-full bg-white border border-slate-200 rounded-xl p-10 text-center font-mono text-xs text-slate-400 shadow-sm">
           No recommendations available at this time.
         </div>
       ) : (
-        recommendations.map((rec) => {
-        const Icon = rec.category === 'Fitness' ? Dumbbell :
-                     rec.category === 'Diet' ? Apple :
-                     rec.category === 'Mental Wellness' ? Brain : Clock;
-
-        return (
-          <div key={rec.id} className="bg-white border border-slate-200 rounded-xl p-6 flex flex-col justify-between space-y-4 hover:border-slate-300 transition-colors shadow-sm">
-            <div className="space-y-3">
-              <div className="flex items-center justify-between">
-                <div className="p-2.5 bg-indigo-50 border border-indigo-100 rounded-xl text-indigo-600">
-                  <Icon className="w-5 h-5" />
-                </div>
-                <span className="px-2.5 py-0.5 bg-slate-50 border border-slate-200 text-slate-600 text-[10px] font-bold uppercase rounded-md">
-                  {rec.category}
-                </span>
-              </div>
-
+        recommendations.map((empRec) => (
+          <div key={empRec.employeeId} className="bg-white border border-slate-200 rounded-xl p-6 shadow-sm">
+            <div className="flex justify-between items-start pb-4 border-b border-slate-100 mb-4">
               <div>
-                <h4 className="font-display font-semibold text-base text-slate-800">{rec.title}</h4>
-                <p className="text-slate-500 text-xs mt-1.5 leading-relaxed font-light">{rec.description}</p>
+                <h4 className="font-display font-semibold text-slate-800">{empRec.employeeName}</h4>
+                <p className="text-xs text-slate-400 font-mono">{empRec.employeeId}</p>
               </div>
+              <span className={`px-2.5 py-1 rounded-md text-[10px] font-bold ${
+                empRec.riskProfile.riskType === 'High' ? 'bg-red-50 text-red-700 border border-red-100' :
+                empRec.riskProfile.riskType === 'Medium' ? 'bg-amber-50 text-amber-700 border border-amber-100' :
+                'bg-emerald-50 text-emerald-700 border border-emerald-100'
+              }`}>
+                {empRec.riskProfile.riskType} Risk
+              </span>
             </div>
-
-            <div className="pt-4 border-t border-slate-100 flex items-center justify-between">
-              <div className="space-y-0.5">
-                <span className="block text-[9px] font-bold text-slate-400 uppercase tracking-wider">Assigned Schedule</span>
-                <span className="text-xs text-slate-800 font-mono font-bold">{rec.schedule}</span>
-              </div>
-              <div className="space-y-0.5 text-right">
-                <span className="block text-[9px] font-bold text-slate-400 uppercase tracking-wider">Duration</span>
-                <span className="text-xs text-slate-800 font-bold font-mono">{rec.durationWeeks} Weeks</span>
-              </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+              {empRec.recommendations.map(rec => {
+                const Icon = rec.category === 'Fitness' ? Dumbbell :
+                             rec.category === 'Diet' ? Apple :
+                             rec.category === 'Mental Wellness' ? Brain : Clock;
+                return (
+                  <div key={rec.recommendation_id} className="bg-slate-50/70 border border-slate-200 rounded-lg p-4 space-y-3">
+                     <div className="flex items-center justify-between">
+                        <div className="p-2 bg-white border border-slate-200 rounded-lg text-indigo-600">
+                          <Icon className="w-4 h-4" />
+                        </div>
+                        <span className="px-2 py-0.5 bg-white border border-slate-200 text-slate-600 text-[9px] font-bold uppercase rounded-md">
+                          {rec.category}
+                        </span>
+                      </div>
+                      <div>
+                        <h5 className="font-semibold text-xs text-slate-800">{rec.title}</h5>
+                        <p className="text-[11px] text-slate-500 mt-1 leading-relaxed font-light">{rec.description}</p>
+                      </div>
+                      {rec.reasons && rec.reasons.length > 0 && (
+                        <div className="pt-2 border-t border-slate-200">
+                           <p className="text-[9px] font-bold text-slate-400 uppercase tracking-wider">Reasons:</p>
+                           <ul className="list-disc list-inside space-y-0.5 mt-1">
+                            {rec.reasons.map((reason, i) => (
+                              <li key={i} className="text-[10px] text-slate-500">{reason}</li>
+                            ))}
+                           </ul>
+                        </div>
+                      )}
+                  </div>
+                );
+              })}
+               {empRec.recommendations.length === 0 && (
+                <div className="md:col-span-2 xl:col-span-3 text-center text-xs text-slate-400 font-mono py-5">
+                  No specific recommendations triggered for this low-risk employee.
+                </div>
+              )}
             </div>
           </div>
-        );
-      })
+        ))
       )}
     </div>
   );
@@ -1050,7 +1069,7 @@ export default function AdminDashboard({ user,
   onLogout,
   healthRecords,
   allUsers,
-  risks,  
+  risks,
   recommendations = personalRecommendations,
   sentimentList,
   kpis,
@@ -1206,7 +1225,7 @@ export default function AdminDashboard({ user,
             )}
 
             {activeTab === 3 && (
-              <RecommendationModule recommendations={personalRecommendations} />
+              <RecommendationModule recommendations={recommendations} />
             )}
 
             {activeTab === 4 && (
