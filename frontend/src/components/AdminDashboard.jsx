@@ -826,15 +826,37 @@ export function RiskPredictionModule({ risks  }) {
 // ==========================================
 // MODULE 3: PERSONALIZED RECOMMENDATIONS
 // ==========================================
-export function RecommendationModule({ recommendations = [] }) { // recommendations now is an array of {employeeId, employeeName, riskProfile, recommendations}
+export function RecommendationModule({ recommendations = [] }) { 
+  const [search, setSearch] = useState('');
+
+  const filteredRecs = recommendations.filter(rec => {
+    const searchTerm = search.toLowerCase();
+    return (
+      rec.employeeName.toLowerCase().includes(searchTerm) ||
+      rec.employeeId.toLowerCase().includes(searchTerm)
+    );
+  });
+
   return (
     <div className="space-y-6">
-      {recommendations.length === 0 ? (
+      <div className="bg-white p-4.5 rounded-xl border border-slate-200 shadow-sm flex items-center gap-4">
+        <div className="relative w-full sm:w-72">
+          <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+          <input
+            type="text"
+            placeholder="Search by employee name or ID..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 focus:border-indigo-500 focus:bg-white rounded-lg text-xs text-slate-800 placeholder-slate-400 outline-none transition-all"
+          />
+        </div>
+      </div>
+      {filteredRecs.length === 0 ? (
         <div className="col-span-full bg-white border border-slate-200 rounded-xl p-10 text-center font-mono text-xs text-slate-400 shadow-sm">
-          No recommendations available at this time.
+          No recommendations found matching your search.
         </div>
       ) : (
-        recommendations.map((empRec) => (
+        filteredRecs.map((empRec) => (
           <div key={empRec.employeeId} className="bg-white border border-slate-200 rounded-xl p-6 shadow-sm">
             <div className="flex justify-between items-start pb-4 border-b border-slate-100 mb-4">
               <div>
@@ -850,12 +872,12 @@ export function RecommendationModule({ recommendations = [] }) { // recommendati
               </span>
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-              {empRec.recommendations.map(rec => {
+              {empRec.recommendations.map((rec, idx) => {
                 const Icon = rec.category === 'Fitness' ? Dumbbell :
                              rec.category === 'Diet' ? Apple :
                              rec.category === 'Mental Wellness' ? Brain : Clock;
                 return (
-                  <div key={rec.recommendation_id} className="bg-slate-50/70 border border-slate-200 rounded-lg p-4 space-y-3">
+                  <div key={rec.recommendation_id || idx} className="bg-slate-50/70 border border-slate-200 rounded-lg p-4 space-y-3">
                      <div className="flex items-center justify-between">
                         <div className="p-2 bg-white border border-slate-200 rounded-lg text-indigo-600">
                           <Icon className="w-4 h-4" />

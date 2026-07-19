@@ -1092,6 +1092,7 @@ export default function UserDashboard({ user,
               <UserProfileModule
                 user={user}
                 records={healthRecords}
+                risks={risks}
                 dailyHabits={dailyHabits} // Pass new state
                 onAddDailyHabit={onAddDailyHabit} // Pass new handler
                 onUpdateDailyHabit={onUpdateDailyHabit} // Pass new handler

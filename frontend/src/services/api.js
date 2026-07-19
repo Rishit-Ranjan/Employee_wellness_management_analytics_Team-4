@@ -128,7 +128,7 @@ export const deleteHealthRecord = (employeeId) => request(`/wellness/health-reco
  * Fetches all wellness risk predictions from the backend.
  * @returns {Promise<Array<Object>>} A promise that resolves to the list of risk profiles.
  */
-export const fetchRisks = () => request('/wellness/risks');
+export const fetchRisks  = () => request('/wellness/risks');
 // --- LocalStorage helpers for non-persistent prototype data ---
 const getFromStorage = (key, defaultValue) => {
     try {
@@ -147,6 +147,11 @@ const saveToStorage = (key, data) => {
         console.error(`Error saving to localStorage key “${key}”:`, error);
     }
 };
+
+export const fetchRecommendations = async () => {
+  const response= await request('/wellness/recommendations');
+  return response;
+}
 
 export const fetchAllWellnessData = async () => ({
     recommendations: getFromStorage('wellness_recommendations', []),
