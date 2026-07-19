@@ -1175,7 +1175,7 @@ export default function AdminDashboard({ user,
               <h1 className="font-display text-3xl font-light text-slate-900 tracking-tight">
                 {activeTab === 1 && 'Employee Health Data Management'}
                 {activeTab === 2 && 'Wellness Risk Prediction'}
-                {activeTab === 3 && 'Personalized Wellness Recommendation System'}
+                {activeTab === 3 && 'Wellness Recommendation System'}
                 {activeTab === 4 && 'Mental Health & Sentiment Analytics'}
                 {activeTab === 5 && 'Wellness Performance Dashboard & Analytics'}
               </h1>
