@@ -904,15 +904,15 @@ export function RecommendationModule({ recommendations = [], loading }) {
                         </span>
                       </div>
                       <div>
-                        <h5 className="font-semibold text-xs text-slate-800">{rec.title}</h5>
-                        <p className="text-[11px] text-slate-500 mt-1 leading-relaxed font-light">{rec.description}</p>
+                        <h5 className="font-semibold text-sm text-slate-800">{rec.title}</h5>
+                        <p className="text-xs text-slate-500 mt-1 leading-relaxed font-light">{rec.description}</p>
                       </div>
                       {rec.reasons && rec.reasons.length > 0 && (
                         <div className="pt-2 border-t border-slate-200">
-                           <p className="text-[9px] font-bold text-slate-400 uppercase tracking-wider">Reasons:</p>
-                           <ul className="list-disc list-inside space-y-0.5 mt-1">
+                           <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Reasons:</p>
+                           <ul className="list-disc list-inside space-y-1 mt-1.7">
                             {rec.reasons.map((reason, i) => (
-                              <li key={i} className="text-[10px] text-slate-500">{reason}</li>
+                              <li key={i} className="text-[11px] text-slate-500">{reason}</li>
                             ))}
                            </ul>
                         </div>
