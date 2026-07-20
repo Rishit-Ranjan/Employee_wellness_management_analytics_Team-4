@@ -222,12 +222,20 @@ export default function App() {
     const handleAddHealthRecord = async (newRecord) => {
         const addedRecord = await api.addHealthRecord(newRecord);
         setHealthRecords([addedRecord, ...healthRecords]);
+
+        // Recompute Module 2 diagnostics from updated health_records
+        const loadedRisks = await api.fetchRisks();
+        setRisks(loadedRisks || []);
     };
 
     // Update a specific user's health record and persist changes
     const handleUpdateUserRecord = async (updatedRecord) => {
         await api.updateHealthRecord(updatedRecord);
         setHealthRecords(healthRecords.map(r => r.employeeId === updatedRecord.employeeId ? updatedRecord : r));
+
+        // Recompute Module 2 diagnostics from updated health_records
+        const loadedRisks = await api.fetchRisks();
+        setRisks(loadedRisks || []);
     };
 
     // Add a new daily habit record
