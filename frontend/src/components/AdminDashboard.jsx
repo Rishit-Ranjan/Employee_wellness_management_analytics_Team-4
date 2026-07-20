@@ -148,81 +148,86 @@ export function HealthDataModule({ records, allUsers, onAddRecord, onUpdateRecor
       assessment = 'Fair';
     }
 
-    if (editingRecord) {
-      // Update existing record
-      setError(''); // Clear error on successful update attempt
-      const [empId, empName] = selectedEmployee.split('|');
-      const updatedRec = {
-        ...editingRecord,
-        // Ensure employeeId and employeeName are from the selected employee,
-        // or keep original if not changed (though dropdown forces selection)
-        employeeId: empId,
-        employeeName: empName,
-        age: Number(age),
-        gender: gender,
-        heightCm: Number(heightCm),
-        weightKg: Number(weightKg),
-        department: dept,
-        bmi: calculatedBmi,
-        bloodPressure: bp,
-        exerciseDaysPerWeek: Number(exerciseDaysPerWeek),
-        exerciseHoursPerWeek: Number(exercise) || 0,
-        sleep_hours: Number(sleep) || 0,
-        sleepHoursPerNight: Number(sleep),
-        stressLevel: stress,
-        stressScore: Number(stressScore),
-        attendanceRate: Number(attendanceRate),
-        medicalNotes: medicalNotes,
-        medicalCondition: medicalCondition,
-        smoker: smoker,
-        alcoholUse: alcoholUse,
-        glucoseLevel: Number(glucoseLevel),
-        healthAssessment: assessment,
-        lastUpdated: new Date().toISOString().split('T')[0]
-      };
-      await onUpdateRecord(updatedRec);
-      alert('Health record updated successfully!'); // User feedback
-    } else {
-      // Add new record
-      const [empId, empName] = selectedEmployee.split('|');
-      const newRec = {
-        employeeId: empId,
-        employeeName: empName,
-        age: Number(age),
-        gender: gender,
-        heightCm: Number(heightCm),
-        weightKg: Number(weightKg),
-        department: dept,
-        bmi: calculatedBmi,
-        bloodPressure: bp,
-        exerciseHoursPerWeek: Number(exercise),
-        exerciseDaysPerWeek: Number(exerciseDaysPerWeek),
-        sleep_hours: Number(sleep) || 0,
-        sleepHoursPerNight: Number(sleep) || 0,
-        stressLevel: stress,
-        stressScore: Number(stressScore),
-        attendanceRate: Number(attendanceRate),
-        medicalNotes: medicalNotes,
-        medicalCondition: medicalCondition,
-        smoker: smoker,
-        alcoholUse: alcoholUse,
-        glucoseLevel: Number(glucoseLevel),
-        healthAssessment: assessment,
-        lastUpdated: new Date().toISOString().split('T')[0]
-      };
-      await onAddRecord(newRec);
-      alert('Health record added successfully!'); // User feedback
-    }
+    try {
+      if (editingRecord) {
+        // Update existing record
+        setError(''); // Clear error on successful update attempt
+        const [empId, empName] = selectedEmployee.split('|');
+        const updatedRec = {
+          ...editingRecord,
+          // Ensure employeeId and employeeName are from the selected employee,
+          // or keep original if not changed (though dropdown forces selection)
+          employeeId: empId,
+          employeeName: empName,
+          age: Number(age),
+          gender: gender,
+          heightCm: Number(heightCm),
+          weightKg: Number(weightKg),
+          department: dept,
+          bmi: calculatedBmi,
+          bloodPressure: bp,
+          exerciseDaysPerWeek: Number(exerciseDaysPerWeek),
+          exerciseHoursPerWeek: Number(exercise) || 0,
+          sleep_hours: Number(sleep) || 0,
+          sleepHoursPerNight: Number(sleep) || 0,
+          stressLevel: stress,
+          stressScore: Number(stressScore),
+          attendanceRate: Number(attendanceRate),
+          medicalNotes: medicalNotes,
+          medicalCondition: medicalCondition,
+          smoker: smoker,
+          alcoholUse: alcoholUse,
+          glucoseLevel: Number(glucoseLevel),
+          healthAssessment: assessment,
+          lastUpdated: new Date().toISOString().split('T')[0]
+        };
+        await onUpdateRecord(updatedRec);
+        alert('Health record updated successfully!'); // User feedback
+      } else {
+        // Add new record
+        const [empId, empName] = selectedEmployee.split('|');
+        const newRec = {
+          employeeId: empId,
+          employeeName: empName,
+          age: Number(age),
+          gender: gender,
+          heightCm: Number(heightCm),
+          weightKg: Number(weightKg),
+          department: dept,
+          bmi: calculatedBmi,
+          bloodPressure: bp,
+          exerciseHoursPerWeek: Number(exercise),
+          exerciseDaysPerWeek: Number(exerciseDaysPerWeek),
+          sleep_hours: Number(sleep) || 0,
+          sleepHoursPerNight: Number(sleep) || 0,
+          stressLevel: stress,
+          stressScore: Number(stressScore),
+          attendanceRate: Number(attendanceRate),
+          medicalNotes: medicalNotes,
+          medicalCondition: medicalCondition,
+          smoker: smoker,
+          alcoholUse: alcoholUse,
+          glucoseLevel: Number(glucoseLevel),
+          healthAssessment: assessment,
+          lastUpdated: new Date().toISOString().split('T')[0]
+        };
+        await onAddRecord(newRec);
+        alert('Health record added successfully!'); // User feedback
+      }
 
-    setIsAddOpen(false);
-    // Reset Form
-    setSelectedEmployee('');
-    setAge(''); setGender('Male'); setHeightCm(''); setWeightKg('');
-    setBmi(''); setBp(''); setExerciseDaysPerWeek(''); setExercise(''); setSleep('');
-    setStress('Medium'); setStressScore(''); setAttendanceRate('');
-    setMedicalNotes(''); setMedicalCondition('No major condition'); setSmoker(false); setAlcoholUse(false); setGlucoseLevel('');
-    setEditingRecord(null);
-    setError(''); // Clear error after successful submission
+      setIsAddOpen(false);
+      // Reset Form
+      setSelectedEmployee('');
+      setAge(''); setGender('Male'); setHeightCm(''); setWeightKg('');
+      setBmi(''); setBp(''); setExerciseDaysPerWeek(''); setExercise(''); setSleep('');
+      setStress('Medium'); setStressScore(''); setAttendanceRate('');
+      setMedicalNotes(''); setMedicalCondition('No major condition'); setSmoker(false); setAlcoholUse(false); setGlucoseLevel('');
+      setEditingRecord(null);
+      setError(''); // Clear error after successful submission
+    } catch (err) {
+      console.error('Failed to save health record:', err);
+      setError(err?.message || 'Failed to save health record. Please try again.');
+    }
   };
   // Find users who do not have a health record yet for the dropdown
   const usersWithoutRecords = useMemo(() => {

@@ -245,12 +245,17 @@ export default function App() {
 
     // Update a specific user's health record and persist changes
     const handleUpdateUserRecord = async (updatedRecord) => {
-        await api.updateHealthRecord(updatedRecord);
-        setHealthRecords(healthRecords.map(r => r.employeeId === updatedRecord.employeeId ? updatedRecord : r));
+        try {
+            await api.updateHealthRecord(updatedRecord);
+            setHealthRecords(healthRecords.map(r => r.employeeId === updatedRecord.employeeId ? updatedRecord : r));
 
-        // Recompute Module 2 diagnostics from updated health_records
-        const loadedRisks = await api.fetchRisks();
-        setRisks(loadedRisks || []);
+            // Recompute Module 2 diagnostics from updated health_records
+            const loadedRisks = await api.fetchRisks();
+            setRisks(loadedRisks || []);
+        } catch (err) {
+            console.error('Failed to update health record:', err);
+            throw err; // Re-throw so the calling code (AdminDashboard) can catch and display the error
+        }
     };
 
     // Add a new daily habit record
