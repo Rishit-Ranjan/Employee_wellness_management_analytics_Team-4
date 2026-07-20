@@ -3,8 +3,6 @@ import { Trash2, Edit, MoreHorizontal, Activity, TrendingUp, Lightbulb, Smile, B
   Search, Plus, X, ShieldAlert, AlertCircle, Check, Sparkles, Dumbbell, Apple, Brain, Clock
 } from 'lucide-react';
 
-import {personalRecommendations, sentimentData} from '../types'
-
 // ==========================================
 // MODULE 1: EMPLOYEE HEALTH DATA MANAGEMENT
 // ==========================================

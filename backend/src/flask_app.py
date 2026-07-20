@@ -24,15 +24,12 @@ import cloudpickle
 
 app = Flask(__name__)
 
-
 load_dotenv()
-
 
 # --- App Configuration ---
 MONGO_URI = os.getenv('MONGO_URI', 'mongodb://localhost:27017/employee_wellness_analytics')
 MONGO_DB_NAME = os.getenv('MONGO_DB_NAME', 'employee_wellness_analytics')
 CORS(app, supports_credentials=True, origins=os.getenv('FRONTEND_ORIGIN', 'http://localhost:5173'))
-
 
 # --- JWT Configuration ---
 app.config["JWT_SECRET_KEY"] = os.getenv("JWT_SECRET_KEY", "default-super-secret-key-for-dev")
