@@ -90,6 +90,63 @@ def verify_password(password: str, password_hash: str) -> bool:
     return bcrypt.checkpw(password.encode('utf-8'), password_hash.encode('utf-8'))
 
 
+def _regenerate_department_summary():
+    """
+    Reads the raw employee_feedback.csv and regenerates the
+    department_stress_summary.csv with aggregated metrics.
+    This ensures admin dashboards reflect real-time pulse data.
+    """
+    FEEDBACK_DATA_PATH = os.path.join(BASE_DIR, "data", "dataset", "employee_feedback.csv")
+    DEPT_SUMMARY_PATH = os.path.join(BASE_DIR, "outputs", "department_stress_summary.csv")
+    
+    if not os.path.exists(FEEDBACK_DATA_PATH):
+        app.logger.warning("Cannot regenerate summary: employee_feedback.csv not found.")
+        return False
+    
+    try:
+        feedback_df = pd.read_csv(FEEDBACK_DATA_PATH)
+        if feedback_df.empty:
+            app.logger.warning("Feedback data is empty. No summary generated.")
+            return False
+        
+        # Map simple sentiment labels to approximate compound scores
+        # Positive ~ 0.9, Neutral ~ 0.0, Negative ~ -0.8
+        sentiment_compound_map = {'Positive': 0.9, 'Neutral': 0.0, 'Negative': -0.8}
+        feedback_df['approx_compound'] = feedback_df['sentiment'].map(
+            sentiment_compound_map
+        ).fillna(0.0)
+
+        # Also derive compound from rating column if available (rating is 1-5)
+        if 'rating' in feedback_df.columns:
+            feedback_df['rating_compound'] = (feedback_df['rating'] - 3) / 2.0  # maps 1->-1.0, 5->1.0
+            # Blend both signals, with priority to rating-based compound
+            feedback_df['compound'] = feedback_df.apply(
+                lambda row: row.get('rating_compound', row['approx_compound']),
+                axis=1
+            )
+        else:
+            feedback_df['compound'] = feedback_df['approx_compound']
+
+        # Aggregate by department
+        summary = feedback_df.groupby('department').agg(
+            total_feedback=('feedback_id', 'count'),
+            negative_feedback_count=('sentiment', lambda x: (x == 'Negative').sum()),
+            avg_compound_sentiment=('compound', 'mean')
+        ).reset_index()
+        
+        # Round numeric columns
+        summary['avg_compound_sentiment'] = summary['avg_compound_sentiment'].round(4)
+        
+        # Write the updated summary CSV
+        summary.to_csv(DEPT_SUMMARY_PATH, index=False)
+        app.logger.info(f"Department summary regenerated with {len(summary)} departments.")
+        return True
+    
+    except Exception as e:
+        app.logger.exception(f"Failed to regenerate department summary: {e}")
+        return False
+
+
 def _generate_reset_otp(length: int = 6) -> str:
     # numeric OTP, zero-padded
     return str(int.from_bytes(os.urandom(4), 'big') % (10 ** length)).zfill(length)
@@ -1032,29 +1089,31 @@ def get_sentiments():
 
         results = []
         for _, row in summary_df.iterrows():
-            total = row['total_feedback']
-            neg_count = row['negative_feedback_count']
-            
-            # Correctly calculate neutral and positive counts from sentiment data
-            department_feedback = feedback_df[feedback_df['department'] == row['department']]
+            department = row['department']
+            department_feedback = feedback_df[feedback_df['department'] == department]
+
+            # Calculate actual sentiment counts directly from feedback data
+            pos_count = (department_feedback['sentiment'] == 'Positive').sum()
             neu_count = (department_feedback['sentiment'] == 'Neutral').sum()
-            pos_count = max(0, total - neg_count - neu_count)
+            neg_count = (department_feedback['sentiment'] == 'Negative').sum()
+            total = row['total_feedback']
 
             # Correctly scale the stress score
             compound = row['avg_compound_sentiment']
             stress_score = round(max(1.0, min(10.0, 5.5 - 4.5 * compound)), 1)
 
             results.append({
-                "department": row['department'],
+                "department": department,
                 "averageStressScore": stress_score,
                 "sentimentDistribution": {
                     "positive": round((pos_count / total) * 100) if total > 0 else 0,
                     "neutral": round((neu_count / total) * 100) if total > 0 else 0,
                     "negative": round((neg_count / total) * 100) if total > 0 else 0,
                 },
-                "keyIssues": key_issues.get(row['department'], ["No specific issues logged"]),
-                "recentFeedbackCount": int(row['total_feedback'])
+                "keyIssues": key_issues.get(department, ["No specific issues logged"]),
+                "recentFeedbackCount": total
             })
+
         return jsonify(results), 200
     except Exception as e:
         app.logger.exception(f"An unexpected error occurred while fetching sentiments: {e}")
@@ -1101,9 +1160,8 @@ def add_sentiment_pulse():
         # Append to the CSV without writing the header
         new_feedback.to_csv(FEEDBACK_DATA_PATH, mode='a', header=False, index=False)
         
-        # NOTE: In a production system, you would re-run the sentiment analysis notebook
-        # or have a more robust aggregation pipeline here. For this prototype, appending
-        # to the raw feedback file is sufficient to demonstrate the data capture.
+        # Regenerate the department stress summary so admin dashboards reflect real-time data
+        _regenerate_department_summary()
         
         return jsonify({'detail': 'Sentiment pulse recorded successfully.'}), 201
 

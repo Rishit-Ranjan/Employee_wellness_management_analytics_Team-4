@@ -1119,15 +1119,8 @@ export default function AdminDashboard({ user,
  }) {
   const [activeTab, setActiveTab] = useState(1);
 
-  // Find the logged-in admin's department from their health record
-  const adminRecord = healthRecords.find(r => r.employeeId === user.employeeId);
-  const adminDepartment = adminRecord ? adminRecord.department : null;
-
-  // Filter the sentiment list to only show the card for the admin's department
-  const filteredSentimentList = useMemo(() => {
-    if (!adminDepartment) return sentimentList; // Show all if admin has no department
-    return sentimentList.filter(s => s.department === adminDepartment);
-  }, [sentimentList, adminDepartment]);
+  // Show all department sentiment data to the admin for a holistic organizational view
+  const filteredSentimentList = sentimentList;
 
   return (
     <div className="min-h-screen bg-slate-50 text-slate-800 flex flex-col font-sans">
