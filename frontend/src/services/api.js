@@ -156,6 +156,18 @@ export const fetchRecommendations = async () => {
 // New function to fetch sentiment data
 export const fetchSentiments = () => request('/wellness/sentiments');
 
+/**
+ * Submits an anonymized department pulse check.
+ * @param {string} department The department name.
+ * @param {number} stressScore The reported stress score (1-10).
+ * @param {string} feedbackText Optional feedback text.
+ * @returns {Promise<Object>} A promise that resolves on successful submission.
+ */
+export const submitSentimentPulse = (department, stressScore, feedbackText) => request('/wellness/sentiment-pulse', {
+    method: 'POST',
+    body: JSON.stringify({ department, stressScore, feedbackText }),
+});
+
 export const saveSentiments = (sentimentsData) => saveToStorage('wellness_sentiments', sentimentsData);
 
-export default { login, signup, me, logout, forgotPassword, resetPassword, fetchUsers, fetchHealthRecords, addHealthRecord, updateHealthRecord, deleteHealthRecord, fetchRisks, fetchRecommendations, fetchSentiments, saveSentiments };
+export default { login, signup, me, logout, forgotPassword, resetPassword, fetchUsers, fetchHealthRecords, addHealthRecord, updateHealthRecord, deleteHealthRecord, fetchRisks, fetchRecommendations, fetchSentiments, saveSentiments, submitSentimentPulse };

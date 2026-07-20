@@ -1060,6 +1060,57 @@ def get_sentiments():
         app.logger.exception(f"An unexpected error occurred while fetching sentiments: {e}")
         return jsonify({'detail': 'Internal Server Error'}), 500
 
+@app.route('/api/wellness/sentiment-pulse', methods=['POST'])
+@jwt_required(locations=["cookies"])
+def add_sentiment_pulse():
+    """
+    Receives an anonymized sentiment pulse from a user and updates the
+    centralized feedback and summary files.
+    """
+    data = request.get_json()
+    if not data or 'department' not in data or 'stressScore' not in data:
+        return jsonify({'detail': 'Missing department or stressScore'}), 400
+
+    try:
+        department = data['department']
+        stress_score = float(data['stressScore'])
+        feedback_text = data.get('feedbackText', '')
+
+        # --- 1. Append to the raw feedback file ---
+        FEEDBACK_DATA_PATH = os.path.join(BASE_DIR, "data", "dataset", "employee_feedback.csv")
+        
+        # Create a simple sentiment label based on the stress score
+        sentiment = 'Neutral'
+        if stress_score >= 7:
+            sentiment = 'Negative'
+        elif stress_score <= 4:
+            sentiment = 'Positive'
+
+        # Create a new feedback entry. We use a placeholder for IDs.
+        feedback_count = pd.read_csv(FEEDBACK_DATA_PATH).shape[0]
+        new_feedback = pd.DataFrame([{
+            'feedback_id': f'FB{feedback_count + 1}',
+            'employee_id': 'ANONYMOUS',
+            'department': department,
+            'feedback_date': datetime.now(timezone.utc).strftime('%Y-%m-%d'),
+            'feedback_text': feedback_text,
+            'rating': round(stress_score / 2), # Approximate rating
+            'sentiment': sentiment
+        }])
+        
+        # Append to the CSV without writing the header
+        new_feedback.to_csv(FEEDBACK_DATA_PATH, mode='a', header=False, index=False)
+        
+        # NOTE: In a production system, you would re-run the sentiment analysis notebook
+        # or have a more robust aggregation pipeline here. For this prototype, appending
+        # to the raw feedback file is sufficient to demonstrate the data capture.
+        
+        return jsonify({'detail': 'Sentiment pulse recorded successfully.'}), 201
+
+    except Exception as e:
+        app.logger.exception(f"Failed to record sentiment pulse: {e}")
+        return jsonify({'detail': 'Internal Server Error'}), 500
+
 if __name__ == '__main__':
     port = int(os.getenv('PORT', 8000))
     app.run(host='0.0.0.0', port=port, debug=True)
