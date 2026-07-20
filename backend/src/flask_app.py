@@ -515,8 +515,8 @@ def delete_health_record(employee_id):
     """Deletes an existing health record for a given employeeId."""
     # Ensure only admins can delete records
     jwt_payload = get_jwt()
-    user_info = jwt_payload.get("user_info")
-    if not user_info or user_info.get('role') != 'admin':
+    user_info = jwt_payload.get("user_info", {})
+    if user_info.get('role', '').lower() != 'admin':
         return jsonify({'detail': 'Forbidden: You do not have permission to delete records.'}), 403
 
     try:
@@ -533,9 +533,9 @@ def delete_health_record(employee_id):
 @jwt_required(locations=["cookies"])
 def get_all_users():
     """ Fetches all users with the 'user' role. Admin-only endpoint. """
-    jwt_payload = get_jwt()
-    user_info = jwt_payload.get("user_info")
-    if not user_info or user_info.get('role') != 'admin':
+    jwt_payload = get_jwt() 
+    user_info = jwt_payload.get("user_info", {})
+    if user_info.get('role', '').lower() != 'admin':
         return jsonify({'detail': 'Forbidden: You do not have permission to access this resource.'}), 403
 
     try:
@@ -1009,8 +1009,8 @@ def update_mental_health_log(employee_id):
 def get_sentiments():
     """ Fetches department sentiment summary. Admin-only endpoint. """
     jwt_payload = get_jwt()
-    user_info = jwt_payload.get("user_info")
-    if not user_info or user_info.get('role') != 'admin':
+    user_info = jwt_payload.get("user_info", {})
+    if user_info.get('role', '').lower() != 'admin':
         return jsonify({'detail': 'Forbidden: You do not have permission to access this resource.'}), 403
 
     try:
@@ -1034,13 +1034,19 @@ def get_sentiments():
         for _, row in summary_df.iterrows():
             total = row['total_feedback']
             neg_count = row['negative_feedback_count']
-            # Approximate positive and neutral counts for distribution
-            pos_count = total - neg_count - row['medium_stress_count'] 
-            neu_count = row['medium_stress_count']
+            
+            # Correctly calculate neutral and positive counts from sentiment data
+            department_feedback = feedback_df[feedback_df['department'] == row['department']]
+            neu_count = (department_feedback['sentiment'] == 'Neutral').sum()
+            pos_count = max(0, total - neg_count - neu_count)
+
+            # Correctly scale the stress score
+            compound = row['avg_compound_sentiment']
+            stress_score = round(max(1.0, min(10.0, 5.5 - 4.5 * compound)), 1)
 
             results.append({
                 "department": row['department'],
-                "averageStressScore": round(row['avg_compound_sentiment'] * -10 + 5, 1), # Scale to 1-10
+                "averageStressScore": stress_score,
                 "sentimentDistribution": {
                     "positive": round((pos_count / total) * 100) if total > 0 else 0,
                     "neutral": round((neu_count / total) * 100) if total > 0 else 0,
