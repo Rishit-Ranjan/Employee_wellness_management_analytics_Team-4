@@ -227,9 +227,10 @@ export default function App() {
             }
         };
     
-        loadPrimaryData().then(() => {
-            loadSecondaryData();
-        });
+        // Keep loading=true until BOTH primary and secondary data loads complete
+        loadPrimaryData()
+            .then(() => loadSecondaryData())
+            .finally(() => setLoadingWellnessData(false));
     }, [currentUser, handleLogout]);
 
     // Event Handlers for User Actions
@@ -369,6 +370,7 @@ export default function App() {
                     onUpdateUserRecord={handleUpdateUserRecord}
                     onUpdateSentimentPulse={handleUpdateSentimentPulse}
                     recommendations={recommendations}
+                    loading={loadingWellnessData}
                 />)
             )}
         </div>

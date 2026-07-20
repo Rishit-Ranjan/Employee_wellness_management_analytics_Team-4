@@ -8,7 +8,31 @@ import {
 // ==========================================
 // MODULE 3: PERSONALIZED RECOMMENDATIONS
 // ==========================================
-export function RecommendationModule({ recommendations  }) {
+export function RecommendationModule({ recommendations, loading = false }) {
+  if (loading) {
+    return (
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 animate-pulse">
+        {[1, 2].map((i) => (
+          <div key={i} className="bg-white border border-slate-200 rounded-xl p-6 space-y-4 shadow-sm">
+            <div className="flex items-center justify-between">
+              <div className="h-10 w-10 bg-slate-200 rounded-xl" />
+              <div className="h-4 w-16 bg-slate-200 rounded-md" />
+            </div>
+            <div className="space-y-2">
+              <div className="h-4 bg-slate-200 rounded w-3/4" />
+              <div className="h-3 bg-slate-100 rounded w-full" />
+              <div className="h-3 bg-slate-100 rounded w-5/6" />
+            </div>
+            <div className="pt-3 border-t border-slate-100 space-y-1.5">
+              <div className="h-2 w-1/3 bg-slate-200 rounded" />
+              <div className="h-2 w-1/2 bg-slate-100 rounded" />
+            </div>
+          </div>
+        ))}
+      </div>
+    );
+  }
+
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
       {recommendations && recommendations.length > 0 ? (
@@ -956,7 +980,8 @@ export default function UserDashboard({ user,
   mentalHealthLogs, // New prop
   onAddHealthRecord, // Added onAddHealthRecord prop
   onUpdateSentimentPulse,
-  recommendations= []
+  recommendations= [],
+  loading = false
 }) {
 
   const [activeTab, setActiveTab] = useState(7);
@@ -1104,7 +1129,7 @@ export default function UserDashboard({ user,
             )}
 
             {activeTab === 3 && (
-              <RecommendationModule recommendations={userRecommendations} />
+              <RecommendationModule recommendations={userRecommendations} loading={loading} />
             )}
           </div>
         </main>

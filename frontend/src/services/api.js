@@ -129,6 +129,29 @@ export const deleteHealthRecord = (employeeId) => request(`/wellness/health-reco
  * @returns {Promise<Array<Object>>} A promise that resolves to the list of risk profiles.
  */
 export const fetchRisks  = () => request('/wellness/risks');
+
+// --- Daily Habits API ---
+export const fetchDailyHabits = (employeeId) => request(`/wellness/daily-habits/${employeeId}`);
+export const addDailyHabit = (habitData) => request('/wellness/daily-habits', {
+  method: 'POST',
+  body: JSON.stringify(habitData),
+});
+export const updateDailyHabit = (habitData) => request(`/wellness/daily-habits/${habitData.employeeId}`, {
+  method: 'PUT',
+  body: JSON.stringify(habitData),
+});
+
+// --- Mental Health Logs API ---
+export const fetchMentalHealthLogs = (employeeId) => request(`/wellness/mental-health-logs/${employeeId}`);
+export const addMentalHealthLog = (logData) => request('/wellness/mental-health-logs', {
+  method: 'POST',
+  body: JSON.stringify(logData),
+});
+export const updateMentalHealthLog = (logData) => request(`/wellness/mental-health-logs/${logData.employeeId}`, {
+  method: 'PUT',
+  body: JSON.stringify(logData),
+});
+
 // --- LocalStorage helpers for non-persistent prototype data ---
 const getFromStorage = (key, defaultValue) => {
     try {
