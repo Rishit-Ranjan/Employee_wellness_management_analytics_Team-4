@@ -129,6 +129,29 @@ export const deleteHealthRecord = (employeeId) => request(`/wellness/health-reco
  * @returns {Promise<Array<Object>>} A promise that resolves to the list of risk profiles.
  */
 export const fetchRisks  = () => request('/wellness/risks');
+
+// --- Daily Habits API ---
+export const fetchDailyHabits = (employeeId) => request(`/wellness/daily-habits/${employeeId}`);
+export const addDailyHabit = (habitData) => request('/wellness/daily-habits', {
+  method: 'POST',
+  body: JSON.stringify(habitData),
+});
+export const updateDailyHabit = (habitData) => request(`/wellness/daily-habits/${habitData.employeeId}`, {
+  method: 'PUT',
+  body: JSON.stringify(habitData),
+});
+
+// --- Mental Health Logs API ---
+export const fetchMentalHealthLogs = (employeeId) => request(`/wellness/mental-health-logs/${employeeId}`);
+export const addMentalHealthLog = (logData) => request('/wellness/mental-health-logs', {
+  method: 'POST',
+  body: JSON.stringify(logData),
+});
+export const updateMentalHealthLog = (logData) => request(`/wellness/mental-health-logs/${logData.employeeId}`, {
+  method: 'PUT',
+  body: JSON.stringify(logData),
+});
+
 // --- LocalStorage helpers for non-persistent prototype data ---
 const getFromStorage = (key, defaultValue) => {
     try {
@@ -153,11 +176,21 @@ export const fetchRecommendations = async () => {
   return response;
 }
 
-export const fetchAllWellnessData = async () => ({
-    recommendations: getFromStorage('wellness_recommendations', []),
-    sentiments: getFromStorage('wellness_sentiments', []),
+// New function to fetch sentiment data
+export const fetchSentiments = () => request('/wellness/sentiments');
+
+/**
+ * Submits an anonymized department pulse check.
+ * @param {string} department The department name.
+ * @param {number} stressScore The reported stress score (1-10).
+ * @param {string} feedbackText Optional feedback text.
+ * @returns {Promise<Object>} A promise that resolves on successful submission.
+ */
+export const submitSentimentPulse = (department, stressScore, feedbackText) => request('/wellness/sentiment-pulse', {
+    method: 'POST',
+    body: JSON.stringify({ department, stressScore, feedbackText }),
 });
 
 export const saveSentiments = (sentimentsData) => saveToStorage('wellness_sentiments', sentimentsData);
 
-export default { login, signup, me, logout, forgotPassword, resetPassword, fetchUsers, fetchHealthRecords, addHealthRecord, updateHealthRecord, deleteHealthRecord, fetchRisks, fetchAllWellnessData, saveSentiments };
+export default { login, signup, me, logout, forgotPassword, resetPassword, fetchUsers, fetchHealthRecords, addHealthRecord, updateHealthRecord, deleteHealthRecord, fetchRisks, fetchRecommendations, fetchSentiments, saveSentiments, submitSentimentPulse };

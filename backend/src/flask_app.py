@@ -24,15 +24,12 @@ import cloudpickle
 
 app = Flask(__name__)
 
-
 load_dotenv()
-
 
 # --- App Configuration ---
 MONGO_URI = os.getenv('MONGO_URI', 'mongodb://localhost:27017/employee_wellness_analytics')
 MONGO_DB_NAME = os.getenv('MONGO_DB_NAME', 'employee_wellness_analytics')
 CORS(app, supports_credentials=True, origins=os.getenv('FRONTEND_ORIGIN', 'http://localhost:5173'))
-
 
 # --- JWT Configuration ---
 app.config["JWT_SECRET_KEY"] = os.getenv("JWT_SECRET_KEY", "default-super-secret-key-for-dev")
@@ -91,6 +88,55 @@ def hash_password(password: str) -> str:
 
 def verify_password(password: str, password_hash: str) -> bool:
     return bcrypt.checkpw(password.encode('utf-8'), password_hash.encode('utf-8'))
+
+
+def _regenerate_department_summary():
+    """
+    Reads the raw employee_feedback.csv and regenerates the
+    department_stress_summary.csv with aggregated metrics.
+    This ensures admin dashboards reflect real-time pulse data.
+    """
+    FEEDBACK_DATA_PATH = os.path.join(BASE_DIR, "data", "dataset", "employee_feedback.csv")
+    DEPT_SUMMARY_PATH = os.path.join(BASE_DIR, "outputs", "department_stress_summary.csv")
+    
+    if not os.path.exists(FEEDBACK_DATA_PATH):
+        app.logger.warning("Cannot regenerate summary: employee_feedback.csv not found.")
+        return False
+    
+    try:
+        feedback_df = pd.read_csv(FEEDBACK_DATA_PATH)
+        if feedback_df.empty:
+            app.logger.warning("Feedback data is empty. No summary generated.")
+            return False
+        
+        # Map simple sentiment labels to approximate compound scores.
+        # Positive ~ 0.9 (low stress), Neutral ~ 0.0, Negative ~ -0.8 (high stress).
+        # This mapping is correct because:
+        #   - stress_score <= 4 -> sentiment='Positive' -> compound ~ 0.9 (good)
+        #   - stress_score >= 7 -> sentiment='Negative' -> compound ~ -0.8 (bad)
+        sentiment_compound_map = {'Positive': 0.9, 'Neutral': 0.0, 'Negative': -0.8}
+        feedback_df['compound'] = feedback_df['sentiment'].map(
+            sentiment_compound_map
+        ).fillna(0.0)
+
+        # Aggregate by department
+        summary = feedback_df.groupby('department').agg(
+            total_feedback=('feedback_id', 'count'),
+            negative_feedback_count=('sentiment', lambda x: (x == 'Negative').sum()),
+            avg_compound_sentiment=('compound', 'mean')
+        ).reset_index()
+        
+        # Round numeric columns
+        summary['avg_compound_sentiment'] = summary['avg_compound_sentiment'].round(4)
+        
+        # Write the updated summary CSV
+        summary.to_csv(DEPT_SUMMARY_PATH, index=False)
+        app.logger.info(f"Department summary regenerated with {len(summary)} departments.")
+        return True
+    
+    except Exception as e:
+        app.logger.exception(f"Failed to regenerate department summary: {e}")
+        return False
 
 
 def _generate_reset_otp(length: int = 6) -> str:
@@ -518,8 +564,8 @@ def delete_health_record(employee_id):
     """Deletes an existing health record for a given employeeId."""
     # Ensure only admins can delete records
     jwt_payload = get_jwt()
-    user_info = jwt_payload.get("user_info")
-    if not user_info or user_info.get('role') != 'admin':
+    user_info = jwt_payload.get("user_info", {})
+    if user_info.get('role', '').lower() != 'admin':
         return jsonify({'detail': 'Forbidden: You do not have permission to delete records.'}), 403
 
     try:
@@ -536,9 +582,9 @@ def delete_health_record(employee_id):
 @jwt_required(locations=["cookies"])
 def get_all_users():
     """ Fetches all users with the 'user' role. Admin-only endpoint. """
-    jwt_payload = get_jwt()
-    user_info = jwt_payload.get("user_info")
-    if not user_info or user_info.get('role') != 'admin':
+    jwt_payload = get_jwt() 
+    user_info = jwt_payload.get("user_info", {})
+    if user_info.get('role', '').lower() != 'admin':
         return jsonify({'detail': 'Forbidden: You do not have permission to access this resource.'}), 403
 
     try:
@@ -1007,6 +1053,113 @@ def update_mental_health_log(employee_id):
         app.logger.exception(f"An unexpected error occurred while updating mental health log for {employee_id}: {e}")
         return jsonify({'detail': 'Internal Server Error'}), 500
 
+@app.route('/api/wellness/sentiments', methods=['GET'])
+@jwt_required(locations=["cookies"])
+def get_sentiments():
+    """ Fetches department sentiment summary. Admin-only endpoint. """
+    jwt_payload = get_jwt()
+    user_info = jwt_payload.get("user_info", {})
+    if user_info.get('role', '').lower() != 'admin':
+        return jsonify({'detail': 'Forbidden: You do not have permission to access this resource.'}), 403
+
+    try:
+        DEPT_SUMMARY_PATH = os.path.join(BASE_DIR, "outputs", "department_stress_summary.csv")
+        FEEDBACK_DATA_PATH = os.path.join(BASE_DIR, "data", "dataset", "employee_feedback.csv")
+
+        if not os.path.exists(DEPT_SUMMARY_PATH) or not os.path.exists(FEEDBACK_DATA_PATH):
+            app.logger.warning("Department summary or feedback CSV not found. Returning empty list.")
+            return jsonify([]), 200
+
+        summary_df = pd.read_csv(DEPT_SUMMARY_PATH)
+        feedback_df = pd.read_csv(FEEDBACK_DATA_PATH)
+
+        # Extract top 3 key issues per department from the raw feedback
+        key_issues = feedback_df[feedback_df['sentiment'] == 'Negative'].groupby('department')['feedback_text'].apply(
+            # Use a lambda to get unique items before slicing
+            lambda x: list(pd.Series(x).unique())[:3]
+        ).to_dict()
+
+        results = []
+        for _, row in summary_df.iterrows():
+            department = row['department']
+            department_feedback = feedback_df[feedback_df['department'] == department]
+
+            # Calculate actual sentiment counts directly from feedback data
+            pos_count = (department_feedback['sentiment'] == 'Positive').sum()
+            neu_count = (department_feedback['sentiment'] == 'Neutral').sum()
+            neg_count = (department_feedback['sentiment'] == 'Negative').sum()
+            total = row['total_feedback']
+
+            # Correctly scale the stress score
+            compound = row['avg_compound_sentiment']
+            stress_score = round(max(1.0, min(10.0, 5.5 - 4.5 * compound)), 1)
+
+            results.append({
+                "department": department,
+                "averageStressScore": stress_score,
+                "sentimentDistribution": {
+                    "positive": round((pos_count / total) * 100) if total > 0 else 0,
+                    "neutral": round((neu_count / total) * 100) if total > 0 else 0,
+                    "negative": round((neg_count / total) * 100) if total > 0 else 0,
+                },
+                "keyIssues": key_issues.get(department, ["No specific issues logged"]),
+                "recentFeedbackCount": total
+            })
+
+        return jsonify(results), 200
+    except Exception as e:
+        app.logger.exception(f"An unexpected error occurred while fetching sentiments: {e}")
+        return jsonify({'detail': 'Internal Server Error'}), 500
+
+@app.route('/api/wellness/sentiment-pulse', methods=['POST'])
+@jwt_required(locations=["cookies"])
+def add_sentiment_pulse():
+    """
+    Receives an anonymized sentiment pulse from a user and updates the
+    centralized feedback and summary files.
+    """
+    data = request.get_json()
+    if not data or 'department' not in data or 'stressScore' not in data:
+        return jsonify({'detail': 'Missing department or stressScore'}), 400
+
+    try:
+        department = data['department']
+        stress_score = float(data['stressScore'])
+        feedback_text = data.get('feedbackText', '')
+
+        # --- 1. Append to the raw feedback file ---
+        FEEDBACK_DATA_PATH = os.path.join(BASE_DIR, "data", "dataset", "employee_feedback.csv")
+        
+        # Create a simple sentiment label based on the stress score
+        sentiment = 'Neutral'
+        if stress_score >= 7:
+            sentiment = 'Negative'
+        elif stress_score <= 4:
+            sentiment = 'Positive'
+
+        # Create a new feedback entry. We use a placeholder for IDs.
+        feedback_count = pd.read_csv(FEEDBACK_DATA_PATH).shape[0]
+        new_feedback = pd.DataFrame([{
+            'feedback_id': f'FB{feedback_count + 1}',
+            'employee_id': 'ANONYMOUS',
+            'department': department,
+            'feedback_date': datetime.now(timezone.utc).strftime('%Y-%m-%d'),
+            'feedback_text': feedback_text,
+            'rating': round(stress_score / 2), # Approximate rating
+            'sentiment': sentiment
+        }])
+        
+        # Append to the CSV without writing the header
+        new_feedback.to_csv(FEEDBACK_DATA_PATH, mode='a', header=False, index=False)
+        
+        # Regenerate the department stress summary so admin dashboards reflect real-time data
+        _regenerate_department_summary()
+        
+        return jsonify({'detail': 'Sentiment pulse recorded successfully.'}), 201
+
+    except Exception as e:
+        app.logger.exception(f"Failed to record sentiment pulse: {e}")
+        return jsonify({'detail': 'Internal Server Error'}), 500
 
 if __name__ == '__main__':
     port = int(os.getenv('PORT', 8000))

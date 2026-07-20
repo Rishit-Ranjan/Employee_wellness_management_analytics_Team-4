@@ -22,6 +22,7 @@ export default function App() {
     const [screen, setScreen] = useState('login');
     const [currentUser, setCurrentUser] = useState(null);
     const [loadingSession, setLoadingSession] = useState(true); // New state to indicate session loading
+    const [loadingWellnessData, setLoadingWellnessData] = useState(false);
     
 
     // Core Wellness State (Moved from Dashboard)
@@ -104,10 +105,12 @@ export default function App() {
     // Load wellness data when currentUser changes (and is not null)
     useEffect(() => {
         if (!currentUser)
-            return;
-
-        const loadData = async () => {
+          return;
+    
+        const loadPrimaryData = async () => {
+            setLoadingWellnessData(true);
             try {
+                let userToUpdate = { ...currentUser };
                 // 0. If admin, fetch all users for the dropdown
                 if (currentUser.role === 'admin') {
                     const users = await api.fetchUsers();
@@ -153,6 +156,7 @@ export default function App() {
                     // This will add the record to the database and return it
                     const addedRecord = await api.addHealthRecord(newUserHR);
                     loadedHR = [addedRecord, ...loadedHR];
+                    userToUpdate.hasRecord = true; // Mark that user now has a record
                 }
                 setHealthRecords(loadedHR);
 
@@ -199,24 +203,38 @@ export default function App() {
                     }
                     setMentalHealthLogs(loadedMHL ? [loadedMHL] : []); // Store as an array for consistency
                 }
-
-
-                // 4. Other wellness data
-                const loadedRisks = await api.fetchRisks();
-                setRisks(loadedRisks || []);
-                const loadedRecommendations = await api.fetchRecommendations();
-                setRecommendations(loadedRecommendations || []);
             } catch (error) {
-                console.error("Failed to load wellness data:", error);
+                console.error("Failed to load primary wellness data:", error);
                 // If the token has expired, log the user out to show the login screen.
                 if (error.status === 401) {
                     handleLogout();
                 }
+            } finally {
+                setLoadingWellnessData(false);
             }
         };
-
-        loadData();
-    }, [currentUser, handleLogout]); // Dependency on handleLogout
+    
+        const loadSecondaryData = async () => {
+            try {
+                const loadedRisks = await api.fetchRisks();
+                setRisks(loadedRisks || []);
+                const loadedRecommendations = await api.fetchRecommendations();
+                setRecommendations(loadedRecommendations || []);
+                // Only admins can fetch sentiment data (the endpoint is admin-only)
+                if (currentUser?.role === 'admin') {
+                    const loadedSentiments = await api.fetchSentiments();
+                    setSentimentList(loadedSentiments || []);
+                }
+            } catch (error) {
+                console.error("Failed to load secondary wellness data (risks, recs):", error);
+            }
+        };
+    
+        // Keep loading=true until BOTH primary and secondary data loads complete
+        loadPrimaryData()
+            .then(() => loadSecondaryData())
+            .finally(() => setLoadingWellnessData(false));
+    }, [currentUser, handleLogout]);
 
     // Event Handlers for User Actions
     const handleAddHealthRecord = async (newRecord) => {
@@ -230,12 +248,17 @@ export default function App() {
 
     // Update a specific user's health record and persist changes
     const handleUpdateUserRecord = async (updatedRecord) => {
-        await api.updateHealthRecord(updatedRecord);
-        setHealthRecords(healthRecords.map(r => r.employeeId === updatedRecord.employeeId ? updatedRecord : r));
+        try {
+            await api.updateHealthRecord(updatedRecord);
+            setHealthRecords(healthRecords.map(r => r.employeeId === updatedRecord.employeeId ? updatedRecord : r));
 
-        // Recompute Module 2 diagnostics from updated health_records
-        const loadedRisks = await api.fetchRisks();
-        setRisks(loadedRisks || []);
+            // Recompute Module 2 diagnostics from updated health_records
+            const loadedRisks = await api.fetchRisks();
+            setRisks(loadedRisks || []);
+        } catch (err) {
+            console.error('Failed to update health record:', err);
+            throw err; // Re-throw so the calling code (AdminDashboard) can catch and display the error
+        }
     };
 
     // Add a new daily habit record
@@ -273,47 +296,21 @@ export default function App() {
     };
 
     // Update department sentiment pulse based on new feedback and persist changes
-    const handleUpdateSentimentPulse = (deptName, stressScore, newIssue) => {
-        const updatedSentiments = sentimentList.map(s => {
-            if (s.department.toLowerCase() === deptName.toLowerCase()) {
-                const count = s.recentFeedbackCount + 1;
-                const oldTotal = s.averageStressScore * s.recentFeedbackCount;
-                const newAverage = Number(((oldTotal + stressScore) / count).toFixed(1));
-                let posChange = s.sentimentDistribution.positive;
-                let neuChange = s.sentimentDistribution.neutral;
-                let negChange = s.sentimentDistribution.negative;
-                if (stressScore <= 3) {
-                    posChange = Math.min(100, Math.round((posChange * s.recentFeedbackCount + 100) / count));
-                }
-                else if (stressScore <= 7) {
-                    neuChange = Math.min(100, Math.round((neuChange * s.recentFeedbackCount + 100) / count));
-                }
-                else {
-                    negChange = Math.min(100, Math.round((negChange * s.recentFeedbackCount + 100) / count));
-                }
-                const totalDist = posChange + neuChange + negChange;
-                const posPercent = Math.round((posChange / totalDist) * 100);
-                const neuPercent = Math.round((neuChange / totalDist) * 100);
-                const negPercent = Math.max(0, 100 - posPercent - neuPercent);
-                const updatedIssues = newIssue.trim()
-                    ? [newIssue.trim(), ...s.keyIssues].slice(0, 5)
-                    : s.keyIssues;
-                return {
-                    ...s,
-                    averageStressScore: newAverage,
-                    sentimentDistribution: {
-                        positive: posPercent,
-                        neutral: neuPercent,
-                        negative: negPercent
-                    },
-                    keyIssues: updatedIssues,
-                    recentFeedbackCount: count
-                };
+    const handleUpdateSentimentPulse = async (deptName, stressScore, feedbackText) => {
+        try {
+            // Call the new backend endpoint to record the pulse
+            await api.submitSentimentPulse(deptName, stressScore, feedbackText);
+
+            // Only admins can fetch sentiment data (the endpoint is admin-only).
+            // For regular employees, just skip the refetch to avoid a 403 error.
+            if (currentUser?.role === 'admin') {
+                const loadedSentiments = await api.fetchSentiments();
+                setSentimentList(loadedSentiments || []);
             }
-            return s;
-        });
-        api.saveSentiments(updatedSentiments);
-        setSentimentList(updatedSentiments);
+        } catch (error) {
+            console.error("Failed to submit sentiment pulse:", error);
+            // Optionally, show an error message to the user
+        }
     };
 
     // Navigation and Authentication Handlers
@@ -363,6 +360,7 @@ export default function App() {
                     recommendations={recommendations}
                     sentimentList={sentimentList}
                     kpis={derivedKpis}
+                    loading={loadingWellnessData}
                     onAddHealthRecord={handleAddHealthRecord}
                     onDeleteHealthRecord={handleDeleteHealthRecord}
                     onUpdateHealthRecord={handleUpdateUserRecord}
@@ -382,6 +380,7 @@ export default function App() {
                     onUpdateUserRecord={handleUpdateUserRecord}
                     onUpdateSentimentPulse={handleUpdateSentimentPulse}
                     recommendations={recommendations}
+                    loading={loadingWellnessData}
                 />)
             )}
         </div>

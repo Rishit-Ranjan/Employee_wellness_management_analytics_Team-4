@@ -3,8 +3,6 @@ import { Trash2, Edit, MoreHorizontal, Activity, TrendingUp, Lightbulb, Smile, B
   Search, Plus, X, ShieldAlert, AlertCircle, Check, Sparkles, Dumbbell, Apple, Brain, Clock
 } from 'lucide-react';
 
-import {personalRecommendations, sentimentData} from '../types'
-
 // ==========================================
 // MODULE 1: EMPLOYEE HEALTH DATA MANAGEMENT
 // ==========================================
@@ -150,81 +148,86 @@ export function HealthDataModule({ records, allUsers, onAddRecord, onUpdateRecor
       assessment = 'Fair';
     }
 
-    if (editingRecord) {
-      // Update existing record
-      setError(''); // Clear error on successful update attempt
-      const [empId, empName] = selectedEmployee.split('|');
-      const updatedRec = {
-        ...editingRecord,
-        // Ensure employeeId and employeeName are from the selected employee,
-        // or keep original if not changed (though dropdown forces selection)
-        employeeId: empId,
-        employeeName: empName,
-        age: Number(age),
-        gender: gender,
-        heightCm: Number(heightCm),
-        weightKg: Number(weightKg),
-        department: dept,
-        bmi: calculatedBmi,
-        bloodPressure: bp,
-        exerciseDaysPerWeek: Number(exerciseDaysPerWeek),
-        exerciseHoursPerWeek: Number(exercise) || 0,
-        sleep_hours: Number(sleep) || 0,
-        sleepHoursPerNight: Number(sleep),
-        stressLevel: stress,
-        stressScore: Number(stressScore),
-        attendanceRate: Number(attendanceRate),
-        medicalNotes: medicalNotes,
-        medicalCondition: medicalCondition,
-        smoker: smoker,
-        alcoholUse: alcoholUse,
-        glucoseLevel: Number(glucoseLevel),
-        healthAssessment: assessment,
-        lastUpdated: new Date().toISOString().split('T')[0]
-      };
-      await onUpdateRecord(updatedRec);
-      alert('Health record updated successfully!'); // User feedback
-    } else {
-      // Add new record
-      const [empId, empName] = selectedEmployee.split('|');
-      const newRec = {
-        employeeId: empId,
-        employeeName: empName,
-        age: Number(age),
-        gender: gender,
-        heightCm: Number(heightCm),
-        weightKg: Number(weightKg),
-        department: dept,
-        bmi: calculatedBmi,
-        bloodPressure: bp,
-        exerciseHoursPerWeek: Number(exercise),
-        exerciseDaysPerWeek: Number(exerciseDaysPerWeek),
-        sleep_hours: Number(sleep) || 0,
-        sleepHoursPerNight: Number(sleep) || 0,
-        stressLevel: stress,
-        stressScore: Number(stressScore),
-        attendanceRate: Number(attendanceRate),
-        medicalNotes: medicalNotes,
-        medicalCondition: medicalCondition,
-        smoker: smoker,
-        alcoholUse: alcoholUse,
-        glucoseLevel: Number(glucoseLevel),
-        healthAssessment: assessment,
-        lastUpdated: new Date().toISOString().split('T')[0]
-      };
-      await onAddRecord(newRec);
-      alert('Health record added successfully!'); // User feedback
-    }
+    try {
+      if (editingRecord) {
+        // Update existing record
+        setError(''); // Clear error on successful update attempt
+        const [empId, empName] = selectedEmployee.split('|');
+        const updatedRec = {
+          ...editingRecord,
+          // Ensure employeeId and employeeName are from the selected employee,
+          // or keep original if not changed (though dropdown forces selection)
+          employeeId: empId,
+          employeeName: empName,
+          age: Number(age),
+          gender: gender,
+          heightCm: Number(heightCm),
+          weightKg: Number(weightKg),
+          department: dept,
+          bmi: calculatedBmi,
+          bloodPressure: bp,
+          exerciseDaysPerWeek: Number(exerciseDaysPerWeek),
+          exerciseHoursPerWeek: Number(exercise) || 0,
+          sleep_hours: Number(sleep) || 0,
+          sleepHoursPerNight: Number(sleep) || 0,
+          stressLevel: stress,
+          stressScore: Number(stressScore),
+          attendanceRate: Number(attendanceRate),
+          medicalNotes: medicalNotes,
+          medicalCondition: medicalCondition,
+          smoker: smoker,
+          alcoholUse: alcoholUse,
+          glucoseLevel: Number(glucoseLevel),
+          healthAssessment: assessment,
+          lastUpdated: new Date().toISOString().split('T')[0]
+        };
+        await onUpdateRecord(updatedRec);
+        alert('Health record updated successfully!'); // User feedback
+      } else {
+        // Add new record
+        const [empId, empName] = selectedEmployee.split('|');
+        const newRec = {
+          employeeId: empId,
+          employeeName: empName,
+          age: Number(age),
+          gender: gender,
+          heightCm: Number(heightCm),
+          weightKg: Number(weightKg),
+          department: dept,
+          bmi: calculatedBmi,
+          bloodPressure: bp,
+          exerciseHoursPerWeek: Number(exercise),
+          exerciseDaysPerWeek: Number(exerciseDaysPerWeek),
+          sleep_hours: Number(sleep) || 0,
+          sleepHoursPerNight: Number(sleep) || 0,
+          stressLevel: stress,
+          stressScore: Number(stressScore),
+          attendanceRate: Number(attendanceRate),
+          medicalNotes: medicalNotes,
+          medicalCondition: medicalCondition,
+          smoker: smoker,
+          alcoholUse: alcoholUse,
+          glucoseLevel: Number(glucoseLevel),
+          healthAssessment: assessment,
+          lastUpdated: new Date().toISOString().split('T')[0]
+        };
+        await onAddRecord(newRec);
+        alert('Health record added successfully!'); // User feedback
+      }
 
-    setIsAddOpen(false);
-    // Reset Form
-    setSelectedEmployee('');
-    setAge(''); setGender('Male'); setHeightCm(''); setWeightKg('');
-    setBmi(''); setBp(''); setExerciseDaysPerWeek(''); setExercise(''); setSleep('');
-    setStress('Medium'); setStressScore(''); setAttendanceRate('');
-    setMedicalNotes(''); setMedicalCondition('No major condition'); setSmoker(false); setAlcoholUse(false); setGlucoseLevel('');
-    setEditingRecord(null);
-    setError(''); // Clear error after successful submission
+      setIsAddOpen(false);
+      // Reset Form
+      setSelectedEmployee('');
+      setAge(''); setGender('Male'); setHeightCm(''); setWeightKg('');
+      setBmi(''); setBp(''); setExerciseDaysPerWeek(''); setExercise(''); setSleep('');
+      setStress('Medium'); setStressScore(''); setAttendanceRate('');
+      setMedicalNotes(''); setMedicalCondition('No major condition'); setSmoker(false); setAlcoholUse(false); setGlucoseLevel('');
+      setEditingRecord(null);
+      setError(''); // Clear error after successful submission
+    } catch (err) {
+      console.error('Failed to save health record:', err);
+      setError(err?.message || 'Failed to save health record. Please try again.');
+    }
   };
   // Find users who do not have a health record yet for the dropdown
   const usersWithoutRecords = useMemo(() => {
@@ -826,7 +829,7 @@ export function RiskPredictionModule({ risks  }) {
 // ==========================================
 // MODULE 3: PERSONALIZED RECOMMENDATIONS
 // ==========================================
-export function RecommendationModule({ recommendations = [] }) { 
+export function RecommendationModule({ recommendations = [], loading }) { 
   const [search, setSearch] = useState('');
 
   const filteredRecs = recommendations.filter(rec => {
@@ -851,7 +854,26 @@ export function RecommendationModule({ recommendations = [] }) {
           />
         </div>
       </div>
-      {filteredRecs.length === 0 ? (
+      {loading ? (
+        <div className="space-y-6">
+          {[...Array(3)].map((_, i) => (
+            <div key={i} className="bg-white border border-slate-200 rounded-xl p-6 shadow-sm animate-pulse">
+              <div className="flex justify-between items-start pb-4 border-b border-slate-100 mb-4">
+                <div>
+                  <div className="h-4 bg-slate-200 rounded w-32 mb-2"></div>
+                  <div className="h-3 bg-slate-100 rounded w-24"></div>
+                </div>
+                <div className="h-5 bg-slate-200 rounded-md w-20"></div>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+                <div className="h-24 bg-slate-100 rounded-lg"></div>
+                <div className="h-24 bg-slate-100 rounded-lg"></div>
+                <div className="h-24 bg-slate-100 rounded-lg"></div>
+              </div>
+            </div>
+          ))}
+        </div>
+      ) : filteredRecs.length === 0 ? (
         <div className="col-span-full bg-white border border-slate-200 rounded-xl p-10 text-center font-mono text-xs text-slate-400 shadow-sm">
           No recommendations found matching your search.
         </div>
@@ -887,15 +909,15 @@ export function RecommendationModule({ recommendations = [] }) {
                         </span>
                       </div>
                       <div>
-                        <h5 className="font-semibold text-xs text-slate-800">{rec.title}</h5>
-                        <p className="text-[11px] text-slate-500 mt-1 leading-relaxed font-light">{rec.description}</p>
+                        <h5 className="font-semibold text-sm text-slate-800">{rec.title}</h5>
+                        <p className="text-xs text-slate-500 mt-1 leading-relaxed font-light">{rec.description}</p>
                       </div>
                       {rec.reasons && rec.reasons.length > 0 && (
                         <div className="pt-2 border-t border-slate-200">
-                           <p className="text-[9px] font-bold text-slate-400 uppercase tracking-wider">Reasons:</p>
-                           <ul className="list-disc list-inside space-y-0.5 mt-1">
+                           <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Reasons:</p>
+                           <ul className="list-disc list-inside space-y-1 mt-1.7">
                             {rec.reasons.map((reason, i) => (
-                              <li key={i} className="text-[10px] text-slate-500">{reason}</li>
+                              <li key={i} className="text-[11px] text-slate-500">{reason}</li>
                             ))}
                            </ul>
                         </div>
@@ -1092,14 +1114,18 @@ export default function AdminDashboard({ user,
   healthRecords,
   allUsers,
   risks,
-  recommendations = personalRecommendations,
+  recommendations = [],
   sentimentList,
   kpis,
+  loading,
   onAddHealthRecord,
   onDeleteHealthRecord,
   onUpdateHealthRecord
  }) {
   const [activeTab, setActiveTab] = useState(1);
+
+  // Show all department sentiment data to the admin for a holistic organizational view
+  const filteredSentimentList = sentimentList;
 
   return (
     <div className="min-h-screen bg-slate-50 text-slate-800 flex flex-col font-sans">
@@ -1247,11 +1273,11 @@ export default function AdminDashboard({ user,
             )}
 
             {activeTab === 3 && (
-              <RecommendationModule recommendations={recommendations} />
+              <RecommendationModule recommendations={recommendations} loading={loading} />
             )}
 
             {activeTab === 4 && (
-              <SentimentModule sentimentList={sentimentData} />
+              <SentimentModule sentimentList={filteredSentimentList} />
             )}
 
             {activeTab === 5 && (
