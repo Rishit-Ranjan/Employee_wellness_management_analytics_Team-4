@@ -824,7 +824,7 @@ export function RiskPredictionModule({ risks  }) {
 // ==========================================
 // MODULE 3: PERSONALIZED RECOMMENDATIONS
 // ==========================================
-export function RecommendationModule({ recommendations = [] }) { 
+export function RecommendationModule({ recommendations = [], loading }) { 
   const [search, setSearch] = useState('');
 
   const filteredRecs = recommendations.filter(rec => {
@@ -849,7 +849,26 @@ export function RecommendationModule({ recommendations = [] }) {
           />
         </div>
       </div>
-      {filteredRecs.length === 0 ? (
+      {loading ? (
+        <div className="space-y-6">
+          {[...Array(3)].map((_, i) => (
+            <div key={i} className="bg-white border border-slate-200 rounded-xl p-6 shadow-sm animate-pulse">
+              <div className="flex justify-between items-start pb-4 border-b border-slate-100 mb-4">
+                <div>
+                  <div className="h-4 bg-slate-200 rounded w-32 mb-2"></div>
+                  <div className="h-3 bg-slate-100 rounded w-24"></div>
+                </div>
+                <div className="h-5 bg-slate-200 rounded-md w-20"></div>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+                <div className="h-24 bg-slate-100 rounded-lg"></div>
+                <div className="h-24 bg-slate-100 rounded-lg"></div>
+                <div className="h-24 bg-slate-100 rounded-lg"></div>
+              </div>
+            </div>
+          ))}
+        </div>
+      ) : filteredRecs.length === 0 ? (
         <div className="col-span-full bg-white border border-slate-200 rounded-xl p-10 text-center font-mono text-xs text-slate-400 shadow-sm">
           No recommendations found matching your search.
         </div>
@@ -1093,6 +1112,7 @@ export default function AdminDashboard({ user,
   recommendations = personalRecommendations,
   sentimentList,
   kpis,
+  loading,
   onAddHealthRecord,
   onDeleteHealthRecord,
   onUpdateHealthRecord
@@ -1245,11 +1265,11 @@ export default function AdminDashboard({ user,
             )}
 
             {activeTab === 3 && (
-              <RecommendationModule recommendations={recommendations} />
+              <RecommendationModule recommendations={recommendations} loading={loading} />
             )}
 
             {activeTab === 4 && (
-              <SentimentModule sentimentList={sentimentData} />
+              <SentimentModule sentimentList={sentimentList} />
             )}
 
             {activeTab === 5 && (

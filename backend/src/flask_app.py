@@ -1004,6 +1004,52 @@ def update_mental_health_log(employee_id):
         app.logger.exception(f"An unexpected error occurred while updating mental health log for {employee_id}: {e}")
         return jsonify({'detail': 'Internal Server Error'}), 500
 
+@app.route('/api/wellness/sentiments', methods=['GET'])
+@jwt_required(locations=["cookies"])
+def get_sentiments():
+    """ Fetches department sentiment summary. Admin-only endpoint. """
+    jwt_payload = get_jwt()
+    user_info = jwt_payload.get("user_info")
+    if not user_info or user_info.get('role') != 'admin':
+        return jsonify({'detail': 'Forbidden: You do not have permission to access this resource.'}), 403
+
+    try:
+        DEPT_SUMMARY_PATH = os.path.join(BASE_DIR, "outputs", "department_stress_summary.csv")
+        FEEDBACK_DATA_PATH = os.path.join(BASE_DIR, "data", "dataset", "employee_feedback.csv")
+
+        if not os.path.exists(DEPT_SUMMARY_PATH) or not os.path.exists(FEEDBACK_DATA_PATH):
+            app.logger.warning("Department summary or feedback CSV not found. Returning empty list.")
+            return jsonify([]), 200
+
+        summary_df = pd.read_csv(DEPT_SUMMARY_PATH)
+        feedback_df = pd.read_csv(FEEDBACK_DATA_PATH)
+
+        # Extract top 3 key issues per department from the raw feedback
+        key_issues = feedback_df[feedback_df['sentiment'] == 'Negative'].groupby('department')['feedback_text'].apply(lambda x: list(x)[:3]).to_dict()
+
+        results = []
+        for _, row in summary_df.iterrows():
+            total = row['total_feedback']
+            neg_count = row['negative_feedback_count']
+            # Approximate positive and neutral counts for distribution
+            pos_count = total - neg_count - row['medium_stress_count'] 
+            neu_count = row['medium_stress_count']
+
+            results.append({
+                "department": row['department'],
+                "averageStressScore": round(row['avg_compound_sentiment'] * -10 + 5, 1), # Scale to 1-10
+                "sentimentDistribution": {
+                    "positive": round((pos_count / total) * 100) if total > 0 else 0,
+                    "neutral": round((neu_count / total) * 100) if total > 0 else 0,
+                    "negative": round((neg_count / total) * 100) if total > 0 else 0,
+                },
+                "keyIssues": key_issues.get(row['department'], ["No specific issues logged"]),
+                "recentFeedbackCount": int(row['total_feedback'])
+            })
+        return jsonify(results), 200
+    except Exception as e:
+        app.logger.exception(f"An unexpected error occurred while fetching sentiments: {e}")
+        return jsonify({'detail': 'Internal Server Error'}), 500
 
 if __name__ == '__main__':
     port = int(os.getenv('PORT', 8000))

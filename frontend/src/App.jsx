@@ -206,6 +206,8 @@ export default function App() {
                 setRisks(loadedRisks || []);
                 const loadedRecommendations = await api.fetchRecommendations();
                 setRecommendations(loadedRecommendations || []);
+                const loadedSentiments = await api.fetchSentiments();
+                setSentimentList(loadedSentiments || []);
             } catch (error) {
                 console.error("Failed to load wellness data:", error);
                 // If the token has expired, log the user out to show the login screen.
