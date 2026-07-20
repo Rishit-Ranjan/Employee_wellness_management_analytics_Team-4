@@ -109,23 +109,15 @@ def _regenerate_department_summary():
             app.logger.warning("Feedback data is empty. No summary generated.")
             return False
         
-        # Map simple sentiment labels to approximate compound scores
-        # Positive ~ 0.9, Neutral ~ 0.0, Negative ~ -0.8
+        # Map simple sentiment labels to approximate compound scores.
+        # Positive ~ 0.9 (low stress), Neutral ~ 0.0, Negative ~ -0.8 (high stress).
+        # This mapping is correct because:
+        #   - stress_score <= 4 -> sentiment='Positive' -> compound ~ 0.9 (good)
+        #   - stress_score >= 7 -> sentiment='Negative' -> compound ~ -0.8 (bad)
         sentiment_compound_map = {'Positive': 0.9, 'Neutral': 0.0, 'Negative': -0.8}
-        feedback_df['approx_compound'] = feedback_df['sentiment'].map(
+        feedback_df['compound'] = feedback_df['sentiment'].map(
             sentiment_compound_map
         ).fillna(0.0)
-
-        # Also derive compound from rating column if available (rating is 1-5)
-        if 'rating' in feedback_df.columns:
-            feedback_df['rating_compound'] = (feedback_df['rating'] - 3) / 2.0  # maps 1->-1.0, 5->1.0
-            # Blend both signals, with priority to rating-based compound
-            feedback_df['compound'] = feedback_df.apply(
-                lambda row: row.get('rating_compound', row['approx_compound']),
-                axis=1
-            )
-        else:
-            feedback_df['compound'] = feedback_df['approx_compound']
 
         # Aggregate by department
         summary = feedback_df.groupby('department').agg(
