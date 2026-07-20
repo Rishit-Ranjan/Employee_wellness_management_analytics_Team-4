@@ -775,6 +775,8 @@ def get_wellness_risks_old():
         app.logger.exception(f"An unexpected error occurred during risk prediction: {e}")
         return jsonify({'detail': 'Internal Server Error'}), 500
 
+
+# --- Wellness Recommendations Endpoint ---
 @app.route('/api/wellness/recommendations', methods=['GET'])
 @jwt_required(locations=["cookies"])
 def get_recommendations():
@@ -895,10 +897,11 @@ def get_daily_habits(employee_id):
     """Fetches a specific user's daily habits record."""
     jwt_payload = get_jwt()
     user_info = jwt_payload.get("user_info")
+    
     # Ensure user can only fetch their own record unless they are an admin
     if user_info.get('role') != 'admin' and user_info.get('employeeId') != employee_id:
         return jsonify({'detail': 'Forbidden: You can only view your own daily habits.'}), 403
-
+    # Fetch the daily habits record from the database
     try:
         habit_record = daily_habits_collection.find_one({'employeeId': employee_id})
         if not habit_record:
@@ -910,6 +913,7 @@ def get_daily_habits(employee_id):
         app.logger.exception(f"An unexpected error occurred while fetching daily habits for {employee_id}: {e}")
         return jsonify({'detail': 'Internal Server Error'}), 500
 
+# --- Daily Habits API Endpoints ---
 @app.route('/api/wellness/daily-habits', methods=['POST'])
 @jwt_required(locations=["cookies"])
 def add_daily_habit():
@@ -938,6 +942,7 @@ def add_daily_habit():
         app.logger.exception(f"An unexpected error occurred while adding a daily habit record: {e}")
         return jsonify({'detail': 'Internal Server Error'}), 500
 
+# --- Daily Habits API Endpoints ---
 @app.route('/api/wellness/daily-habits/<employee_id>', methods=['PUT'])
 @jwt_required(locations=["cookies"])
 def update_daily_habit(employee_id):
@@ -969,6 +974,7 @@ def update_daily_habit(employee_id):
 @app.route('/api/wellness/mental-health-logs/<employee_id>', methods=['GET'])
 @jwt_required(locations=["cookies"])
 def get_mental_health_logs(employee_id):
+    
     """Fetches a specific user's mental health logs."""
     jwt_payload = get_jwt()
     user_info = jwt_payload.get("user_info")
@@ -991,7 +997,7 @@ def get_mental_health_logs(employee_id):
         app.logger.exception(f"An unexpected error occurred while fetching mental health logs for {employee_id}: {e}")
         return jsonify({'detail': 'Internal Server Error'}), 500
 
-
+# --- Mental Health Logs API Endpoints ---
 @app.route('/api/wellness/mental-health-logs', methods=['POST'])
 @jwt_required(locations=["cookies"])
 def add_mental_health_log():
