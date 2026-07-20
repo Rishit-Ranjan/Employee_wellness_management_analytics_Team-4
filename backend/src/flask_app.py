@@ -1025,7 +1025,10 @@ def get_sentiments():
         feedback_df = pd.read_csv(FEEDBACK_DATA_PATH)
 
         # Extract top 3 key issues per department from the raw feedback
-        key_issues = feedback_df[feedback_df['sentiment'] == 'Negative'].groupby('department')['feedback_text'].apply(lambda x: list(x)[:3]).to_dict()
+        key_issues = feedback_df[feedback_df['sentiment'] == 'Negative'].groupby('department')['feedback_text'].apply(
+            # Use a lambda to get unique items before slicing
+            lambda x: list(pd.Series(x).unique())[:3]
+        ).to_dict()
 
         results = []
         for _, row in summary_df.iterrows():

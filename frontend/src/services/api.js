@@ -153,17 +153,9 @@ export const fetchRecommendations = async () => {
   return response;
 }
 
-export const fetchAllWellnessData = async () => ({
-    recommendations: getFromStorage('wellness_recommendations', []),
-    sentiments: getFromStorage('wellness_sentiments', []),
-});
-
 // New function to fetch sentiment data
-export async function fetchSentiments() {
-  const response = await fetch('/api/wellness/sentiments');
-  return handleResponse(response);
-}
+export const fetchSentiments = () => request('/wellness/sentiments');
 
 export const saveSentiments = (sentimentsData) => saveToStorage('wellness_sentiments', sentimentsData);
 
-export default { login, signup, me, logout, forgotPassword, resetPassword, fetchUsers, fetchHealthRecords, addHealthRecord, updateHealthRecord, deleteHealthRecord, fetchRisks, fetchAllWellnessData, saveSentiments };
+export default { login, signup, me, logout, forgotPassword, resetPassword, fetchUsers, fetchHealthRecords, addHealthRecord, updateHealthRecord, deleteHealthRecord, fetchRisks, fetchRecommendations, fetchSentiments, saveSentiments };
