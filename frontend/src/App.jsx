@@ -203,10 +203,9 @@ export default function App() {
 
                 // 4. Other wellness data
                 const loadedRisks = await api.fetchRisks();
-                setRisks(loadedRisks || INITIAL_RISKS);
-                const wellnessData = await api.fetchAllWellnessData();
-                setRecommendations(wellnessData.recommendations || INITIAL_RECOMMENDATIONS);
-                setSentimentList(wellnessData.sentiments || INITIAL_SENTIMENTS);
+                setRisks(loadedRisks || []);
+                const loadedRecommendations = await api.fetchRecommendations();
+                setRecommendations(loadedRecommendations || []);
             } catch (error) {
                 console.error("Failed to load wellness data:", error);
                 // If the token has expired, log the user out to show the login screen.
@@ -223,12 +222,20 @@ export default function App() {
     const handleAddHealthRecord = async (newRecord) => {
         const addedRecord = await api.addHealthRecord(newRecord);
         setHealthRecords([addedRecord, ...healthRecords]);
+
+        // Recompute Module 2 diagnostics from updated health_records
+        const loadedRisks = await api.fetchRisks();
+        setRisks(loadedRisks || []);
     };
 
     // Update a specific user's health record and persist changes
     const handleUpdateUserRecord = async (updatedRecord) => {
         await api.updateHealthRecord(updatedRecord);
         setHealthRecords(healthRecords.map(r => r.employeeId === updatedRecord.employeeId ? updatedRecord : r));
+
+        // Recompute Module 2 diagnostics from updated health_records
+        const loadedRisks = await api.fetchRisks();
+        setRisks(loadedRisks || []);
     };
 
     // Add a new daily habit record

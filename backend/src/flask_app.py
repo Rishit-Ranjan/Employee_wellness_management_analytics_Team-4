@@ -20,7 +20,7 @@ from dotenv import load_dotenv
 import joblib
 import pandas as pd
 from email_sender import send_email
-
+import cloudpickle
 
 app = Flask(__name__)
 
@@ -44,8 +44,6 @@ jwt = JWTManager(app)
 
 # --- MongoDB Connection ---
 # Explicit TLS settings to avoid Atlas SSL handshake failures in some environments
-
-
 client = MongoClient(
     MONGO_URI,
     serverSelectionTimeoutMS=20000,
@@ -54,7 +52,6 @@ client = MongoClient(
 # Attempt to get the default database from the URI, fallback to MONGO_DB_NAME if not specified
 try:
     db = client.get_default_database()
-
 
 except ConfigurationError:
     db = client.get_database(MONGO_DB_NAME)
@@ -74,12 +71,19 @@ try:
     risk_model = joblib.load(os.path.join(MODELS_DIR, "wellness_risk_model.pkl"))
     target_encoder = joblib.load(os.path.join(MODELS_DIR, "target_encoder.pkl"))
     feature_columns = joblib.load(os.path.join(MODELS_DIR, "feature_columns.pkl"))
-    app.logger.info("Wellness risk prediction model loaded successfully.")
+
+    with open(os.path.join(MODELS_DIR, "wellness_recommendation_engine.pkl"), "rb") as f:
+        recommendation_engine = cloudpickle.load(f)
+        
+    app.logger.info("All ML models and functional recommendation engines loaded successfully.")
+
 except Exception as e:
     app.logger.error(f"Error loading ML model: {e}")
     risk_model = None
     target_encoder = None
     feature_columns = None
+    recommendation_engine = None
+    
 #--- Utility Functions ---
 def hash_password(password: str) -> str:
     return bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
@@ -92,8 +96,6 @@ def verify_password(password: str, password_hash: str) -> bool:
 def _generate_reset_otp(length: int = 6) -> str:
     # numeric OTP, zero-padded
     return str(int.from_bytes(os.urandom(4), 'big') % (10 ** length)).zfill(length)
-
-
 
 def _generate_reset_token(num_bytes: int = 32) -> str:
     # URL-safe-ish token
@@ -565,8 +567,8 @@ def map_health_record_to_model_input(record):
         "stress_score": int(record.get("stressScore", 5) or 5),
         "attendance_percent": float(record.get("attendanceRate", 95) or 95),
         "glucose_level": float(record.get("glucoseLevel", 90) or 90),
-        "smoker": int(bool(record.get("smoker", False))),
-        "alcohol_use": int(bool(record.get("alcoholUse", False))),
+        "smoker": record.get("smoker", False),
+        "alcohol_use": record.get("alcoholUse", False),
         "medical_condition": record.get("medicalCondition", "No major condition") or "No major condition",
     }
 
@@ -726,6 +728,119 @@ def get_wellness_risks_old():
     except Exception as e:
         app.logger.exception(f"An unexpected error occurred during risk prediction: {e}")
         return jsonify({'detail': 'Internal Server Error'}), 500
+
+@app.route('/api/wellness/recommendations', methods=['GET'])
+@jwt_required(locations=["cookies"])
+def get_recommendations():
+    if risk_model is None:
+        return jsonify({"detail": "Risk prediction model is not available."}), 503
+
+    try:
+        health_records = list(health_records_collection.find({}))
+        if not health_records:
+            return jsonify([]), 200
+
+        all_recommendations = []
+
+        for record in health_records:
+            try:
+                # 1. Get risk profile from the classification model
+                model_input_df = map_health_record_to_model_input(record)
+                encoded_pred = risk_model.predict(model_input_df)[0]
+                risk_label = target_encoder.inverse_transform([encoded_pred])[0]
+
+                # 2. Extract and sanitize values with safe defaults to prevent engine float/string casting crashes
+                employee_profile = {
+                    "bmi": float(record.get("bmi") if record.get("bmi") is not None else 24.0),
+                    "sleepHoursPerNight": float(record.get("sleepHoursPerNight") if record.get("sleepHoursPerNight") is not None else 7.0),
+                    "exercise_days_per_week": float(record.get("exerciseDaysPerWeek") if record.get("exerciseDaysPerWeek") is not None else record.get("exercise_days_per_week", 3.0)),
+                    "stress_score": float(record.get("stressScore") if record.get("stressScore") is not None else record.get("stress_score", 5.0)),
+                    "blood_pressure_systolic": float(record.get("bloodPressureSystolic") if record.get("bloodPressureSystolic") is not None else record.get("blood_pressure_systolic", 120.0)),
+                    "blood_pressure_diastolic": float(record.get("bloodPressureDiastolic") if record.get("bloodPressureDiastolic") is not None else record.get("blood_pressure_diastolic", 80.0)),
+                    "glucose_level": float(record.get("glucoseLevel") if record.get("glucose_level") is not None else record.get("glucose_level", 90.0)),
+                    "attendance_percent": float(record.get("attendanceRate") if record.get("attendanceRate") is not None else record.get("attendance_percent", 95.0)),
+                    "medical_condition": str(record.get("medicalCondition") if record.get("medicalCondition") is not None else record.get("medical_condition", "none")),
+                    "smoker": record.get("smoker", False),
+                    "alcohol_use": record.get("alcoholUse", record.get("alcohol_use", False)),
+                    "risk_label": str(risk_label)
+                }
+
+                # 3. Use the loaded recommendation engine if available
+                if recommendation_engine is not None:
+                    top_recs = recommendation_engine(employee_profile, top_n=3)
+                
+                # 4. Fallback: Exact structural mirror matching the engine's output dictionary format
+                else:
+                    top_recs = []
+                    
+                    if employee_profile["stress_score"] >= 8:
+                        top_recs.append({
+                            "recommendation_id": "REC002",
+                            "title": "Guided Meditation Routine",
+                            "category": "Mental Wellness",
+                            "description": "10-15 minutes of guided meditation and breathing exercises daily.",
+                            "score": 9.0,
+                            "reasons": ["Stress score is very high"]
+                        })
+                    elif employee_profile["stress_score"] >= 5:
+                        top_recs.append({
+                            "recommendation_id": "REC006",
+                            "title": "Desk Yoga and Stretching",
+                            "category": "Yoga",
+                            "description": "Short guided desk yoga sessions to reduce stiffness and stress.",
+                            "score": 6.0,
+                            "reasons": ["Stress score is moderately elevated"]
+                        })
+
+                    if employee_profile["sleepHoursPerNight"] < 6:
+                        top_recs.append({
+                            "recommendation_id": "REC003",
+                            "title": "Sleep Hygiene Program",
+                            "category": "Lifestyle",
+                            "description": "Consistent bedtime, reduced screen time, and sleep-friendly habits.",
+                            "score": 8.5,
+                            "reasons": ["Sleep hours are below healthy range"]
+                        })
+
+                    if employee_profile["exercise_days_per_week"] <= 2 or employee_profile["bmi"] >= 30:
+                        top_recs.append({
+                            "recommendation_id": "REC001",
+                            "title": "Brisk Walking Plan",
+                            "category": "Fitness",
+                            "description": "30-minute brisk walking, 5 days a week, with gradual progression.",
+                            "score": 7.0,
+                            "reasons": ["Exercise frequency is low"]
+                        })
+
+                    # Fallback baseline when no risk boundaries are crossed
+                    if not top_recs:
+                        top_recs.append({
+                            "recommendation_id": "REC_BASE",
+                            "title": "Wellness Maintenance Plan",
+                            "category": "Lifestyle",
+                            "description": "Great job! Maintain your current hydration, healthy routines, and sleep patterns.",
+                            "score": 3.0,
+                            "reasons": ["Matches baseline health checks"]
+                        })
+
+                    top_recs = top_recs[:3]
+
+                all_recommendations.append({
+                    "employeeId": record.get("employeeId"),
+                    "employeeName": record.get("employeeName"),
+                    "riskProfile": {"riskType": risk_label},
+                    "recommendations": top_recs
+                })
+
+            except Exception as e:
+                app.logger.error(f"Failed to generate recommendations for {record.get('employeeId')}: {e}")
+
+        return jsonify(all_recommendations), 200
+
+    except Exception as e:
+        app.logger.exception(f"An unexpected error occurred while generating recommendations: {e}")
+        return jsonify({'detail': 'Internal Server Error'}), 500
+
 
 # --- Daily Habits API Endpoints ---
 @app.route('/api/wellness/daily-habits/<employee_id>', methods=['GET'])

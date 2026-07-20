@@ -4,8 +4,6 @@ import {
   Dumbbell, Apple, Brain, Clock, HeartPulse, Sparkles, Check, ShieldAlert, AlertCircle, Smile, Send
 } from 'lucide-react';
 
-import { personalRecommendations } from '../types';
-
 
 // ==========================================
 // MODULE 3: PERSONALIZED RECOMMENDATIONS
@@ -13,7 +11,8 @@ import { personalRecommendations } from '../types';
 export function RecommendationModule({ recommendations  }) {
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-      {recommendations.map((rec) => {
+      {recommendations && recommendations.length > 0 ? (
+        recommendations.map((rec) => {
         const Icon = rec.category === 'Fitness' ? Dumbbell :
                      rec.category === 'Diet' ? Apple :
                      rec.category === 'Mental Wellness' ? Brain : Clock;
@@ -36,19 +35,28 @@ export function RecommendationModule({ recommendations  }) {
               </div>
             </div>
 
-            <div className="pt-4 border-t border-slate-100 flex items-center justify-between">
-              <div className="space-y-0.5">
-                <span className="block text-[9px] font-bold text-slate-400 uppercase tracking-wider">Assigned Schedule</span>
-                <span className="text-xs text-slate-700 font-mono font-bold">{rec.schedule}</span>
+            {rec.reasons && rec.reasons.length > 0 && (
+              <div className="pt-3 border-t border-slate-100">
+                  <p className="text-[9px] font-bold text-slate-400 uppercase tracking-wider">Why this is recommended for you:</p>
+                  <ul className="list-disc list-inside space-y-0.5 mt-1">
+                  {rec.reasons.map((reason, i) => (
+                    <li key={i} className="text-[10px] text-slate-500">{reason}</li>
+                  ))}
+                  </ul>
               </div>
-              <div className="space-y-0.5 text-right">
-                <span className="block text-[9px] font-bold text-slate-400 uppercase tracking-wider">Duration</span>
-                <span className="text-xs text-slate-700 font-bold font-mono">{rec.durationWeeks} Weeks</span>
-              </div>
-            </div>
+            )}
           </div>
         );
-      })}
+      })
+      ) : (
+        <div className="md:col-span-2 bg-white border border-slate-200 rounded-xl p-8 text-center">
+            <div className="w-12 h-12 mx-auto bg-emerald-50 border border-emerald-100 rounded-full flex items-center justify-center text-emerald-600">
+                <Check className="w-6 h-6" />
+            </div>
+            <h4 className="font-semibold text-slate-800 mt-4">All Clear!</h4>
+            <p className="text-sm text-slate-500 mt-1">No specific wellness recommendations are needed at this time. Keep up the great work!</p>
+        </div>
+      )}
     </div>
   );
 }
@@ -949,10 +957,13 @@ export default function UserDashboard({ user,
   onAddHealthRecord, // Added onAddHealthRecord prop
   onUpdateSentimentPulse,
   recommendations= personalRecommendations
- }) {
+}) {
 
   const [activeTab, setActiveTab] = useState(7);
   const [isChatOpen, setIsChatOpen] = useState(false);
+
+  // Find recommendations for the current user
+  const userRecommendations = recommendations.find(rec => rec.employeeId === user.employeeId)?.recommendations || [];
 
   return (
     <div className="min-h-screen bg-slate-50 text-slate-800 flex flex-col font-sans">
@@ -1081,6 +1092,7 @@ export default function UserDashboard({ user,
               <UserProfileModule
                 user={user}
                 records={healthRecords}
+                risks={risks}
                 dailyHabits={dailyHabits} // Pass new state
                 onAddDailyHabit={onAddDailyHabit} // Pass new handler
                 onUpdateDailyHabit={onUpdateDailyHabit} // Pass new handler
@@ -1092,7 +1104,7 @@ export default function UserDashboard({ user,
             )}
 
             {activeTab === 3 && (
-              <RecommendationModule recommendations={personalRecommendations} />
+              <RecommendationModule recommendations={userRecommendations} />
             )}
           </div>
         </main>
