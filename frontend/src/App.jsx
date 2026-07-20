@@ -215,17 +215,15 @@ export default function App() {
         };
     
         const loadSecondaryData = async () => {
-            if (healthRecords.length > 0) {
-                try {
-                    const loadedRisks = await api.fetchRisks();
-                    setRisks(loadedRisks || []);
-                    const loadedRecommendations = await api.fetchRecommendations();
-                    setRecommendations(loadedRecommendations || []);
-                    const loadedSentiments = await api.fetchSentiments();
-                    setSentimentList(loadedSentiments || []);
-                } catch (error) {
-                    console.error("Failed to load secondary wellness data (risks, recs):", error);
-                }
+            try {
+                const loadedRisks = await api.fetchRisks();
+                setRisks(loadedRisks || []);
+                const loadedRecommendations = await api.fetchRecommendations();
+                setRecommendations(loadedRecommendations || []);
+                const loadedSentiments = await api.fetchSentiments();
+                setSentimentList(loadedSentiments || []);
+            } catch (error) {
+                console.error("Failed to load secondary wellness data (risks, recs):", error);
             }
         };
     

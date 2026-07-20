@@ -956,7 +956,7 @@ export default function UserDashboard({ user,
   mentalHealthLogs, // New prop
   onAddHealthRecord, // Added onAddHealthRecord prop
   onUpdateSentimentPulse,
-  recommendations= personalRecommendations
+  recommendations= []
 }) {
 
   const [activeTab, setActiveTab] = useState(7);
