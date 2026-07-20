@@ -220,8 +220,11 @@ export default function App() {
                 setRisks(loadedRisks || []);
                 const loadedRecommendations = await api.fetchRecommendations();
                 setRecommendations(loadedRecommendations || []);
-                const loadedSentiments = await api.fetchSentiments();
-                setSentimentList(loadedSentiments || []);
+                // Only admins can fetch sentiment data (the endpoint is admin-only)
+                if (currentUser?.role === 'admin') {
+                    const loadedSentiments = await api.fetchSentiments();
+                    setSentimentList(loadedSentiments || []);
+                }
             } catch (error) {
                 console.error("Failed to load secondary wellness data (risks, recs):", error);
             }
@@ -298,10 +301,12 @@ export default function App() {
             // Call the new backend endpoint to record the pulse
             await api.submitSentimentPulse(deptName, stressScore, feedbackText);
 
-            // For immediate UI feedback, we can optimistically update or just refetch.
-            // For this prototype, we'll refetch the sentiment data to show the update.
-            const loadedSentiments = await api.fetchSentiments();
-            setSentimentList(loadedSentiments || []);
+            // Only admins can fetch sentiment data (the endpoint is admin-only).
+            // For regular employees, just skip the refetch to avoid a 403 error.
+            if (currentUser?.role === 'admin') {
+                const loadedSentiments = await api.fetchSentiments();
+                setSentimentList(loadedSentiments || []);
+            }
         } catch (error) {
             console.error("Failed to submit sentiment pulse:", error);
             // Optionally, show an error message to the user
