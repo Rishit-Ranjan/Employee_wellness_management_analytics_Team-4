@@ -477,7 +477,7 @@ export function UserProfileModule({ user, records, risks = [], onUpdateRecord, o
   return (
     <div className="space-y-8 pb-10">
 
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
 
         <div className="lg:col-span-7 bg-white rounded-xl border border-slate-200 p-6 space-y-5 shadow-sm">
           <div className="flex items-center gap-2 border-b border-slate-100 pb-4">

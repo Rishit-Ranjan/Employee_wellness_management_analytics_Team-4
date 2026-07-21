@@ -299,40 +299,15 @@ export default function App() {
     // Update department sentiment pulse based on new feedback and persist changes
     const handleUpdateSentimentPulse = async (deptName, stressScore, feedbackText) => {
       try {
-        // Call the backend endpoint to record the pulse. This now writes to MongoDB.
+        // 1. Call the backend endpoint to record the pulse. This writes to MongoDB.
         await api.submitSentimentPulse(deptName, stressScore, feedbackText);
   
-        // For immediate UI feedback, we can optimistically update the local state.
-        // This provides a better user experience than waiting for a full data refresh.
-        setSentimentList(prevSentiments => {
-          const updatedSentiments = prevSentiments.map(s => {
-            if (s.department.toLowerCase() === deptName.toLowerCase()) {
-              const count = s.recentFeedbackCount + 1;
-              const oldTotalStress = s.averageStressScore * s.recentFeedbackCount;
-              const newAverageStress = Number(((oldTotalStress + stressScore) / count).toFixed(1));
-  
-              // Simple logic to adjust sentiment distribution percentages
-              let { positive, neutral, negative } = s.sentimentDistribution;
-              if (stressScore <= 4) positive++;
-              else if (stressScore <= 7) neutral++;
-              else negative++;
-              const totalSentiments = positive + neutral + negative;
-  
-              return {
-                ...s,
-                averageStressScore: newAverageStress,
-                sentimentDistribution: {
-                  positive: Math.round((positive / totalSentiments) * 100),
-                  neutral: Math.round((neutral / totalSentiments) * 100),
-                  negative: Math.round((negative / totalSentiments) * 100),
-                },
-                recentFeedbackCount: count,
-              };
-            }
-            return s;
-          });
-          return updatedSentiments;
-        });
+        // 2. For immediate UI feedback, re-fetch the aggregated sentiment data.
+        // This is more reliable than trying to replicate the aggregation logic on the client.
+        if (currentUser?.role === 'admin') {
+            const loadedSentiments = await api.fetchSentiments();
+            setSentimentList(loadedSentiments || []);
+        }
       } catch (error) {
         console.error("Failed to submit sentiment pulse:", error);
       }

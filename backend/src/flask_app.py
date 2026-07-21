@@ -1070,47 +1070,73 @@ def get_sentiments():
     if user_info.get('role', '').lower() != 'admin':
         return jsonify({'detail': 'Forbidden: You do not have permission to access this resource.'}), 403
 
-    try:
-        DEPT_SUMMARY_PATH = os.path.join(BASE_DIR, "outputs", "department_stress_summary.csv")
-        FEEDBACK_DATA_PATH = os.path.join(BASE_DIR, "data", "dataset", "employee_feedback.csv")
+    try: 
+        # Aggregation pipeline to calculate stats for each department from MongoDB
+        pipeline = [
+            {
+                '$group': {
+                    '_id': '$department',
+                    'total_feedback': { '$sum': 1 },
+                    'avg_stress_score': { '$avg': '$stressScore' },
+                    'positive_count': {
+                        '$sum': { '$cond': [{ '$eq': ['$sentiment', 'Positive'] }, 1, 0] }
+                    },
+                    'neutral_count': {
+                        '$sum': { '$cond': [{ '$eq': ['$sentiment', 'Neutral'] }, 1, 0] }
+                    },
+                    'negative_count': {
+                        '$sum': { '$cond': [{ '$eq': ['$sentiment', 'Negative'] }, 1, 0] }
+                    }
+                }
+            },
+            {
+                '$project': {
+                    'department': '$_id',
+                    'total_feedback': 1,
+                    'avg_stress_score': { '$round': ['$avg_stress_score', 1] },
+                    'sentimentDistribution': {
+                        'positive': {
+                            '$round': [{ '$multiply': [{ '$divide': ['$positive_count', '$total_feedback'] }, 100] }]
+                        },
+                        'neutral': {
+                            '$round': [{ '$multiply': [{ '$divide': ['$neutral_count', '$total_feedback'] }, 100] }]
+                        },
+                        'negative': {
+                            '$round': [{ '$multiply': [{ '$divide': ['$negative_count', '$total_feedback'] }, 100] }]
+                        }
+                    },
+                    '_id': 0
+                }
+            }
+        ]
+        
+        department_stats = list(sentiment_pulses_collection.aggregate(pipeline))
 
-        if not os.path.exists(DEPT_SUMMARY_PATH) or not os.path.exists(FEEDBACK_DATA_PATH):
-            app.logger.warning("Department summary or feedback CSV not found. Returning empty list.")
-            return jsonify([]), 200
+        # Fetch the 3 most recent non-empty feedback texts for each department
+        key_issues_pipeline = [
+            { '$match': { 'feedbackText': { '$ne': '' } } },
+            { '$sort': { 'createdAt': -1 } },
+            { '$group': {
+                '_id': '$department',
+                'recent_issues': { '$push': '$feedbackText' }
+            }},
+            { '$project': {
+                'department': '$_id',
+                'keyIssues': { '$slice': ['$recent_issues', 3] },
+                '_id': 0
+            }}
+        ]
+        key_issues_data = {item['department']: item['keyIssues'] for item in sentiment_pulses_collection.aggregate(key_issues_pipeline)}
 
-        summary_df = pd.read_csv(DEPT_SUMMARY_PATH)
-        feedback_df = pd.read_csv(FEEDBACK_DATA_PATH)
-
-        # Extract top 3 key issues per department from the raw feedback
-        key_issues = feedback_df[feedback_df['sentiment'] == 'Negative'].groupby('department')['feedback_text'].apply(
-            # Use a lambda to get unique items before slicing
-            lambda x: list(pd.Series(x).unique())[:3]
-        ).to_dict()
-
+        # Combine the aggregated stats with the key issues
         results = []
-        for _, row in summary_df.iterrows():
-            total = row['total_feedback']
-            neg_count = row['negative_feedback_count']
-            
-            # Correctly calculate neutral and positive counts from sentiment data
-            department_feedback = feedback_df[feedback_df['department'] == row['department']]
-            neu_count = (department_feedback['sentiment'] == 'Neutral').sum()
-            pos_count = max(0, total - neg_count - neu_count)
-
-            # Correctly scale the stress score
-            compound = row['avg_compound_sentiment']
-            stress_score = round(max(1.0, min(10.0, 5.5 - 4.5 * compound)), 1)
-
+        for stats in department_stats:
             results.append({
-                "department": row['department'],
-                "averageStressScore": stress_score,
-                "sentimentDistribution": {
-                    "positive": round((pos_count / total) * 100) if total > 0 else 0,
-                    "neutral": round((neu_count / total) * 100) if total > 0 else 0,
-                    "negative": round((neg_count / total) * 100) if total > 0 else 0,
-                },
-                "keyIssues": key_issues.get(row['department'], ["No specific issues logged"]),
-                "recentFeedbackCount": int(row['total_feedback'])
+                "department": stats['department'],
+                "averageStressScore": stats['avg_stress_score'],
+                "sentimentDistribution": stats['sentimentDistribution'],
+                "keyIssues": key_issues_data.get(stats['department'], ["No specific issues logged"]),
+                "recentFeedbackCount": stats['total_feedback']
             })
         return jsonify(results), 200
     except Exception as e:
