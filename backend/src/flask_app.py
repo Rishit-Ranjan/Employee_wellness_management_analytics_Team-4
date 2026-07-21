@@ -1,5 +1,6 @@
 from flask import Flask, request, jsonify, make_response
-from flask_cors import CORS
+from flask_cors import CORS 
+from werkzeug.utils import secure_filename
 import bcrypt
 from flask_jwt_extended import create_refresh_token
 
@@ -12,7 +13,7 @@ from flask_jwt_extended import (
 )
 
 import os
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timedelta, timezone 
 from pymongo import MongoClient
 from pymongo.errors import ConfigurationError
 from bson import ObjectId
@@ -36,6 +37,12 @@ app.config["JWT_SECRET_KEY"] = os.getenv("JWT_SECRET_KEY", "default-super-secret
 app.config["JWT_ACCESS_TOKEN_EXPIRES"] = timedelta(minutes=int(os.getenv('JWT_EXPIRES_MINUTES', '1440'))) # 24-hour token for presentation
 app.config["JWT_TOKEN_LOCATION"] = ["cookies"]
 app.config["JWT_ACCESS_COOKIE_NAME"] = "access_token"
+
+# --- File Upload Configuration ---
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+UPLOAD_FOLDER = os.path.join(BASE_DIR, 'static', 'avatars')
+app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
+os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 app.config["JWT_COOKIE_CSRF_PROTECT"] = False
 jwt = JWTManager(app)
 
@@ -99,6 +106,14 @@ def _generate_reset_token(num_bytes: int = 32) -> str:
     # URL-safe-ish token
     return os.urandom(num_bytes).hex()
 
+def get_full_avatar_url(avatar_path):
+    """Constructs the full URL for an avatar path."""
+    if not avatar_path or not avatar_path.startswith('/static'):
+        return None # Or return a default avatar URL
+    # In a production environment, this should use the actual public domain.
+    base_url = request.url_root.rstrip('/')
+    return f"{base_url}{avatar_path}"
+
 @app.route('/api/auth/login', methods=['POST'])
 def login():
     data = request.get_json() or {}
@@ -160,9 +175,10 @@ def login():
             "id": user_id_str,
             "name": user.get('name') or user.get('username'),
             "email": user['email'],
-            "employeeId": user.get('employeeId'), # Add employeeId here
+            "employeeId": user.get('employeeId'),
+            "adminId": user.get('adminId'),
             "role": user.get('role', 'user'),
-            "avatarUrl": user.get("avatarUrl", f"https://i.pravatar.cc/150?u={email}")
+            "avatarUrl": get_full_avatar_url(user.get("avatarUrl"))
         }
 
         # Create token with user_info as the identity
@@ -411,6 +427,47 @@ def logout():
     resp = make_response(jsonify({'detail': 'Logout successful'}), 200)
     resp.set_cookie('access_token', '', expires=0)
     return resp
+
+@app.route('/api/users/avatar', methods=['POST'])
+@jwt_required(locations=["cookies"])
+def upload_avatar():
+    """Uploads a new avatar for the current user."""
+    user_id = get_jwt_identity()
+    if 'avatar' not in request.files:
+        return jsonify({'detail': 'No file part in the request'}), 400
+
+    file = request.files['avatar']
+    if file.filename == '':
+        return jsonify({'detail': 'No selected file'}), 400
+
+    if file:
+        # Create a secure, unique filename
+        filename = secure_filename(f"{user_id}_{file.filename}")
+        filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+        file.save(filepath)
+
+        # The URL path to be stored in the database and used by the frontend
+        avatar_url = f"/static/avatars/{filename}"
+
+        # Determine which collection to update based on the user's role
+        jwt_payload = get_jwt()
+        user_info = jwt_payload.get("user_info", {})
+        is_admin = user_info.get('role', '').lower() == 'admin'
+        
+        collection_to_update = admin_collection if is_admin else users_collection
+        
+        # Update the user's document
+        collection_to_update.update_one(
+            {'_id': ObjectId(user_id)},
+            {'$set': {'avatarUrl': avatar_url}}
+        )
+
+        # Return the updated user info, including the new avatar URL
+        updated_user_info = {**user_info, "avatarUrl": get_full_avatar_url(avatar_url)}
+
+        return jsonify({'detail': 'Avatar updated successfully', 'user': updated_user_info}), 200
+
+    return jsonify({'detail': 'File upload failed'}), 500
 
 
 # --- Wellness API Endpoints ---

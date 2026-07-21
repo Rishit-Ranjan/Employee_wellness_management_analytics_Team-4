@@ -1,7 +1,7 @@
 import  { useState, useEffect, useMemo, useCallback } from 'react';
 import Login from './components/Login';
 import SignUp from './components/SignUp';
-import ForgotPassword from './components/ForgotPassword';
+import ForgotPassword from './components/ForgotPassword'; 
 import UserDashboard from './components/UserDashboard';
 import AdminDashboard from './components/AdminDashboard';
 import * as api from './services/api';
@@ -23,6 +23,7 @@ export default function App() {
     const [currentUser, setCurrentUser] = useState(null);
     const [loadingSession, setLoadingSession] = useState(true); // New state to indicate session loading
     const [loadingWellnessData, setLoadingWellnessData] = useState(false);
+    const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
     
 
     // Core Wellness State (Moved from Dashboard)
@@ -337,6 +338,19 @@ export default function App() {
       }
     };
 
+    const handleUpdateAvatar = async (file) => {
+        try {
+            const response = await api.uploadAvatar(file);
+            if (response && response.user) {
+                setCurrentUser(response.user);
+                localStorage.setItem('wellness_current_user', JSON.stringify(response.user));
+                setIsProfileModalOpen(false); // Close modal on success
+            }
+        } catch (error) {
+            console.error("Failed to upload avatar:", error);
+            // You could set an error state here to show in the modal
+        }
+    };
     // Navigation and Authentication Handlers
     const handleLoginSuccess = (user) => {
         setCurrentUser(user);
@@ -386,6 +400,9 @@ export default function App() {
                     kpis={derivedKpis}
                     loading={loadingWellnessData}
                     onAddHealthRecord={handleAddHealthRecord}
+                    isProfileModalOpen={isProfileModalOpen}
+                    setIsProfileModalOpen={setIsProfileModalOpen}
+                    onUpdateAvatar={handleUpdateAvatar}
                     onDeleteHealthRecord={handleDeleteHealthRecord}
                     onUpdateHealthRecord={handleUpdateUserRecord}
                      />)
@@ -404,6 +421,9 @@ export default function App() {
                     onUpdateUserRecord={handleUpdateUserRecord}
                     onUpdateSentimentPulse={handleUpdateSentimentPulse}
                     recommendations={recommendations}
+                    isProfileModalOpen={isProfileModalOpen}
+                    setIsProfileModalOpen={setIsProfileModalOpen}
+                    onUpdateAvatar={handleUpdateAvatar}
                     loading={loadingWellnessData}
                 />)
             )}

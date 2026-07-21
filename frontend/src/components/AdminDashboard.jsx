@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { Trash2, Edit, MoreHorizontal, Activity, TrendingUp, Lightbulb, Smile, BarChart3, LogOut,
-  Search, Plus, X, ShieldAlert, AlertCircle, Check, Sparkles, Dumbbell, Apple, Brain, Clock
+  Search, Plus, X, ShieldAlert, AlertCircle, Check, Sparkles, Dumbbell, Apple, Brain, Clock, UploadCloud
 } from 'lucide-react';
 
 // ==========================================
@@ -148,86 +148,81 @@ export function HealthDataModule({ records, allUsers, onAddRecord, onUpdateRecor
       assessment = 'Fair';
     }
 
-    try {
-      if (editingRecord) {
-        // Update existing record
-        setError(''); // Clear error on successful update attempt
-        const [empId, empName] = selectedEmployee.split('|');
-        const updatedRec = {
-          ...editingRecord,
-          // Ensure employeeId and employeeName are from the selected employee,
-          // or keep original if not changed (though dropdown forces selection)
-          employeeId: empId,
-          employeeName: empName,
-          age: Number(age),
-          gender: gender,
-          heightCm: Number(heightCm),
-          weightKg: Number(weightKg),
-          department: dept,
-          bmi: calculatedBmi,
-          bloodPressure: bp,
-          exerciseDaysPerWeek: Number(exerciseDaysPerWeek),
-          exerciseHoursPerWeek: Number(exercise) || 0,
-          sleep_hours: Number(sleep) || 0,
-          sleepHoursPerNight: Number(sleep) || 0,
-          stressLevel: stress,
-          stressScore: Number(stressScore),
-          attendanceRate: Number(attendanceRate),
-          medicalNotes: medicalNotes,
-          medicalCondition: medicalCondition,
-          smoker: smoker,
-          alcoholUse: alcoholUse,
-          glucoseLevel: Number(glucoseLevel),
-          healthAssessment: assessment,
-          lastUpdated: new Date().toISOString().split('T')[0]
-        };
-        await onUpdateRecord(updatedRec);
-        alert('Health record updated successfully!'); // User feedback
-      } else {
-        // Add new record
-        const [empId, empName] = selectedEmployee.split('|');
-        const newRec = {
-          employeeId: empId,
-          employeeName: empName,
-          age: Number(age),
-          gender: gender,
-          heightCm: Number(heightCm),
-          weightKg: Number(weightKg),
-          department: dept,
-          bmi: calculatedBmi,
-          bloodPressure: bp,
-          exerciseHoursPerWeek: Number(exercise),
-          exerciseDaysPerWeek: Number(exerciseDaysPerWeek),
-          sleep_hours: Number(sleep) || 0,
-          sleepHoursPerNight: Number(sleep) || 0,
-          stressLevel: stress,
-          stressScore: Number(stressScore),
-          attendanceRate: Number(attendanceRate),
-          medicalNotes: medicalNotes,
-          medicalCondition: medicalCondition,
-          smoker: smoker,
-          alcoholUse: alcoholUse,
-          glucoseLevel: Number(glucoseLevel),
-          healthAssessment: assessment,
-          lastUpdated: new Date().toISOString().split('T')[0]
-        };
-        await onAddRecord(newRec);
-        alert('Health record added successfully!'); // User feedback
-      }
-
-      setIsAddOpen(false);
-      // Reset Form
-      setSelectedEmployee('');
-      setAge(''); setGender('Male'); setHeightCm(''); setWeightKg('');
-      setBmi(''); setBp(''); setExerciseDaysPerWeek(''); setExercise(''); setSleep('');
-      setStress('Medium'); setStressScore(''); setAttendanceRate('');
-      setMedicalNotes(''); setMedicalCondition('No major condition'); setSmoker(false); setAlcoholUse(false); setGlucoseLevel('');
-      setEditingRecord(null);
-      setError(''); // Clear error after successful submission
-    } catch (err) {
-      console.error('Failed to save health record:', err);
-      setError(err?.message || 'Failed to save health record. Please try again.');
+    if (editingRecord) {
+      // Update existing record
+      setError(''); // Clear error on successful update attempt
+      const [empId, empName] = selectedEmployee.split('|');
+      const updatedRec = {
+        ...editingRecord,
+        // Ensure employeeId and employeeName are from the selected employee,
+        // or keep original if not changed (though dropdown forces selection)
+        employeeId: empId,
+        employeeName: empName,
+        age: Number(age),
+        gender: gender,
+        heightCm: Number(heightCm),
+        weightKg: Number(weightKg),
+        department: dept,
+        bmi: calculatedBmi,
+        bloodPressure: bp,
+        exerciseDaysPerWeek: Number(exerciseDaysPerWeek),
+        exerciseHoursPerWeek: Number(exercise) || 0,
+        sleep_hours: Number(sleep) || 0,
+        sleepHoursPerNight: Number(sleep),
+        stressLevel: stress,
+        stressScore: Number(stressScore),
+        attendanceRate: Number(attendanceRate),
+        medicalNotes: medicalNotes,
+        medicalCondition: medicalCondition,
+        smoker: smoker,
+        alcoholUse: alcoholUse,
+        glucoseLevel: Number(glucoseLevel),
+        healthAssessment: assessment,
+        lastUpdated: new Date().toISOString().split('T')[0]
+      };
+      await onUpdateRecord(updatedRec);
+      alert('Health record updated successfully!'); // User feedback
+    } else {
+      // Add new record
+      const [empId, empName] = selectedEmployee.split('|');
+      const newRec = {
+        employeeId: empId,
+        employeeName: empName,
+        age: Number(age),
+        gender: gender,
+        heightCm: Number(heightCm),
+        weightKg: Number(weightKg),
+        department: dept,
+        bmi: calculatedBmi,
+        bloodPressure: bp,
+        exerciseHoursPerWeek: Number(exercise),
+        exerciseDaysPerWeek: Number(exerciseDaysPerWeek),
+        sleep_hours: Number(sleep) || 0,
+        sleepHoursPerNight: Number(sleep) || 0,
+        stressLevel: stress,
+        stressScore: Number(stressScore),
+        attendanceRate: Number(attendanceRate),
+        medicalNotes: medicalNotes,
+        medicalCondition: medicalCondition,
+        smoker: smoker,
+        alcoholUse: alcoholUse,
+        glucoseLevel: Number(glucoseLevel),
+        healthAssessment: assessment,
+        lastUpdated: new Date().toISOString().split('T')[0]
+      };
+      await onAddRecord(newRec);
+      alert('Health record added successfully!'); // User feedback
     }
+
+    setIsAddOpen(false);
+    // Reset Form
+    setSelectedEmployee('');
+    setAge(''); setGender('Male'); setHeightCm(''); setWeightKg('');
+    setBmi(''); setBp(''); setExerciseDaysPerWeek(''); setExercise(''); setSleep('');
+    setStress('Medium'); setStressScore(''); setAttendanceRate('');
+    setMedicalNotes(''); setMedicalCondition('No major condition'); setSmoker(false); setAlcoholUse(false); setGlucoseLevel('');
+    setEditingRecord(null);
+    setError(''); // Clear error after successful submission
   };
   // Find users who do not have a health record yet for the dropdown
   const usersWithoutRecords = useMemo(() => {
@@ -909,15 +904,15 @@ export function RecommendationModule({ recommendations = [], loading }) {
                         </span>
                       </div>
                       <div>
-                        <h5 className="font-semibold text-sm text-slate-800">{rec.title}</h5>
-                        <p className="text-xs text-slate-500 mt-1 leading-relaxed font-light">{rec.description}</p>
+                        <h5 className="font-semibold text-xs text-slate-800">{rec.title}</h5>
+                        <p className="text-[11px] text-slate-500 mt-1 leading-relaxed font-light">{rec.description}</p>
                       </div>
                       {rec.reasons && rec.reasons.length > 0 && (
                         <div className="pt-2 border-t border-slate-200">
-                           <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Reasons:</p>
-                           <ul className="list-disc list-inside space-y-1 mt-1.7">
+                           <p className="text-[9px] font-bold text-slate-400 uppercase tracking-wider">Reasons:</p>
+                           <ul className="list-disc list-inside space-y-0.5 mt-1">
                             {rec.reasons.map((reason, i) => (
-                              <li key={i} className="text-[11px] text-slate-500">{reason}</li>
+                              <li key={i} className="text-[10px] text-slate-500">{reason}</li>
                             ))}
                            </ul>
                         </div>
@@ -1114,21 +1109,44 @@ export default function AdminDashboard({ user,
   healthRecords,
   allUsers,
   risks,
-  recommendations = [],
+  recommendations = personalRecommendations,
   sentimentList,
   kpis,
   loading,
+  isProfileModalOpen,
+  setIsProfileModalOpen,
+  onUpdateAvatar,
   onAddHealthRecord,
   onDeleteHealthRecord,
   onUpdateHealthRecord
  }) {
   const [activeTab, setActiveTab] = useState(1);
 
-  // Show all department sentiment data to the admin for a holistic organizational view
-  const filteredSentimentList = sentimentList;
+  // Find the logged-in admin's department from their health record.
+  // This is used to filter the sentiment module to only show the admin's own department.
+  const adminRecord = healthRecords.find(r => r.employeeId === user.employeeId);
+  const adminDepartment = adminRecord ? adminRecord.department : null;
+
+  // Filter the sentiment list. If the admin has a department, only show the card for that department.
+  // Otherwise (e.g., a super-admin without a department record), show all.
+  const filteredSentimentList = useMemo(() => {
+    if (adminDepartment) {
+      return sentimentList.filter(s => s.department === adminDepartment);
+    }
+    // If the admin's department isn't found, return the full list.
+    return sentimentList;
+  }, [sentimentList, adminDepartment]);
 
   return (
     <div className="min-h-screen bg-slate-50 text-slate-800 flex flex-col font-sans">
+      
+      {isProfileModalOpen && (
+        <ProfileModal
+          user={user}
+          onClose={() => setIsProfileModalOpen(false)}
+          onUpdateAvatar={onUpdateAvatar}
+        />
+      )}
       {/* Platform Header */}
       <header className="bg-white border-b border-slate-200 text-slate-800 px-6 py-4 flex flex-col md:flex-row md:items-center md:justify-between gap-4 shadow-xs">
         <div className="flex items-center gap-3">
@@ -1142,10 +1160,14 @@ export default function AdminDashboard({ user,
         </div>
 
         {/* User Info & Actions */}
-        <div className="flex items-center justify-between md:justify-end gap-5">
+        <div
+          className="flex items-center justify-between md:justify-end gap-5 cursor-pointer group"
+          onClick={() => setIsProfileModalOpen(true)}
+        >
           <div className="flex items-center gap-3 text-right">
             <div className="hidden sm:block text-right mr-3">
               <span className="block text-sm font-semibold text-slate-850 leading-tight">{user.name}</span>
+              <span className="block text-[10px] text-slate-400 font-mono mt-0.5">{user.adminId}</span>
               <span className="inline-block mt-1 px-2 py-0.5 bg-slate-100 border border-slate-200 text-slate-600 text-[9px] font-mono font-bold rounded uppercase tracking-widest leading-none">
                 Administrator
               </span>
@@ -1164,7 +1186,7 @@ export default function AdminDashboard({ user,
             )}
           </div>
 
-          <div className="h-8 w-px bg-slate-200 hidden sm:block" />
+          <div className="h-8 w-px bg-slate-200 hidden sm:block group-hover:bg-indigo-300 transition-colors" />
 
           <button
             onClick={onLogout}
@@ -1285,6 +1307,73 @@ export default function AdminDashboard({ user,
             )}
           </div>
         </main>
+      </div>
+    </div>
+  );
+}
+
+function ProfileModal({ user, onClose, onUpdateAvatar }) {
+  const [file, setFile] = useState(null);
+  const [preview, setPreview] = useState(null);
+  const fileInputRef = useRef(null);
+
+  const handleFileChange = (e) => {
+    const selectedFile = e.target.files[0];
+    if (selectedFile) {
+      setFile(selectedFile);
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setPreview(reader.result);
+      };
+      reader.readAsDataURL(selectedFile);
+    }
+  };
+
+  const handleUpload = () => {
+    if (file) {
+      onUpdateAvatar(file);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 z-50 animate-fadeIn">
+      <div className="bg-white rounded-2xl border border-slate-200 w-full max-w-md shadow-2xl flex flex-col">
+        <div className="bg-slate-50 border-b border-slate-100 px-6 py-4 flex items-center justify-between">
+          <h3 className="font-display font-semibold text-slate-800">My Profile</h3>
+          <button onClick={onClose} className="text-slate-400 hover:text-slate-600 transition-colors">
+            <X className="w-5 h-5" />
+          </button>
+        </div>
+        <div className="p-6 space-y-6">
+          <div className="flex flex-col items-center gap-4">
+            <div className="relative">
+              <img
+                src={preview || user.avatarUrl || `https://ui-avatars.com/api/?name=${user.name}&background=e2e8f0&color=475569`}
+                alt={user.name}
+                className="w-24 h-24 rounded-full object-cover border-4 border-white shadow-lg"
+              />
+              <button
+                onClick={() => fileInputRef.current.click()}
+                className="absolute -bottom-1 -right-1 bg-indigo-600 hover:bg-indigo-700 text-white p-1.5 rounded-full border-2 border-white shadow-md transition-transform hover:scale-110"
+              >
+                <UploadCloud className="w-4 h-4" />
+              </button>
+              <input
+                type="file"
+                ref={fileInputRef}
+                onChange={handleFileChange}
+                className="hidden"
+                accept="image/png, image/jpeg"
+              />
+            </div>
+            <div className="text-center">
+              <h4 className="font-semibold text-lg text-slate-800">{user.name}</h4>
+              <p className="text-sm text-slate-500">{user.email}</p>
+              <p className="text-xs text-slate-400 font-mono mt-1">{user.employeeId || user.adminId}</p>
+            </div>
+          </div>
+          <button onClick={handleUpload} disabled={!file} className="w-full py-2.5 bg-slate-900 hover:bg-slate-800 text-white rounded-lg text-xs font-bold transition-all shadow-sm disabled:bg-slate-300 disabled:cursor-not-allowed">Save Changes</button>
+        </div>
       </div>
     </div>
   );
