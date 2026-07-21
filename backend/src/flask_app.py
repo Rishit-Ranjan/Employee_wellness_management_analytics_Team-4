@@ -22,6 +22,8 @@ import joblib
 import pandas as pd
 from email_sender import send_email
 import cloudpickle
+from nltk.sentiment import SentimentIntensityAnalyzer
+import nltk
 
 app = Flask(__name__)
 
@@ -88,6 +90,14 @@ except Exception as e:
     target_encoder = None
     feature_columns = None
     recommendation_engine = None
+
+# --- NLTK Setup for Sentiment Analysis ---
+try:
+    nltk.download('vader_lexicon', quiet=True)
+    sia = SentimentIntensityAnalyzer()
+except Exception as e:
+    app.logger.error(f"Failed to initialize NLTK Sentiment Analyzer: {e}")
+    sia = None
     
 #--- Utility Functions ---
 def hash_password(password: str) -> str:
@@ -1155,19 +1165,30 @@ def add_sentiment_pulse():
         return jsonify({'detail': 'Missing department or stressScore'}), 400
 
     try:
-        # Create a sentiment label based on the stress score
-        sentiment = 'Neutral'
+        feedback_text = data.get('feedbackText', '')
         stress_score = float(data['stressScore'])
-        if stress_score >= 7.0:
-            sentiment = 'Negative'
-        elif stress_score <= 4.0:
-            sentiment = 'Positive'
+
+        # Use VADER for sentiment analysis if text is provided, otherwise fallback to stress score
+        if feedback_text and sia:
+            sentiment_scores = sia.polarity_scores(feedback_text)
+            compound_score = sentiment_scores['compound']
+            if compound_score >= 0.05:
+                sentiment = 'Positive'
+            elif compound_score <= -0.05:
+                sentiment = 'Negative'
+            else:
+                sentiment = 'Neutral'
+        else:
+            # Fallback logic based on stress score if no text or VADER is unavailable
+            sentiment = 'Neutral'
+            if stress_score >= 7.0: sentiment = 'Negative'
+            elif stress_score <= 4.0: sentiment = 'Positive'
 
         # Create the document to be inserted into MongoDB
         pulse_doc = {
             "department": data['department'],
             "stressScore": stress_score,
-            "feedbackText": data.get('feedbackText', ''),
+            "feedbackText": feedback_text,
             "sentiment": sentiment,
             "createdAt": datetime.now(timezone.utc)
         }
