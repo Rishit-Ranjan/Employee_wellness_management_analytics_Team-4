@@ -936,7 +936,7 @@ export function RecommendationModule({ recommendations = [], loading }) {
 // ==========================================
 // MODULE 4: MENTAL HEALTH & SENTIMENT
 // ==========================================
-export function SentimentModule({ sentimentList  }) {
+export function SentimentModule({ sentimentList = [] }) {
   return (
     <div className="space-y-6">
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
