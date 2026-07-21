@@ -58,6 +58,7 @@ reset_collection = db.get_collection('password_reset_requests')
 health_records_collection = db.get_collection('health_records')
 daily_habits_collection = db.get_collection('daily_habits')
 mental_health_logs_collection = db.get_collection('mental_health_logs')
+sentiment_pulses_collection = db.get_collection('sentiment_pulses')
 
 # --- Load ML Model and Metadata ---
 try:
@@ -88,55 +89,6 @@ def hash_password(password: str) -> str:
 
 def verify_password(password: str, password_hash: str) -> bool:
     return bcrypt.checkpw(password.encode('utf-8'), password_hash.encode('utf-8'))
-
-
-def _regenerate_department_summary():
-    """
-    Reads the raw employee_feedback.csv and regenerates the
-    department_stress_summary.csv with aggregated metrics.
-    This ensures admin dashboards reflect real-time pulse data.
-    """
-    FEEDBACK_DATA_PATH = os.path.join(BASE_DIR, "data", "dataset", "employee_feedback.csv")
-    DEPT_SUMMARY_PATH = os.path.join(BASE_DIR, "outputs", "department_stress_summary.csv")
-    
-    if not os.path.exists(FEEDBACK_DATA_PATH):
-        app.logger.warning("Cannot regenerate summary: employee_feedback.csv not found.")
-        return False
-    
-    try:
-        feedback_df = pd.read_csv(FEEDBACK_DATA_PATH)
-        if feedback_df.empty:
-            app.logger.warning("Feedback data is empty. No summary generated.")
-            return False
-        
-        # Map simple sentiment labels to approximate compound scores.
-        # Positive ~ 0.9 (low stress), Neutral ~ 0.0, Negative ~ -0.8 (high stress).
-        # This mapping is correct because:
-        #   - stress_score <= 4 -> sentiment='Positive' -> compound ~ 0.9 (good)
-        #   - stress_score >= 7 -> sentiment='Negative' -> compound ~ -0.8 (bad)
-        sentiment_compound_map = {'Positive': 0.9, 'Neutral': 0.0, 'Negative': -0.8}
-        feedback_df['compound'] = feedback_df['sentiment'].map(
-            sentiment_compound_map
-        ).fillna(0.0)
-
-        # Aggregate by department
-        summary = feedback_df.groupby('department').agg(
-            total_feedback=('feedback_id', 'count'),
-            negative_feedback_count=('sentiment', lambda x: (x == 'Negative').sum()),
-            avg_compound_sentiment=('compound', 'mean')
-        ).reset_index()
-        
-        # Round numeric columns
-        summary['avg_compound_sentiment'] = summary['avg_compound_sentiment'].round(4)
-        
-        # Write the updated summary CSV
-        summary.to_csv(DEPT_SUMMARY_PATH, index=False)
-        app.logger.info(f"Department summary regenerated with {len(summary)} departments.")
-        return True
-    
-    except Exception as e:
-        app.logger.exception(f"Failed to regenerate department summary: {e}")
-        return False
 
 
 def _generate_reset_otp(length: int = 6) -> str:
@@ -775,8 +727,6 @@ def get_wellness_risks_old():
         app.logger.exception(f"An unexpected error occurred during risk prediction: {e}")
         return jsonify({'detail': 'Internal Server Error'}), 500
 
-
-# --- Wellness Recommendations Endpoint ---
 @app.route('/api/wellness/recommendations', methods=['GET'])
 @jwt_required(locations=["cookies"])
 def get_recommendations():
@@ -897,11 +847,10 @@ def get_daily_habits(employee_id):
     """Fetches a specific user's daily habits record."""
     jwt_payload = get_jwt()
     user_info = jwt_payload.get("user_info")
-    
     # Ensure user can only fetch their own record unless they are an admin
     if user_info.get('role') != 'admin' and user_info.get('employeeId') != employee_id:
         return jsonify({'detail': 'Forbidden: You can only view your own daily habits.'}), 403
-    # Fetch the daily habits record from the database
+
     try:
         habit_record = daily_habits_collection.find_one({'employeeId': employee_id})
         if not habit_record:
@@ -913,7 +862,6 @@ def get_daily_habits(employee_id):
         app.logger.exception(f"An unexpected error occurred while fetching daily habits for {employee_id}: {e}")
         return jsonify({'detail': 'Internal Server Error'}), 500
 
-# --- Daily Habits API Endpoints ---
 @app.route('/api/wellness/daily-habits', methods=['POST'])
 @jwt_required(locations=["cookies"])
 def add_daily_habit():
@@ -942,7 +890,6 @@ def add_daily_habit():
         app.logger.exception(f"An unexpected error occurred while adding a daily habit record: {e}")
         return jsonify({'detail': 'Internal Server Error'}), 500
 
-# --- Daily Habits API Endpoints ---
 @app.route('/api/wellness/daily-habits/<employee_id>', methods=['PUT'])
 @jwt_required(locations=["cookies"])
 def update_daily_habit(employee_id):
@@ -974,7 +921,6 @@ def update_daily_habit(employee_id):
 @app.route('/api/wellness/mental-health-logs/<employee_id>', methods=['GET'])
 @jwt_required(locations=["cookies"])
 def get_mental_health_logs(employee_id):
-    
     """Fetches a specific user's mental health logs."""
     jwt_payload = get_jwt()
     user_info = jwt_payload.get("user_info")
@@ -997,7 +943,7 @@ def get_mental_health_logs(employee_id):
         app.logger.exception(f"An unexpected error occurred while fetching mental health logs for {employee_id}: {e}")
         return jsonify({'detail': 'Internal Server Error'}), 500
 
-# --- Mental Health Logs API Endpoints ---
+
 @app.route('/api/wellness/mental-health-logs', methods=['POST'])
 @jwt_required(locations=["cookies"])
 def add_mental_health_log():
@@ -1087,31 +1033,29 @@ def get_sentiments():
 
         results = []
         for _, row in summary_df.iterrows():
-            department = row['department']
-            department_feedback = feedback_df[feedback_df['department'] == department]
-
-            # Calculate actual sentiment counts directly from feedback data
-            pos_count = (department_feedback['sentiment'] == 'Positive').sum()
-            neu_count = (department_feedback['sentiment'] == 'Neutral').sum()
-            neg_count = (department_feedback['sentiment'] == 'Negative').sum()
             total = row['total_feedback']
+            neg_count = row['negative_feedback_count']
+            
+            # Correctly calculate neutral and positive counts from sentiment data
+            department_feedback = feedback_df[feedback_df['department'] == row['department']]
+            neu_count = (department_feedback['sentiment'] == 'Neutral').sum()
+            pos_count = max(0, total - neg_count - neu_count)
 
             # Correctly scale the stress score
             compound = row['avg_compound_sentiment']
             stress_score = round(max(1.0, min(10.0, 5.5 - 4.5 * compound)), 1)
 
             results.append({
-                "department": department,
+                "department": row['department'],
                 "averageStressScore": stress_score,
                 "sentimentDistribution": {
                     "positive": round((pos_count / total) * 100) if total > 0 else 0,
                     "neutral": round((neu_count / total) * 100) if total > 0 else 0,
                     "negative": round((neg_count / total) * 100) if total > 0 else 0,
                 },
-                "keyIssues": key_issues.get(department, ["No specific issues logged"]),
-                "recentFeedbackCount": total
+                "keyIssues": key_issues.get(row['department'], ["No specific issues logged"]),
+                "recentFeedbackCount": int(row['total_feedback'])
             })
-
         return jsonify(results), 200
     except Exception as e:
         app.logger.exception(f"An unexpected error occurred while fetching sentiments: {e}")
@@ -1121,46 +1065,33 @@ def get_sentiments():
 @jwt_required(locations=["cookies"])
 def add_sentiment_pulse():
     """
-    Receives an anonymized sentiment pulse from a user and updates the
-    centralized feedback and summary files.
+    Receives an anonymized sentiment pulse from a user and stores it
+    in the sentiment_pulses MongoDB collection.
     """
     data = request.get_json()
     if not data or 'department' not in data or 'stressScore' not in data:
         return jsonify({'detail': 'Missing department or stressScore'}), 400
 
     try:
-        department = data['department']
-        stress_score = float(data['stressScore'])
-        feedback_text = data.get('feedbackText', '')
-
-        # --- 1. Append to the raw feedback file ---
-        FEEDBACK_DATA_PATH = os.path.join(BASE_DIR, "data", "dataset", "employee_feedback.csv")
-        
-        # Create a simple sentiment label based on the stress score
+        # Create a sentiment label based on the stress score
         sentiment = 'Neutral'
-        if stress_score >= 7:
+        stress_score = float(data['stressScore'])
+        if stress_score >= 7.0:
             sentiment = 'Negative'
-        elif stress_score <= 4:
+        elif stress_score <= 4.0:
             sentiment = 'Positive'
 
-        # Create a new feedback entry. We use a placeholder for IDs.
-        feedback_count = pd.read_csv(FEEDBACK_DATA_PATH).shape[0]
-        new_feedback = pd.DataFrame([{
-            'feedback_id': f'FB{feedback_count + 1}',
-            'employee_id': 'ANONYMOUS',
-            'department': department,
-            'feedback_date': datetime.now(timezone.utc).strftime('%Y-%m-%d'),
-            'feedback_text': feedback_text,
-            'rating': round(stress_score / 2), # Approximate rating
-            'sentiment': sentiment
-        }])
-        
-        # Append to the CSV without writing the header
-        new_feedback.to_csv(FEEDBACK_DATA_PATH, mode='a', header=False, index=False)
-        
-        # Regenerate the department stress summary so admin dashboards reflect real-time data
-        _regenerate_department_summary()
-        
+        # Create the document to be inserted into MongoDB
+        pulse_doc = {
+            "department": data['department'],
+            "stressScore": stress_score,
+            "feedbackText": data.get('feedbackText', ''),
+            "sentiment": sentiment,
+            "createdAt": datetime.now(timezone.utc)
+        }
+
+        sentiment_pulses_collection.insert_one(pulse_doc)
+
         return jsonify({'detail': 'Sentiment pulse recorded successfully.'}), 201
 
     except Exception as e:
