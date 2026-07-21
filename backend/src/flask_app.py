@@ -237,8 +237,7 @@ def signup():
             'username': username,
             'email': email,
             'password_hash': pwd_hash,
-            'role': 'user',
-            'createdAt': datetime.now(timezone.utc).isoformat(),
+            'role': 'user', 'createdAt': datetime.now(timezone.utc).isoformat(),
         }
 
         # Insert the new user into the users collection
