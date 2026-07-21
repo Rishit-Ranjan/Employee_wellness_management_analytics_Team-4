@@ -103,10 +103,8 @@ except Exception as e:
 def hash_password(password: str) -> str:
     return bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
 
-
 def verify_password(password: str, password_hash: str) -> bool:
     return bcrypt.checkpw(password.encode('utf-8'), password_hash.encode('utf-8'))
-
 
 def _generate_reset_otp(length: int = 6) -> str:
     # numeric OTP, zero-padded
@@ -124,6 +122,7 @@ def get_full_avatar_url(avatar_path):
     base_url = request.url_root.rstrip('/')
     return f"{base_url}{avatar_path}"
 
+# login API endpoint
 @app.route('/api/auth/login', methods=['POST'])
 def login():
     data = request.get_json() or {}
@@ -205,7 +204,7 @@ def login():
         app.logger.exception(f"An unexpected error occurred during login for {email}: {e}")
         return jsonify({'detail': 'Internal Server Error'}), 500
 
-
+# signup API endpoint
 @app.route('/api/auth/signup', methods=['POST'])
 def signup():
     data = request.get_json() or {}
@@ -259,8 +258,7 @@ def signup():
         app.logger.exception(f"Signup failed for {email}: {e}")
         return jsonify({'detail': 'Internal Server Error'}), 500
 
-
-
+# forget-password API endpoint
 @app.route('/api/auth/forgot-password', methods=['POST'])
 def forgot_password():
     data = request.get_json() or {}
@@ -334,7 +332,6 @@ def forgot_password():
             resp_payload['debugOtp'] = otp_code
         if reset_token is not None:
             resp_payload['debugResetToken'] = reset_token
-
 
     return jsonify(resp_payload), 200
 
@@ -416,7 +413,6 @@ def reset_password():
     except Exception as e:
         app.logger.exception(f"Password reset failed for {email}: {e}")
         return jsonify({'detail': 'Internal Server Error'}), 500
-
 
 # --- User Info Endpoints ---
 @app.route('/api/auth/me', methods=['GET'])
@@ -542,7 +538,7 @@ def add_health_record():
         app.logger.exception(f"An unexpected error occurred while adding a health record: {e}")
         return jsonify({'detail': 'Internal Server Error'}), 500
 
-
+# health records API endpoint (PUT)
 @app.route('/api/wellness/health-records/<employee_id>', methods=['PUT'])
 @jwt_required(locations=["cookies"])
 def update_health_record(employee_id):
@@ -620,7 +616,7 @@ def get_all_users():
         app.logger.exception(f"An unexpected error occurred while fetching all users: {e}")
         return jsonify({'detail': 'Internal Server Error'}), 500
 
-# --- Risk Prediction Endpoint ---
+# --- Risk Prediction Helper Function ---
 def map_health_record_to_model_input(record):
     normalized = {
         "age": int(record.get("age", 30) or 30),
@@ -798,7 +794,7 @@ def get_wellness_risks_old():
         app.logger.exception(f"An unexpected error occurred during risk prediction: {e}")
         return jsonify({'detail': 'Internal Server Error'}), 500
 
-# 
+# --- Wellness Recommendations Endpoint ---
 @app.route('/api/wellness/recommendations', methods=['GET'])
 @jwt_required(locations=["cookies"])
 def get_recommendations():
