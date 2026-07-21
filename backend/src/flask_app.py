@@ -338,6 +338,7 @@ def forgot_password():
 
     return jsonify(resp_payload), 200
 
+# Reset password API endpoint
 @app.route('/api/auth/reset-password', methods=['POST'])
 def reset_password():
     # Get the JSON data from the request
@@ -417,7 +418,7 @@ def reset_password():
         return jsonify({'detail': 'Internal Server Error'}), 500
 
 
-
+# --- User Info Endpoints ---
 @app.route('/api/auth/me', methods=['GET'])
 @jwt_required(locations=["cookies"])
 def me():
@@ -429,7 +430,7 @@ def me():
     
     return jsonify({'user': user_info})
 
-
+# --- Logout Endpoint ---
 @app.route('/api/auth/logout', methods=['POST'])
 def logout():
     """Clears the access token cookie."""
@@ -437,6 +438,7 @@ def logout():
     resp.set_cookie('access_token', '', expires=0)
     return resp
 
+# --- Avatar Upload Endpoint ---
 @app.route('/api/users/avatar', methods=['POST'])
 @jwt_required(locations=["cookies"])
 def upload_avatar():
@@ -480,7 +482,6 @@ def upload_avatar():
 
 
 # --- Wellness API Endpoints ---
-
 @app.route('/api/wellness/health-records', methods=['GET'])
 @jwt_required(locations=["cookies"])
 def get_health_records():
@@ -500,7 +501,7 @@ def get_health_records():
         app.logger.exception(f"An unexpected error occurred while fetching health records: {e}")
         return jsonify({'detail': 'Internal Server Error'}), 500
 
-
+# --- Update, Add, and Delete Health Records Endpoints ---
 @app.route('/api/wellness/health-records', methods=['POST'])
 @jwt_required(locations=["cookies"])
 def add_health_record():
@@ -576,6 +577,7 @@ def update_health_record(employee_id):
         app.logger.exception(f"An unexpected error occurred while updating health record for {employee_id}: {e}")
         return jsonify({'detail': 'Internal Server Error'}), 500
 
+# --- Delete Health Record Endpoint ---
 @app.route('/api/wellness/health-records/<employee_id>', methods=['DELETE'])
 @jwt_required(locations=["cookies"])
 def delete_health_record(employee_id):
@@ -596,6 +598,7 @@ def delete_health_record(employee_id):
         app.logger.exception(f"An unexpected error occurred while deleting health record for {employee_id}: {e}")
         return jsonify({'detail': 'Internal Server Error'}), 500
 
+# --- Admin-Only Endpoint to Fetch All Users ---
 @app.route('/api/users', methods=['GET'])
 @jwt_required(locations=["cookies"])
 def get_all_users():
@@ -617,6 +620,7 @@ def get_all_users():
         app.logger.exception(f"An unexpected error occurred while fetching all users: {e}")
         return jsonify({'detail': 'Internal Server Error'}), 500
 
+# --- Risk Prediction Endpoint ---
 def map_health_record_to_model_input(record):
     normalized = {
         "age": int(record.get("age", 30) or 30),
@@ -644,6 +648,7 @@ def map_health_record_to_model_input(record):
     df = df.reindex(columns=feature_columns, fill_value=0)
     return df
 
+# --- Risk Prediction Endpoint ---
 @app.route('/api/wellness/risks', methods=['GET'])
 @jwt_required(locations=["cookies"])
 def get_risk_predictions():
@@ -735,7 +740,7 @@ def get_risk_predictions():
         app.logger.exception(f"Failed to generate wellness risks: {e}")
         return jsonify({"detail": "Risk prediction failed"}), 500
 
-
+# --- Legacy Risk Prediction Endpoint (for backward compatibility) ---
 @app.route('/api/wellness/risks_old', methods=['GET'])
 @jwt_required(locations=["cookies"])
 def get_wellness_risks_old():
@@ -793,6 +798,7 @@ def get_wellness_risks_old():
         app.logger.exception(f"An unexpected error occurred during risk prediction: {e}")
         return jsonify({'detail': 'Internal Server Error'}), 500
 
+# 
 @app.route('/api/wellness/recommendations', methods=['GET'])
 @jwt_required(locations=["cookies"])
 def get_recommendations():
@@ -906,7 +912,7 @@ def get_recommendations():
         return jsonify({'detail': 'Internal Server Error'}), 500
 
 
-# --- Daily Habits API Endpoints ---
+# --- Daily Habits API Endpoints (GET) ---
 @app.route('/api/wellness/daily-habits/<employee_id>', methods=['GET'])
 @jwt_required(locations=["cookies"])
 def get_daily_habits(employee_id):
@@ -928,6 +934,7 @@ def get_daily_habits(employee_id):
         app.logger.exception(f"An unexpected error occurred while fetching daily habits for {employee_id}: {e}")
         return jsonify({'detail': 'Internal Server Error'}), 500
 
+# Daily Habits API Endpoints (POST)
 @app.route('/api/wellness/daily-habits', methods=['POST'])
 @jwt_required(locations=["cookies"])
 def add_daily_habit():
@@ -956,6 +963,7 @@ def add_daily_habit():
         app.logger.exception(f"An unexpected error occurred while adding a daily habit record: {e}")
         return jsonify({'detail': 'Internal Server Error'}), 500
 
+# --- Daily Habit endpoint (PUT) ---
 @app.route('/api/wellness/daily-habits/<employee_id>', methods=['PUT'])
 @jwt_required(locations=["cookies"])
 def update_daily_habit(employee_id):
@@ -1009,7 +1017,7 @@ def get_mental_health_logs(employee_id):
         app.logger.exception(f"An unexpected error occurred while fetching mental health logs for {employee_id}: {e}")
         return jsonify({'detail': 'Internal Server Error'}), 500
 
-
+# --- Mental Health Logs API Endpoints (POST) ---
 @app.route('/api/wellness/mental-health-logs', methods=['POST'])
 @jwt_required(locations=["cookies"])
 def add_mental_health_log():
@@ -1040,6 +1048,7 @@ def add_mental_health_log():
         app.logger.exception(f"An unexpected error occurred while adding a mental health log: {e}")
         return jsonify({'detail': 'Internal Server Error'}), 500
 
+# mental health logs API endpoint (PUT)
 @app.route('/api/wellness/mental-health-logs/<employee_id>', methods=['PUT'])
 @jwt_required(locations=["cookies"])
 def update_mental_health_log(employee_id):
@@ -1071,6 +1080,7 @@ def update_mental_health_log(employee_id):
         app.logger.exception(f"An unexpected error occurred while updating mental health log for {employee_id}: {e}")
         return jsonify({'detail': 'Internal Server Error'}), 500
 
+# sentiment endpoint
 @app.route('/api/wellness/sentiments', methods=['GET'])
 @jwt_required(locations=["cookies"])
 def get_sentiments():
@@ -1153,6 +1163,7 @@ def get_sentiments():
         app.logger.exception(f"An unexpected error occurred while fetching sentiments: {e}")
         return jsonify({'detail': 'Internal Server Error'}), 500
 
+# sentiment-pulse endpoint
 @app.route('/api/wellness/sentiment-pulse', methods=['POST'])
 @jwt_required(locations=["cookies"])
 def add_sentiment_pulse():
