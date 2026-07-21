@@ -416,6 +416,8 @@ export default function App() {
                     onAddDailyHabit={handleAddDailyHabit} // Pass new handler
                     onUpdateDailyHabit={handleUpdateDailyHabit} // Pass new handler
                     mentalHealthLogs={mentalHealthLogs} // Pass new state
+                    onAddMentalHealthLog={handleAddMentalHealthLog}
+                    onUpdateMentalHealthLog={handleUpdateMentalHealthLog}
                     onAddRecord={handleAddHealthRecord}
                     onAddHealthRecord={handleAddHealthRecord} // Pass the add handler
                     onUpdateUserRecord={handleUpdateUserRecord}

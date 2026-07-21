@@ -979,6 +979,8 @@ export default function UserDashboard({ user,
   onUpdateDailyHabit, // New prop
   mentalHealthLogs, // New prop
   onAddHealthRecord, // Added onAddHealthRecord prop
+  onAddMentalHealthLog,
+  onUpdateMentalHealthLog,
   onUpdateSentimentPulse, 
   recommendations= [],
   loading = false,
@@ -1137,6 +1139,8 @@ export default function UserDashboard({ user,
                 onUpdateDailyHabit={onUpdateDailyHabit} // Pass new handler
                 mentalHealthLogs={mentalHealthLogs} // Pass new state
                 onAddRecord={onAddRecord || onAddHealthRecord} // Pass to UserProfileModule
+                onAddMentalHealthLog={onAddMentalHealthLog}
+                onUpdateMentalHealthLog={onUpdateMentalHealthLog}
                 onUpdateRecord={onUpdateUserRecord}
                 onAddSentimentPulse={onUpdateSentimentPulse}
               />
