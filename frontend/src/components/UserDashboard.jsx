@@ -994,7 +994,7 @@ export default function UserDashboard({ user,
   loading = false,
   isProfileModalOpen,
   setIsProfileModalOpen,
-  onUpdateAvatar
+  onUpdateAvatar,
   onUserUpdate
 }) {
 
