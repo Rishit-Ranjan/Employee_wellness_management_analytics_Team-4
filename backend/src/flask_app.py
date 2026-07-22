@@ -69,6 +69,14 @@ daily_habits_collection = db.get_collection('daily_habits')
 mental_health_logs_collection = db.get_collection('mental_health_logs')
 sentiment_pulses_collection = db.get_collection('sentiment_pulses')
 
+health_history_collection = db.get_collection('health_history')
+insurance_collection = db.get_collection('insurance_policies')
+notifications_collection = db.get_collection('notifications')
+goals_collection = db.get_collection('goals')
+checkup_appointments_collection = db.get_collection('checkup_appointments')
+sos_alerts_collection = db.get_collection('sos_alerts')
+expenses_collection = db.get_collection('health_expenses')
+
 # --- Load ML Model and Metadata ---
 try:
     # Correctly locate the 'backend' directory from the 'src' directory
@@ -1076,7 +1084,790 @@ def update_mental_health_log(employee_id):
         app.logger.exception(f"An unexpected error occurred while updating mental health log for {employee_id}: {e}")
         return jsonify({'detail': 'Internal Server Error'}), 500
 
-# sentiment endpoint
+
+# --- Health History / "Old Reports" API ---
+@app.route('/api/wellness/health-history/<employee_id>', methods=['GET'])
+@jwt_required(locations=["cookies"])
+def get_health_history(employee_id):
+    """Returns the timestamped history of health-record snapshots for an employee,
+    newest first — powers the 'Old Reports' timeline and current-vs-previous compare."""
+    jwt_payload = get_jwt()
+    user_info = jwt_payload.get("user_info")
+    if user_info.get('role') != 'admin' and user_info.get('employeeId') != employee_id:
+        return jsonify({'detail': 'Forbidden: You can only view your own health history.'}), 403
+
+    try:
+        cursor = health_history_collection.find({'employeeId': employee_id}).sort('snapshotAt', -1)
+        history = []
+        for rec in cursor:
+            rec['id'] = str(rec['_id'])
+            del rec['_id']
+            history.append(rec)
+        return jsonify(history), 200
+    except Exception as e:
+        app.logger.exception(f"Failed to fetch health history for {employee_id}: {e}")
+        return jsonify({'detail': 'Internal Server Error'}), 500
+
+# --- Health Insurance API ---
+def _serialize_insurance(doc):
+    doc['id'] = str(doc['_id'])
+    del doc['_id']
+    for claim in doc.get('claims', []):
+        claim.setdefault('id', claim.get('id', ''))
+    return doc
+
+# insurance endpoint (GET)
+@app.route('/api/insurance/<employee_id>', methods=['GET'])
+@jwt_required(locations=["cookies"])
+def get_insurance(employee_id):
+    jwt_payload = get_jwt()
+    user_info = jwt_payload.get("user_info")
+    if user_info.get('role') != 'admin' and user_info.get('employeeId') != employee_id:
+        return jsonify({'detail': 'Forbidden: You can only view your own insurance policy.'}), 403
+
+    policy = insurance_collection.find_one({'employeeId': employee_id})
+    if not policy:
+        return jsonify({'detail': 'No insurance policy on file for this employee'}), 404
+    return jsonify(_serialize_insurance(policy)), 200
+
+# insurance endpoint (GET all policies) - admin only
+@app.route('/api/insurance', methods=['GET'])
+@jwt_required(locations=["cookies"])
+def get_all_insurance():
+    """Admin-only: list every employee's insurance policy for the Insurance Management module."""
+    jwt_payload = get_jwt()
+    user_info = jwt_payload.get("user_info")
+    if user_info.get('role') != 'admin':
+        return jsonify({'detail': 'Forbidden'}), 403
+    policies = [_serialize_insurance(p) for p in insurance_collection.find({})]
+    return jsonify(policies), 200
+
+# insurance endpoint (POST) - admin only
+@app.route('/api/insurance', methods=['POST'])
+@jwt_required(locations=["cookies"])
+def create_insurance():
+    """Admin-only: create or replace an employee's insurance policy."""
+    jwt_payload = get_jwt()
+    user_info = jwt_payload.get("user_info")
+    if user_info.get('role') != 'admin':
+        return jsonify({'detail': 'Forbidden'}), 403
+
+    data = request.get_json() or {}
+    employee_id = data.get('employeeId')
+    if not employee_id:
+        return jsonify({'detail': 'employeeId is required'}), 400
+
+    doc = {
+        'employeeId': employee_id,
+        'provider': data.get('provider', ''),
+        'policyNumber': data.get('policyNumber', ''),
+        'coverage': float(data.get('coverage', 0) or 0),
+        'claimUsed': float(data.get('claimUsed', 0) or 0),
+        'familyMembers': data.get('familyMembers', []),
+        'hospitalList': data.get('hospitalList', []),
+        'emergencyNumbers': data.get('emergencyNumbers', []),
+        'expiryDate': data.get('expiryDate', ''),
+        'claims': data.get('claims', []),
+        'updatedAt': datetime.now(timezone.utc).isoformat(),
+    }
+    insurance_collection.update_one({'employeeId': employee_id}, {'$set': doc}, upsert=True)
+    saved = insurance_collection.find_one({'employeeId': employee_id})
+    return jsonify(_serialize_insurance(saved)), 201
+
+# --- Insurance endpoint (PUT) - admin only ---
+@app.route('/api/insurance/<employee_id>', methods=['PUT'])
+@jwt_required(locations=["cookies"])
+def update_insurance(employee_id):
+    jwt_payload = get_jwt()
+    user_info = jwt_payload.get("user_info")
+    if user_info.get('role') != 'admin':
+        return jsonify({'detail': 'Forbidden'}), 403
+
+    updated_data = request.get_json() or {}
+    updated_data.pop('id', None)
+    updated_data.pop('employeeId', None)
+    updated_data['updatedAt'] = datetime.now(timezone.utc).isoformat()
+
+    result = insurance_collection.update_one({'employeeId': employee_id}, {'$set': updated_data})
+    if result.matched_count == 0:
+        return jsonify({'detail': 'No insurance policy found for this employee'}), 404
+    return jsonify({'detail': 'Insurance policy updated'}), 200
+
+# insurance endpoint (POST claim) - employee or admin
+@app.route('/api/insurance/<employee_id>/claims', methods=['POST'])
+@jwt_required(locations=["cookies"])
+def file_insurance_claim(employee_id):
+    """Employee files a new claim (starts as 'Pending'); admin later approves/rejects."""
+    jwt_payload = get_jwt()
+    user_info = jwt_payload.get("user_info")
+    if user_info.get('role') != 'admin' and user_info.get('employeeId') != employee_id:
+        return jsonify({'detail': 'Forbidden'}), 403
+
+    data = request.get_json() or {}
+    claim = {
+        'id': os.urandom(6).hex(),
+        'description': data.get('description', ''),
+        'amount': float(data.get('amount', 0) or 0),
+        'date': datetime.now(timezone.utc).isoformat(),
+        'status': 'Pending',
+    }
+    result = insurance_collection.update_one(
+        {'employeeId': employee_id},
+        {'$push': {'claims': claim}},
+    )
+    if result.matched_count == 0:
+        return jsonify({'detail': 'No insurance policy found for this employee'}), 404
+    return jsonify(claim), 201
+
+# insurance endpoint (PUT claim) - admin only
+@app.route('/api/insurance/<employee_id>/claims/<claim_id>', methods=['PUT'])
+@jwt_required(locations=["cookies"])
+def update_insurance_claim(employee_id, claim_id):
+    """Admin-only: approve/reject a claim. On approval, adds the amount to claimUsed."""
+    jwt_payload = get_jwt()
+    user_info = jwt_payload.get("user_info")
+    if user_info.get('role') != 'admin':
+        return jsonify({'detail': 'Forbidden'}), 403
+
+    data = request.get_json() or {}
+    new_status = data.get('status', 'Pending')
+
+    policy = insurance_collection.find_one({'employeeId': employee_id})
+    if not policy:
+        return jsonify({'detail': 'No insurance policy found for this employee'}), 404
+
+    claims = policy.get('claims', [])
+    target = next((c for c in claims if c.get('id') == claim_id), None)
+    if not target:
+        return jsonify({'detail': 'Claim not found'}), 404
+
+    was_approved_already = target.get('status') == 'Approved'
+    target['status'] = new_status
+
+    update_ops = {'$set': {'claims': claims}}
+    if new_status == 'Approved' and not was_approved_already:
+        update_ops['$inc'] = {'claimUsed': target.get('amount', 0)}
+
+    insurance_collection.update_one({'employeeId': employee_id}, update_ops)
+    return jsonify({'detail': f'Claim {new_status.lower()}'}), 200
+
+# --- Notifications API ---
+def _serialize_notification(doc, employee_id=None):
+    doc['id'] = str(doc['_id'])
+    del doc['_id']
+    if employee_id is not None:
+        doc['read'] = employee_id in doc.get('readBy', [])
+    return doc
+
+# notifications endpoint (GET) - employees see broadcast + targeted; admins can see all sent
+@app.route('/api/notifications', methods=['GET'])
+@jwt_required(locations=["cookies"])
+def get_notifications():
+    """Employees see broadcast notifications + ones targeted at them.
+    Admins can pass ?all=1 to see everything they've sent."""
+    jwt_payload = get_jwt()
+    user_info = jwt_payload.get("user_info")
+    employee_id = user_info.get('employeeId')
+
+    if user_info.get('role') == 'admin' and request.args.get('all'):
+        cursor = notifications_collection.find({}).sort('createdAt', -1)
+    else:
+        cursor = notifications_collection.find({
+            '$or': [{'targetEmployeeId': None}, {'targetEmployeeId': employee_id}]
+        }).sort('createdAt', -1)
+
+    notifications = [_serialize_notification(n, employee_id) for n in cursor]
+    return jsonify(notifications), 200
+
+# notificaions endpoint (POST) - admin only
+@app.route('/api/notifications', methods=['POST'])
+@jwt_required(locations=["cookies"])
+def create_notification():
+    """Admin-only: broadcast to everyone (omit targetEmployeeId) or target one employee."""
+    jwt_payload = get_jwt()
+    user_info = jwt_payload.get("user_info")
+    if user_info.get('role') != 'admin':
+        return jsonify({'detail': 'Forbidden'}), 403
+
+    data = request.get_json() or {}
+    title = (data.get('title') or '').strip()
+    message = (data.get('message') or '').strip()
+    if not title or not message:
+        return jsonify({'detail': 'title and message are required'}), 400
+
+    doc = {
+        'title': title,
+        'message': message,
+        'category': data.get('category', 'General'),
+        'targetEmployeeId': data.get('targetEmployeeId') or None,
+        'createdAt': datetime.now(timezone.utc).isoformat(),
+        'createdBy': user_info.get('name', 'Admin'),
+        'readBy': [],
+    }
+    result = notifications_collection.insert_one(doc)
+    doc['id'] = str(result.inserted_id)
+    del doc['_id']
+    return jsonify(doc), 201
+
+# notification (PUT)
+@app.route('/api/notifications/<notification_id>/read', methods=['PUT'])
+@jwt_required(locations=["cookies"])
+def mark_notification_read(notification_id):
+    jwt_payload = get_jwt()
+    user_info = jwt_payload.get("user_info")
+    employee_id = user_info.get('employeeId')
+    try:
+        notifications_collection.update_one(
+            {'_id': ObjectId(notification_id)},
+            {'$addToSet': {'readBy': employee_id}},
+        )
+        return jsonify({'detail': 'Marked as read'}), 200
+    except Exception as e:
+        app.logger.exception(f"Failed to mark notification read: {e}")
+        return jsonify({'detail': 'Internal Server Error'}), 500
+
+# notifications (DELETE) endpoint
+@app.route('/api/notifications/<notification_id>', methods=['DELETE'])
+@jwt_required(locations=["cookies"])
+def delete_notification(notification_id):
+    jwt_payload = get_jwt()
+    user_info = jwt_payload.get("user_info")
+    if user_info.get('role') != 'admin':
+        return jsonify({'detail': 'Forbidden'}), 403
+    notifications_collection.delete_one({'_id': ObjectId(notification_id)})
+    return '', 204
+
+# --- Goal Tracking API ---
+@app.route('/api/goals/<employee_id>', methods=['GET'])
+@jwt_required(locations=["cookies"])
+def get_goals(employee_id):
+    jwt_payload = get_jwt()
+    user_info = jwt_payload.get("user_info")
+    if user_info.get('role') != 'admin' and user_info.get('employeeId') != employee_id:
+        return jsonify({'detail': 'Forbidden'}), 403
+
+    goals = []
+    for g in goals_collection.find({'employeeId': employee_id}).sort('createdAt', -1):
+        g['id'] = str(g['_id'])
+        del g['_id']
+        goals.append(g)
+    return jsonify(goals), 200
+
+
+@app.route('/api/goals', methods=['POST'])
+@jwt_required(locations=["cookies"])
+def create_goal():
+    jwt_payload = get_jwt()
+    user_info = jwt_payload.get("user_info")
+    data = request.get_json() or {}
+    employee_id = data.get('employeeId')
+    if user_info.get('role') != 'admin' and user_info.get('employeeId') != employee_id:
+        return jsonify({'detail': 'Forbidden'}), 403
+    if not employee_id or not data.get('title'):
+        return jsonify({'detail': 'employeeId and title are required'}), 400
+
+    doc = {
+        'employeeId': employee_id,
+        'title': data.get('title'),
+        'targetValue': float(data.get('targetValue', 100) or 100),
+        'currentValue': float(data.get('currentValue', 0) or 0),
+        'unit': data.get('unit', '%'),
+        'status': 'In Progress',
+        'createdAt': datetime.now(timezone.utc).isoformat(),
+    }
+    result = goals_collection.insert_one(doc)
+    doc['id'] = str(result.inserted_id)
+    del doc['_id']
+    return jsonify(doc), 201
+
+
+@app.route('/api/goals/<goal_id>', methods=['PUT'])
+@jwt_required(locations=["cookies"])
+def update_goal(goal_id):
+    jwt_payload = get_jwt()
+    user_info = jwt_payload.get("user_info")
+    data = request.get_json() or {}
+    data.pop('id', None)
+    data.pop('employeeId', None)
+
+    if 'currentValue' in data and 'targetValue' not in data:
+        goal = goals_collection.find_one({'_id': ObjectId(goal_id)})
+        if goal and float(data['currentValue']) >= float(goal.get('targetValue', 100)):
+            data['status'] = 'Completed'
+
+    result = goals_collection.update_one({'_id': ObjectId(goal_id)}, {'$set': data})
+    if result.matched_count == 0:
+        return jsonify({'detail': 'Goal not found'}), 404
+    return jsonify({'detail': 'Goal updated'}), 200
+
+# 
+@app.route('/api/goals/<goal_id>', methods=['DELETE'])
+@jwt_required(locations=["cookies"])
+def delete_goal(goal_id):
+    goals_collection.delete_one({'_id': ObjectId(goal_id)})
+    return '', 204
+
+# --- Personalized Diet Plan API (rule-based generator) ---
+DIET_LIBRARY = {
+    'Vegetarian': {
+        'breakfast': ['Vegetable poha', 'Milk', 'Fresh fruit'],
+        'lunch': ['Rice', 'Dal', 'Mixed vegetable curry', 'Salad'],
+        'dinner': ['Roti', 'Paneer/vegetable sabzi', 'Curd'],
+        'snacks': ['Roasted chana', 'Buttermilk'],
+        'calories': 2000, 'protein': '65g',
+    },
+    'Vegan': {
+        'breakfast': ['Oats with almond milk', 'Banana', 'Chia seeds'],
+        'lunch': ['Brown rice', 'Chickpea curry', 'Steamed greens'],
+        'dinner': ['Millet roti', 'Tofu vegetable stir-fry'],
+        'snacks': ['Mixed nuts', 'Fruit bowl'],
+        'calories': 1900, 'protein': '60g',
+    },
+    'Non-Veg': {
+        'breakfast': ['Egg whites', 'Whole wheat toast', 'Fresh fruit'],
+        'lunch': ['Rice', 'Grilled chicken', 'Dal', 'Salad'],
+        'dinner': ['Roti', 'Fish curry', 'Sauteed vegetables'],
+        'snacks': ['Boiled eggs', 'Greek yogurt'],
+        'calories': 2100, 'protein': '90g',
+    },
+    'Diabetic': {
+        'breakfast': ['Vegetable oats', 'Sugar-free milk'],
+        'lunch': ['Multigrain roti', 'Dal', 'Bitter gourd sabzi', 'Salad'],
+        'dinner': ['Millet khichdi', 'Steamed vegetables'],
+        'snacks': ['Roasted makhana', 'Cucumber slices'],
+        'calories': 1700, 'protein': '55g',
+    },
+    'Weight Loss': {
+        'breakfast': ['Vegetable smoothie', 'Boiled egg whites'],
+        'lunch': ['Quinoa', 'Grilled vegetables', 'Dal'],
+        'dinner': ['Clear soup', 'Grilled paneer/tofu', 'Salad'],
+        'snacks': ['Green tea', 'Handful of nuts'],
+        'calories': 1500, 'protein': '70g',
+    },
+    'Weight Gain': {
+        'breakfast': ['Peanut butter toast', 'Banana milkshake'],
+        'lunch': ['Rice', 'Rajma/chicken curry', 'Ghee', 'Salad'],
+        'dinner': ['Roti', 'Paneer/meat curry', 'Sweet potato'],
+        'snacks': ['Dry fruit trail mix', 'Protein shake'],
+        'calories': 2600, 'protein': '100g',
+    },
+}
+
+# diet plans POST endpoint
+@app.route('/api/diet-plan', methods=['POST'])
+@jwt_required(locations=["cookies"])
+def generate_diet_plan():
+    data = request.get_json() or {}
+    diet_type = data.get('dietType', 'Vegetarian')
+    plan = DIET_LIBRARY.get(diet_type, DIET_LIBRARY['Vegetarian'])
+    return jsonify({
+        'dietType': diet_type,
+        'breakfast': plan['breakfast'],
+        'lunch': plan['lunch'],
+        'dinner': plan['dinner'],
+        'snacks': plan['snacks'],
+        'calories': plan['calories'],
+        'protein': plan['protein'],
+        'waterIntakeLitres': 3,
+        'generatedAt': datetime.now(timezone.utc).isoformat(),
+    }), 200
+
+# --- Achievements API (computed from daily habits + goals, not a separate collection) ---
+@app.route('/api/achievements/<employee_id>', methods=['GET'])
+@jwt_required(locations=["cookies"])
+def get_achievements(employee_id):
+    jwt_payload = get_jwt()
+    user_info = jwt_payload.get("user_info")
+    if user_info.get('role') != 'admin' and user_info.get('employeeId') != employee_id:
+        return jsonify({'detail': 'Forbidden'}), 403
+
+    habit = daily_habits_collection.find_one({'employeeId': employee_id}) or {}
+    completed_goals = goals_collection.count_documents({'employeeId': employee_id, 'status': 'Completed'})
+    history_entries = health_history_collection.count_documents({'employeeId': employee_id})
+
+    badges = []
+    if habit.get('sleepHours', 0) and float(habit.get('sleepHours', 0)) >= 7:
+        badges.append({'name': 'Healthy Sleeper', 'earned': True, 'desc': 'Logged 7+ hours of sleep'})
+    if habit.get('exerciseMinutes', 0) and float(habit.get('exerciseMinutes', 0)) > 0:
+        badges.append({'name': 'Fitness Champion', 'earned': True, 'desc': 'Logged exercise activity'})
+    if habit.get('meditationMinutes', 0) and float(habit.get('meditationMinutes', 0)) > 0:
+        badges.append({'name': 'Meditation Master', 'earned': True, 'desc': 'Practiced meditation'})
+    if completed_goals >= 1:
+        badges.append({'name': 'Goal Getter', 'earned': True, 'desc': f'{completed_goals} goal(s) completed'})
+    if history_entries >= 30:
+        badges.append({'name': '30 Day Streak', 'earned': True, 'desc': '30+ health updates logged'})
+    if history_entries >= 100:
+        badges.append({'name': '100 Day Streak', 'earned': True, 'desc': '100+ health updates logged'})
+    if not badges:
+        badges.append({'name': 'Getting Started', 'earned': True, 'desc': 'Welcome to your wellness journey!'})
+
+    return jsonify({'badges': badges, 'completedGoals': completed_goals, 'historyEntries': history_entries}), 200
+
+# --- Health Report Download (PDF) ---
+@app.route('/api/reports/health-report/<employee_id>', methods=['GET'])
+@jwt_required(locations=["cookies"])
+def download_health_report(employee_id):
+    jwt_payload = get_jwt()
+    user_info = jwt_payload.get("user_info")
+    if user_info.get('role') != 'admin' and user_info.get('employeeId') != employee_id:
+        return jsonify({'detail': 'Forbidden'}), 403
+
+    from flask import Response
+    from io import BytesIO
+    from reportlab.lib.pagesizes import A4
+    from reportlab.lib.units import mm
+    from reportlab.lib import colors
+    from reportlab.pdfgen import canvas
+
+    record = health_records_collection.find_one({'employeeId': employee_id}) or {}
+    user_doc = users_collection.find_one({'employeeId': employee_id}) or {}
+    habit = daily_habits_collection.find_one({'employeeId': employee_id}) or {}
+    mental_log = mental_health_logs_collection.find_one({'employeeId': employee_id}, sort=[('date', -1)]) or {}
+
+    buffer = BytesIO()
+    c = canvas.Canvas(buffer, pagesize=A4)
+    width, height = A4
+    y = height - 25 * mm
+
+    c.setFont('Helvetica-Bold', 18)
+    c.drawString(20 * mm, y, 'Employee Wellness Health Report')
+    y -= 8 * mm
+    c.setFont('Helvetica', 10)
+    c.setFillColor(colors.grey)
+    c.drawString(20 * mm, y, f"Generated: {datetime.now(timezone.utc).strftime('%d %b %Y, %H:%M UTC')}")
+    c.setFillColor(colors.black)
+    y -= 12 * mm
+
+    c.setFont('Helvetica-Bold', 12)
+    c.drawString(20 * mm, y, f"{user_doc.get('name', employee_id)}  ({employee_id})")
+    y -= 10 * mm
+
+    rows = [
+        ('Wellness Score', record.get('wellnessScore', record.get('healthAssessment', 'N/A'))),
+        ('BMI', record.get('bmi', 'N/A')),
+        ('Blood Pressure', record.get('bloodPressure', 'N/A')),
+        ('Stress Level', record.get('stressLevel', 'N/A')),
+        ('Sleep (hrs/night)', habit.get('sleepHours', record.get('sleepHoursPerNight', 'N/A'))),
+        ('Exercise', habit.get('exerciseMinutes', record.get('exerciseHoursPerWeek', 'N/A'))),
+        ('Mood (latest)', mental_log.get('mood', 'N/A')),
+        ('Health Assessment', record.get('healthAssessment', 'N/A')),
+    ]
+
+    c.setFont('Helvetica', 11)
+    for label, value in rows:
+        c.setFont('Helvetica-Bold', 11)
+        c.drawString(20 * mm, y, f"{label}:")
+        c.setFont('Helvetica', 11)
+        c.drawString(75 * mm, y, str(value))
+        y -= 8 * mm
+
+    y -= 5 * mm
+    c.setFont('Helvetica-Bold', 12)
+    c.drawString(20 * mm, y, 'Recommendation')
+    y -= 7 * mm
+    c.setFont('Helvetica', 10)
+    assessment = record.get('healthAssessment', 'Good')
+    tips = {
+        'Excellent': 'Keep up the great habits — maintain your sleep, exercise, and stress routines.',
+        'Good': 'You are doing well. Consider small improvements to sleep or exercise consistency.',
+        'Fair': 'Some metrics need attention — prioritize sleep and stress management this month.',
+        'Needs Attention': 'Please consult your wellness advisor and schedule a health check-up soon.',
+    }
+    for line in (tips.get(assessment, tips['Good'])).split('. '):
+        if line.strip():
+            c.drawString(20 * mm, y, f"- {line.strip().rstrip('.')}.")
+            y -= 6 * mm
+
+    y -= 10 * mm
+    c.setFont('Helvetica-Oblique', 9)
+    c.setFillColor(colors.grey)
+    c.drawString(20 * mm, y, 'Digitally generated — Employee Wellness Management Analytics platform.')
+
+    c.showPage()
+    c.save()
+    buffer.seek(0)
+
+    return Response(
+        buffer.read(),
+        mimetype='application/pdf',
+        headers={'Content-Disposition': f'attachment; filename=health-report-{employee_id}.pdf'},
+    )
+
+# --- Profile Edit API (self-service, works for both employee & admin) ---
+@app.route('/api/auth/profile', methods=['PUT'])
+@jwt_required(locations=["cookies"])
+def update_profile():
+    """Lets the logged-in user (employee or admin) edit their own name, department, and avatar."""
+    user_id_str = get_jwt_identity()
+    jwt_payload = get_jwt()
+    user_info = jwt_payload.get("user_info")
+    role = user_info.get('role', 'user')
+
+    data = request.get_json() or {}
+    allowed_fields = {}
+    if 'name' in data and data['name'].strip():
+        allowed_fields['name'] = data['name'].strip()
+    if 'department' in data:
+        allowed_fields['department'] = data['department']
+    if 'avatarUrl' in data:
+        allowed_fields['avatarUrl'] = data['avatarUrl']
+    if 'phone' in data:
+        allowed_fields['phone'] = data['phone']
+
+    if not allowed_fields:
+        return jsonify({'detail': 'No editable fields provided'}), 400
+
+    try:
+        target_collection = admin_collection if role == 'admin' else users_collection
+        result = target_collection.update_one({'_id': ObjectId(user_id_str)}, {'$set': allowed_fields})
+        if result.matched_count == 0:
+            return jsonify({'detail': 'User not found'}), 404
+
+        updated_doc = target_collection.find_one({'_id': ObjectId(user_id_str)})
+        new_user_info = {
+            "id": user_id_str,
+            "name": updated_doc.get('name') or updated_doc.get('username'),
+            "email": updated_doc.get('email'),
+            "employeeId": updated_doc.get('employeeId'),
+            "role": updated_doc.get('role', role),
+            "avatarUrl": updated_doc.get("avatarUrl", user_info.get('avatarUrl')),
+        }
+        access_token = create_access_token(identity=user_id_str, additional_claims={"user_info": new_user_info})
+        resp = make_response(jsonify({'user': new_user_info}))
+        resp.set_cookie('access_token', access_token, httponly=True, samesite='Lax')
+        return resp
+    except Exception as e:
+        app.logger.exception(f"Failed to update profile for {user_id_str}: {e}")
+        return jsonify({'detail': 'Internal Server Error'}), 500
+
+# change password endpoint
+@app.route('/api/auth/change-password', methods=['PUT'])
+@jwt_required(locations=["cookies"])
+def change_password():
+    """Lets the logged-in user change their own password (requires current password)."""
+    user_id_str = get_jwt_identity()
+    jwt_payload = get_jwt()
+    role = jwt_payload.get("user_info", {}).get('role', 'user')
+    data = request.get_json() or {}
+    current_password = data.get('currentPassword') or ''
+    new_password = data.get('newPassword') or ''
+
+    if len(new_password) < 6:
+        return jsonify({'detail': 'New password must be at least 6 characters long.'}), 400
+
+    target_collection = admin_collection if role == 'admin' else users_collection
+    user_doc = target_collection.find_one({'_id': ObjectId(user_id_str)})
+    if not user_doc or not verify_password(current_password, user_doc.get('password_hash', '')):
+        return jsonify({'detail': 'Current password is incorrect.'}), 401
+
+    target_collection.update_one({'_id': ObjectId(user_id_str)}, {'$set': {'password_hash': hash_password(new_password)}})
+    return jsonify({'detail': 'Password updated successfully.'}), 200
+
+# --- Annual Health Check-up Scheduler ---
+@app.route('/api/checkups', methods=['GET'])
+@jwt_required(locations=["cookies"])
+def get_checkups():
+    jwt_payload = get_jwt()
+    user_info = jwt_payload.get("user_info")
+    if user_info.get('role') == 'admin' and request.args.get('all'):
+        cursor = checkup_appointments_collection.find({}).sort('date', 1)
+    else:
+        cursor = checkup_appointments_collection.find({'employeeId': user_info.get('employeeId')}).sort('date', 1)
+    appointments = []
+    for a in cursor:
+        a['id'] = str(a['_id'])
+        del a['_id']
+        appointments.append(a)
+    return jsonify(appointments), 200
+
+@app.route('/api/checkups', methods=['POST'])
+@jwt_required(locations=["cookies"])
+def book_checkup():
+    jwt_payload = get_jwt()
+    user_info = jwt_payload.get("user_info")
+    data = request.get_json() or {}
+    employee_id = user_info.get('employeeId') if user_info.get('role') != 'admin' else data.get('employeeId', user_info.get('employeeId'))
+
+    if not data.get('date'):
+        return jsonify({'detail': 'date is required'}), 400
+
+    doc = {
+        'employeeId': employee_id,
+        'employeeName': user_info.get('name'),
+        'date': data.get('date'),
+        'checkupType': data.get('checkupType', 'Annual Health Check-up'),
+        'notes': data.get('notes', ''),
+        'status': 'Scheduled',
+        'createdAt': datetime.now(timezone.utc).isoformat(),
+    }
+    result = checkup_appointments_collection.insert_one(doc)
+    doc['id'] = str(result.inserted_id)
+    del doc['_id']
+    return jsonify(doc), 201
+
+
+@app.route('/api/checkups/<checkup_id>', methods=['PUT'])
+@jwt_required(locations=["cookies"])
+def update_checkup(checkup_id):
+    """Admin updates status (Confirmed/Completed/Cancelled); employee can reschedule/cancel their own."""
+    jwt_payload = get_jwt()
+    user_info = jwt_payload.get("user_info")
+    data = request.get_json() or {}
+    data.pop('id', None)
+
+    appt = checkup_appointments_collection.find_one({'_id': ObjectId(checkup_id)})
+    if not appt:
+        return jsonify({'detail': 'Appointment not found'}), 404
+    if user_info.get('role') != 'admin' and appt.get('employeeId') != user_info.get('employeeId'):
+        return jsonify({'detail': 'Forbidden'}), 403
+
+    checkup_appointments_collection.update_one({'_id': ObjectId(checkup_id)}, {'$set': data})
+    return jsonify({'detail': 'Appointment updated'}), 200
+
+
+@app.route('/api/checkups/<checkup_id>', methods=['DELETE'])
+@jwt_required(locations=["cookies"])
+def delete_checkup(checkup_id):
+    jwt_payload = get_jwt()
+    user_info = jwt_payload.get("user_info")
+    appt = checkup_appointments_collection.find_one({'_id': ObjectId(checkup_id)})
+    if not appt:
+        return '', 204
+    if user_info.get('role') != 'admin' and appt.get('employeeId') != user_info.get('employeeId'):
+        return jsonify({'detail': 'Forbidden'}), 403
+    checkup_appointments_collection.delete_one({'_id': ObjectId(checkup_id)})
+    return '', 204
+
+
+# --- Emergency SOS ---
+@app.route('/api/sos', methods=['POST'])
+@jwt_required(locations=["cookies"])
+def trigger_sos():
+    """Employee triggers an SOS alert. Attaches their emergency contact + latest known vitals
+    automatically so admins/responders have the info they need immediately."""
+    jwt_payload = get_jwt()
+    user_info = jwt_payload.get("user_info")
+    employee_id = user_info.get('employeeId')
+    data = request.get_json() or {}
+
+    record = health_records_collection.find_one({'employeeId': employee_id}) or {}
+    doc = {
+        'employeeId': employee_id,
+        'employeeName': user_info.get('name'),
+        'message': data.get('message', 'Emergency SOS triggered'),
+        'emergencyContactName': record.get('emergencyContactName', ''),
+        'emergencyContactPhone': record.get('emergencyContactPhone', ''),
+        'bloodGroup': record.get('bloodGroup', ''),
+        'allergies': record.get('allergies', ''),
+        'existingDiseases': record.get('existingDiseases', ''),
+        'status': 'Active',
+        'createdAt': datetime.now(timezone.utc).isoformat(),
+    }
+    result = sos_alerts_collection.insert_one(doc)
+    doc['id'] = str(result.inserted_id)
+    del doc['_id']
+    return jsonify(doc), 201
+
+
+@app.route('/api/sos', methods=['GET'])
+@jwt_required(locations=["cookies"])
+def get_sos_alerts():
+    jwt_payload = get_jwt()
+    user_info = jwt_payload.get("user_info")
+    if user_info.get('role') == 'admin':
+        cursor = sos_alerts_collection.find({}).sort('createdAt', -1)
+    else:
+        cursor = sos_alerts_collection.find({'employeeId': user_info.get('employeeId')}).sort('createdAt', -1)
+    alerts = []
+    for a in cursor:
+        a['id'] = str(a['_id'])
+        del a['_id']
+        alerts.append(a)
+    return jsonify(alerts), 200
+
+
+@app.route('/api/sos/<sos_id>/resolve', methods=['PUT'])
+@jwt_required(locations=["cookies"])
+def resolve_sos(sos_id):
+    jwt_payload = get_jwt()
+    user_info = jwt_payload.get("user_info")
+    if user_info.get('role') != 'admin':
+        return jsonify({'detail': 'Forbidden'}), 403
+    sos_alerts_collection.update_one({'_id': ObjectId(sos_id)}, {'$set': {'status': 'Resolved'}})
+    return jsonify({'detail': 'Alert resolved'}), 200
+
+# --- Health Expense Tracker ---
+@app.route('/api/expenses', methods=['GET'])
+@jwt_required(locations=["cookies"])
+def get_expenses():
+    jwt_payload = get_jwt()
+    user_info = jwt_payload.get("user_info")
+    if user_info.get('role') == 'admin' and request.args.get('all'):
+        cursor = expenses_collection.find({}).sort('date', -1)
+    else:
+        cursor = expenses_collection.find({'employeeId': user_info.get('employeeId')}).sort('date', -1)
+    expenses = []
+    for e in cursor:
+        e['id'] = str(e['_id'])
+        del e['_id']
+        expenses.append(e)
+    return jsonify(expenses), 200
+
+
+@app.route('/api/expenses', methods=['POST'])
+@jwt_required(locations=["cookies"])
+def add_expense():
+    jwt_payload = get_jwt()
+    user_info = jwt_payload.get("user_info")
+    data = request.get_json() or {}
+
+    if not data.get('description') or not data.get('amount'):
+        return jsonify({'detail': 'description and amount are required'}), 400
+
+    doc = {
+        'employeeId': user_info.get('employeeId'),
+        'employeeName': user_info.get('name'),
+        'description': data.get('description'),
+        'amount': float(data.get('amount', 0) or 0),
+        'category': data.get('category', 'General'),
+        'date': data.get('date') or datetime.now(timezone.utc).strftime('%Y-%m-%d'),
+        'status': 'Pending',
+        'createdAt': datetime.now(timezone.utc).isoformat(),
+    }
+    result = expenses_collection.insert_one(doc)
+    doc['id'] = str(result.inserted_id)
+    del doc['_id']
+    return jsonify(doc), 201
+
+
+@app.route('/api/expenses/<expense_id>', methods=['PUT'])
+@jwt_required(locations=["cookies"])
+def update_expense(expense_id):
+    """Admin-only: approve/reject a reimbursement claim."""
+    jwt_payload = get_jwt()
+    user_info = jwt_payload.get("user_info")
+    if user_info.get('role') != 'admin':
+        return jsonify({'detail': 'Forbidden'}), 403
+    data = request.get_json() or {}
+    status = data.get('status', 'Pending')
+    expenses_collection.update_one({'_id': ObjectId(expense_id)}, {'$set': {'status': status}})
+    return jsonify({'detail': f'Expense {status.lower()}'}), 200
+
+
+@app.route('/api/expenses/<expense_id>', methods=['DELETE'])
+@jwt_required(locations=["cookies"])
+def delete_expense(expense_id):
+    jwt_payload = get_jwt()
+    user_info = jwt_payload.get("user_info")
+    expense = expenses_collection.find_one({'_id': ObjectId(expense_id)})
+    if not expense:
+        return '', 204
+    if user_info.get('role') != 'admin' and expense.get('employeeId') != user_info.get('employeeId'):
+        return jsonify({'detail': 'Forbidden'}), 403
+    expenses_collection.delete_one({'_id': ObjectId(expense_id)})
+    return '', 204
+
+# --- Sentiment GET Endpoint ---
 @app.route('/api/wellness/sentiments', methods=['GET'])
 @jwt_required(locations=["cookies"])
 def get_sentiments():
@@ -1207,6 +1998,8 @@ def add_sentiment_pulse():
     except Exception as e:
         app.logger.exception(f"Failed to record sentiment pulse: {e}")
         return jsonify({'detail': 'Internal Server Error'}), 500
+
+
 
 if __name__ == '__main__':
     port = int(os.getenv('PORT', 8000))

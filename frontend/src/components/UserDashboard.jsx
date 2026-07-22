@@ -1,8 +1,16 @@
 import React, { useState, useEffect, useRef } from 'react';
 import {
   User, Lightbulb, Bot, X, LogOut, UploadCloud,
-  Dumbbell, Apple, Brain, Clock, HeartPulse, Sparkles, Check, ShieldAlert, AlertCircle, Smile, Send
+  Dumbbell, Apple, Brain, Clock, HeartPulse, Sparkles, Check, ShieldAlert, AlertCircle, Smile, Send,
+  CalendarCheck, Siren, Receipt, ShieldCheck, Target, FileDown, Utensils, Bell
 } from 'lucide-react';
+import ProfileEditModal from './ProfileEditModal';
+import { CheckupSchedulerModule, EmergencySOSModule, ExpenseTrackerModule } from './ExtraWellnessModules';
+import InsuranceModule from './InsuranceModule';
+import DietPlanModule from './DietPlanModule';
+import GoalsModule from './GoalsModule';
+import ReportsModule from './ReportsModule';
+import NotificationBell from './NotificationBell';
 
 
 // ==========================================
@@ -1010,49 +1018,59 @@ export default function UserDashboard({ user,
         </div>
 
         {/* User Info & Actions */}
-        <div
-          className="flex items-center justify-between md:justify-end gap-5 cursor-pointer group"
-          onClick={() => setIsProfileModalOpen(true)}
-        >
-          <div className="flex items-center gap-3 text-right">
-            <div className="hidden sm:block text-right mr-3">
-              <span className="block text-sm font-semibold text-slate-800 leading-tight">{user.name}</span>
-              <span className="block text-[10px] text-slate-400 font-mono mt-0.5">{user.employeeId}</span>
-              <span className="inline-block mt-1 px-2 py-0.5 bg-slate-50 border border-slate-200 text-slate-500 text-[9px] font-mono font-bold rounded uppercase tracking-widest leading-none">
-                Employee
-              </span>
-            </div>
-            {user.avatarUrl ? (
-              <img
-                src={user.avatarUrl}
-                alt={user.name}
-                referrerPolicy="no-referrer" 
-                className="w-9 h-9 rounded-full border border-slate-200 shadow-md object-cover"
-              />
-            ) : (
-              <div className="w-9 h-9 rounded-full bg-slate-100 border border-slate-200 flex items-center justify-center font-bold text-sm text-slate-700">
-                {user.name.substring(0, 2).toUpperCase()}
-              </div>
-            )}
-          </div>
+        <div className="flex items-center justify-between md:justify-end gap-5">
+          <NotificationBell user={user} />
 
-          <div className="h-8 w-px bg-slate-200 hidden sm:block group-hover:bg-indigo-300 transition-colors" />
-
-          <button
-            onClick={onLogout}
-            className="flex items-center gap-2 px-3.5 py-1.5 bg-slate-50 hover:bg-rose-50 border border-slate-200 hover:border-rose-200 rounded-lg text-xs font-semibold text-slate-500 hover:text-rose-600 transition-all cursor-pointer shadow-sm"
+          <div
+            className="flex items-center gap-5 cursor-pointer group"
+            onClick={() => setIsProfileModalOpen(true)}
           >
-            <LogOut className="w-4 h-4" />
-            Logout
-          </button>
+            <div className="flex items-center gap-3 text-right">
+              <div className="hidden sm:block text-right mr-3">
+                <span className="block text-sm font-semibold text-slate-800 leading-tight">{user.name}</span>
+                <span className="block text-[10px] text-slate-400 font-mono mt-0.5">{user.employeeId}</span>
+                <span className="inline-block mt-1 px-2 py-0.5 bg-slate-50 border border-slate-200 text-slate-500 text-[9px] font-mono font-bold rounded uppercase tracking-widest leading-none">
+                  Employee
+                </span>
+              </div>
+              {user.avatarUrl ? (
+                <img
+                  src={user.avatarUrl}
+                  alt={user.name}
+                  referrerPolicy="no-referrer" 
+                  className="w-9 h-9 rounded-full border border-slate-200 shadow-md object-cover"
+                />
+              ) : (
+                <div className="w-9 h-9 rounded-full bg-slate-100 border border-slate-200 flex items-center justify-center font-bold text-sm text-slate-700">
+                  {user.name.substring(0, 2).toUpperCase()}
+                </div>
+              )}
+            </div>
+
+            <div className="h-8 w-px bg-slate-200 hidden sm:block group-hover:bg-indigo-300 transition-colors" />
+
+            <button
+              onClick={onLogout}
+              className="flex items-center gap-2 px-3.5 py-1.5 bg-slate-50 hover:bg-rose-50 border border-slate-200 hover:border-rose-200 rounded-lg text-xs font-semibold text-slate-500 hover:text-rose-600 transition-all cursor-pointer shadow-sm"
+            >
+              <LogOut className="w-4 h-4" />
+              Logout
+            </button>
+          </div>
         </div>
       </header>
 
       {isProfileModalOpen && (
-        <ProfileModal
+        <ProfileEditModal
           user={user}
+          isAdmin={false}
           onClose={() => setIsProfileModalOpen(false)}
-          onUpdateAvatar={onUpdateAvatar}
+          onUpdated={(updatedUser) => {
+            if (updatedUser) {
+              localStorage.setItem('wellness_current_user', JSON.stringify(updatedUser));
+            }
+            setIsProfileModalOpen(false);
+          }}
         />
       )}
 
@@ -1069,6 +1087,12 @@ export default function UserDashboard({ user,
             {[
               { id: 7, label: 'My Wellness Profile', icon: User, desc: 'Your health stats & personalized trackers' },
               { id: 3, label: 'Personalized Recommender', icon: Lightbulb, desc: 'Fitness, diets, wellness schedules' },
+              { id: 8, label: 'My Insurance', icon: ShieldCheck, desc: 'View coverage & file claims' },
+              { id: 9, label: 'Diet Plans', icon: Utensils, desc: 'AI-generated meal plans' },
+              { id: 10, label: 'My Goals', icon: Target, desc: 'Track achievements & badges' },
+              { id: 11, label: 'Health Reports', icon: FileDown, desc: 'Download PDF & history' },
+              { id: 12, label: 'Checkups & SOS', icon: CalendarCheck, desc: 'Book checkups, emergency SOS' },
+              { id: 13, label: 'Expenses', icon: Receipt, desc: 'Track health expense claims' },
             ].map((tab) => {
               const Icon = tab.icon;
               const isActive = activeTab === tab.id;
@@ -1113,16 +1137,28 @@ export default function UserDashboard({ user,
           {/* Active module display card header */}
           <div className="mb-8 flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-200 pb-6">
             <div>
-              <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 bg-slate-50 border border-slate-200 rounded-md text-[10px] font-bold text-slate-500 uppercase tracking-wide mb-3">
-                {activeTab === 7 ? 'Self-Service Portal' : `Module ${activeTab} of 5`}
+          <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 bg-slate-50 border border-slate-200 rounded-md text-[10px] font-bold text-slate-500 uppercase tracking-wide mb-3">
+                {activeTab === 7 ? 'Self-Service Portal' : activeTab === 3 ? 'Recommendation Engine' : activeTab === 8 ? 'Insurance' : activeTab === 9 ? 'Nutrition' : activeTab === 10 ? 'Goal Tracking' : activeTab === 11 ? 'Reports' : activeTab === 12 ? 'Emergency Services' : 'Financial'}
               </div>
               <h1 className="font-display text-3xl font-semibold text-slate-800 tracking-tight">
                 {activeTab === 7 && 'My Personal Wellness Profile'}
                 {activeTab === 3 && 'Personalized Wellness Recommendation System'}
+                {activeTab === 8 && 'My Insurance Coverage'}
+                {activeTab === 9 && 'AI-Generated Diet Plans'}
+                {activeTab === 10 && 'My Goals & Achievements'}
+                {activeTab === 11 && 'Health Reports & History'}
+                {activeTab === 12 && 'Checkups & Emergency SOS'}
+                {activeTab === 13 && 'Expense Tracker'}
               </h1>
               <p className="text-slate-500 text-sm mt-2 max-w-2xl font-light">
                 {activeTab === 7 && 'Manage your personal health vitals, track daily habits, and submit secure mental health feedback.'}
                 {activeTab === 3 && 'Tailored, evidence-based fitness routines, diet schedules, and mental wellbeing recommendations.'}
+                {activeTab === 8 && 'View your current insurance policy, coverage details, and file claims.'}
+                {activeTab === 9 && 'Personalized meal plans generated by AI based on your health profile and dietary preferences.'}
+                {activeTab === 10 && 'Track your wellness goals, achievements, and earn recognition badges.'}
+                {activeTab === 11 && 'Download health reports as PDF and view your complete health history timeline.'}
+                {activeTab === 12 && 'Schedule health checkups and trigger emergency SOS alerts if needed.'}
+                {activeTab === 13 && 'Track and manage your health-related expenses.'}
               </p>
             </div>
           </div>
@@ -1148,6 +1184,33 @@ export default function UserDashboard({ user,
 
             {activeTab === 3 && (
               <RecommendationModule recommendations={userRecommendations} loading={loading} />
+            )}
+
+            {activeTab === 8 && (
+              <InsuranceModule user={user} />
+            )}
+
+            {activeTab === 9 && (
+              <DietPlanModule user={user} />
+            )}
+
+            {activeTab === 10 && (
+              <GoalsModule user={user} />
+            )}
+
+            {activeTab === 11 && (
+              <ReportsModule user={user} healthRecords={healthRecords} />
+            )}
+
+            {activeTab === 12 && (
+              <div className="space-y-6">
+                <CheckupSchedulerModule user={user} />
+                <EmergencySOSModule user={user} />
+              </div>
+            )}
+
+            {activeTab === 13 && (
+              <ExpenseTrackerModule user={user} />
             )}
           </div>
         </main>
@@ -1208,69 +1271,4 @@ export default function UserDashboard({ user,
   );
 }
 
-function ProfileModal({ user, onClose, onUpdateAvatar }) {
-  const [file, setFile] = useState(null);
-  const [preview, setPreview] = useState(null);
-  const fileInputRef = useRef(null);
 
-  const handleFileChange = (e) => {
-    const selectedFile = e.target.files[0];
-    if (selectedFile) {
-      setFile(selectedFile);
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setPreview(reader.result);
-      };
-      reader.readAsDataURL(selectedFile);
-    }
-  };
-
-  const handleUpload = () => {
-    if (file) {
-      onUpdateAvatar(file);
-    }
-  };
-
-  return (
-    <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 z-50 animate-fadeIn">
-      <div className="bg-white rounded-2xl border border-slate-200 w-full max-w-md shadow-2xl flex flex-col">
-        <div className="bg-slate-50 border-b border-slate-100 px-6 py-4 flex items-center justify-between">
-          <h3 className="font-display font-semibold text-slate-800">My Profile</h3>
-          <button onClick={onClose} className="text-slate-400 hover:text-slate-600 transition-colors">
-            <X className="w-5 h-5" />
-          </button>
-        </div>
-        <div className="p-6 space-y-6">
-          <div className="flex flex-col items-center gap-4">
-            <div className="relative">
-              <img
-                src={preview || user.avatarUrl || `https://ui-avatars.com/api/?name=${user.name}&background=e2e8f0&color=475569`}
-                alt={user.name}
-                className="w-24 h-24 rounded-full object-cover border-4 border-white shadow-lg"
-              />
-              <button
-                onClick={() => fileInputRef.current.click()}
-                className="absolute -bottom-1 -right-1 bg-indigo-600 hover:bg-indigo-700 text-white p-1.5 rounded-full border-2 border-white shadow-md transition-transform hover:scale-110"
-              >
-                <UploadCloud className="w-4 h-4" />
-              </button>
-              <input
-                type="file"
-                ref={fileInputRef}
-                onChange={handleFileChange}
-                className="hidden"
-                accept="image/png, image/jpeg"
-              />
-            </div>
-            <div className="text-center">
-              <h4 className="font-semibold text-lg text-slate-800">{user.name}</h4>
-              <p className="text-sm text-slate-500">{user.email}</p>
-              <p className="text-xs text-slate-400 font-mono mt-1">{user.employeeId}</p>
-            </div>
-          </div>
-          <button onClick={handleUpload} disabled={!file} className="w-full py-2.5 bg-slate-900 hover:bg-slate-800 text-white rounded-lg text-xs font-bold transition-all shadow-sm disabled:bg-slate-300 disabled:cursor-not-allowed">Save Changes</button>
-        </div>
-      </div>
-    </div>
-  );
-}

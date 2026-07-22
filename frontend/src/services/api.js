@@ -178,7 +178,7 @@ const getFromStorage = (key, defaultValue) => {
         const item = localStorage.getItem(key);
         return item ? JSON.parse(item) : defaultValue;
     } catch (error) {
-        console.error(`Error reading from localStorage key “${key}”:`, error);
+        console.error(`Error reading from localStorage key "${key}":`, error);
         return defaultValue;
     }
 };
@@ -187,7 +187,7 @@ const saveToStorage = (key, data) => {
     try {
         localStorage.setItem(key, JSON.stringify(data));
     } catch (error) {
-        console.error(`Error saving to localStorage key “${key}”:`, error);
+        console.error(`Error saving to localStorage key "${key}":`, error);
     }
 };
 
@@ -213,4 +213,130 @@ export const submitSentimentPulse = (department, stressScore, feedbackText) => r
 
 export const saveSentiments = (sentimentsData) => saveToStorage('wellness_sentiments', sentimentsData);
 
-export default { login, signup, me, logout, forgotPassword, resetPassword, fetchUsers, uploadAvatar, fetchHealthRecords, addHealthRecord, updateHealthRecord, deleteHealthRecord, fetchRisks, fetchRecommendations, fetchSentiments, saveSentiments, submitSentimentPulse };
+// --- Profile / Account ---
+export const updateProfile = (data) => request('/auth/profile', {
+  method: 'PUT',
+  body: JSON.stringify(data),
+});
+export const changePassword = (currentPassword, newPassword) => request('/auth/change-password', {
+  method: 'PUT',
+  body: JSON.stringify({ currentPassword, newPassword }),
+});
+
+// --- Check-ups ---
+export const fetchCheckups = (isAdmin = false) => request(`/checkups${isAdmin ? '?all=true' : ''}`);
+export const bookCheckup = (data) => request('/checkups', {
+  method: 'POST',
+  body: JSON.stringify(data),
+});
+export const deleteCheckup = (id) => request(`/checkups/${id}`, { method: 'DELETE' });
+export const updateCheckup = (id, data) => request(`/checkups/${id}`, {
+  method: 'PUT',
+  body: JSON.stringify(data),
+});
+
+// --- SOS / Emergency ---
+export const triggerSos = (message) => request('/sos', {
+  method: 'POST',
+  body: JSON.stringify({ message }),
+});
+export const fetchSosAlerts = () => request('/sos');
+export const resolveSos = (id) => request(`/sos/${id}/resolve`, { method: 'PUT' });
+
+// --- Health Expenses ---
+export const fetchExpenses = (isAdmin = false) => request(`/expenses${isAdmin ? '?all=true' : ''}`);
+export const addExpense = (data) => request('/expenses', {
+  method: 'POST',
+  body: JSON.stringify(data),
+});
+export const deleteExpense = (id) => request(`/expenses/${id}`, { method: 'DELETE' });
+export const updateExpense = (id, status) => request(`/expenses/${id}`, {
+  method: 'PUT',
+  body: JSON.stringify({ status }),
+});
+
+// --- Insurance ---
+export const fetchAllInsurance = () => request('/insurance');
+export const saveInsurance = (data) => request('/insurance', {
+  method: 'POST',
+  body: JSON.stringify(data),
+});
+export const fetchInsurance = (employeeId) => request(`/insurance/${employeeId}`);
+export const updateInsuranceClaim = (employeeId, claimId, status) => request(`/insurance/${employeeId}/claims/${claimId}`, {
+  method: 'PUT',
+  body: JSON.stringify({ status }),
+});
+export const fileInsuranceClaim = (employeeId, data) => request(`/insurance/${employeeId}/claims`, {
+  method: 'POST',
+  body: JSON.stringify(data),
+});
+
+// --- Notifications ---
+export const fetchNotifications = (isAdmin = false) => request(`/notifications${isAdmin ? '?all=true' : ''}`);
+export const sendNotification = (data) => request('/notifications', {
+  method: 'POST',
+  body: JSON.stringify(data),
+});
+export const deleteNotification = (id) => request(`/notifications/${id}`, { method: 'DELETE' });
+export const markNotificationRead = (id) => request(`/notifications/${id}/read`, { method: 'PUT' });
+
+// --- Diet Plan ---
+export const generateDietPlan = (dietType) => request('/diet-plan', {
+  method: 'POST',
+  body: JSON.stringify({ dietType }),
+});
+
+// --- Goals & Achievements ---
+export const fetchGoals = (employeeId) => request(`/goals/${employeeId}`);
+export const createGoal = (data) => request('/goals', {
+  method: 'POST',
+  body: JSON.stringify(data),
+});
+export const updateGoal = (goalId, data) => request(`/goals/${goalId}`, {
+  method: 'PUT',
+  body: JSON.stringify(data),
+});
+export const deleteGoal = (goalId) => request(`/goals/${goalId}`, { method: 'DELETE' });
+export const fetchAchievements = (employeeId) => request(`/achievements/${employeeId}`);
+
+// --- Reports / Health History ---
+export const fetchHealthHistory = (employeeId) => request(`/wellness/health-history/${employeeId}`);
+export const downloadHealthReportPdf = async (employeeId) => {
+  const res = await fetch(`${API_BASE}/reports/health-report/${employeeId}`, {
+    credentials: 'include',
+  });
+  if (!res.ok) {
+    const err = new Error('Failed to download report');
+    err.status = res.status;
+    throw err;
+  }
+  const blob = await res.blob();
+  const url = window.URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `health-report-${employeeId}.pdf`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  window.URL.revokeObjectURL(url);
+};
+
+// --- Updated Default Export ---
+export default {
+  login, signup, me, logout, forgotPassword, resetPassword,
+  fetchUsers, uploadAvatar, updateProfile, changePassword,
+  fetchHealthRecords, addHealthRecord, updateHealthRecord, deleteHealthRecord,
+  fetchRisks, fetchRecommendations, fetchSentiments, saveSentiments, submitSentimentPulse,
+  fetchDailyHabits, addDailyHabit, updateDailyHabit,
+  fetchMentalHealthLogs, addMentalHealthLog, updateMentalHealthLog,
+  fetchCheckups, bookCheckup, deleteCheckup, updateCheckup,
+  triggerSos, fetchSosAlerts, resolveSos,
+  fetchExpenses, addExpense, deleteExpense, updateExpense,
+  fetchAllInsurance, saveInsurance, updateInsuranceClaim,
+  fetchInsurance, fileInsuranceClaim,
+  fetchNotifications, sendNotification, deleteNotification, markNotificationRead,
+  generateDietPlan,
+  fetchGoals, createGoal, updateGoal, deleteGoal, fetchAchievements,
+  fetchHealthHistory, downloadHealthReportPdf,
+};
+
