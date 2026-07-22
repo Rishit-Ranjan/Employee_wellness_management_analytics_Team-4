@@ -1,10 +1,19 @@
 const API_BASE = '/api'; // Use Vite proxy in development
 
 async function request(path, opts = {}) {
+  const headers = { ...opts.headers };
+
+  // Only set Content-Type if it's not explicitly set to null (for FormData)
+  if (headers['Content-Type'] !== null) {
+    headers['Content-Type'] = 'application/json';
+  } else {
+    delete headers['Content-Type']; // Remove it completely for FormData
+  }
+
   const res = await fetch(API_BASE + path, {
     credentials: 'include',
-    headers: { 'Content-Type': 'application/json', ...(opts.headers || {}) },
-    ...opts,
+    ...opts, // Spread the original options
+    headers, // Use the modified headers
   });
 
   if (!res.ok) {
@@ -88,6 +97,17 @@ export function logout() {
  * @returns {Promise<Array<Object>>} A promise that resolves to the list of users.
  */
 export const fetchUsers = () => request('/users');
+
+/**
+ * Uploads a new avatar for the current user.
+ * @param {File} file The image file to upload.
+ * @returns {Promise<Object>} A promise that resolves to the updated user object.
+ */
+export const uploadAvatar = (file) => {
+  const formData = new FormData();
+  formData.append('avatar', file);
+  return request('/users/avatar', { method: 'POST', body: formData, headers: { 'Content-Type': null } }); // Let browser set Content-Type for FormData
+};
 
 // --- Wellness API ---
 
@@ -193,4 +213,4 @@ export const submitSentimentPulse = (department, stressScore, feedbackText) => r
 
 export const saveSentiments = (sentimentsData) => saveToStorage('wellness_sentiments', sentimentsData);
 
-export default { login, signup, me, logout, forgotPassword, resetPassword, fetchUsers, fetchHealthRecords, addHealthRecord, updateHealthRecord, deleteHealthRecord, fetchRisks, fetchRecommendations, fetchSentiments, saveSentiments, submitSentimentPulse };
+export default { login, signup, me, logout, forgotPassword, resetPassword, fetchUsers, uploadAvatar, fetchHealthRecords, addHealthRecord, updateHealthRecord, deleteHealthRecord, fetchRisks, fetchRecommendations, fetchSentiments, saveSentiments, submitSentimentPulse };

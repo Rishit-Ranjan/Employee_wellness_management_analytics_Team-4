@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import {
-  User, Lightbulb, Bot, X, LogOut,
+  User, Lightbulb, Bot, X, LogOut, UploadCloud,
   Dumbbell, Apple, Brain, Clock, HeartPulse, Sparkles, Check, ShieldAlert, AlertCircle, Smile, Send
 } from 'lucide-react';
 
@@ -477,7 +477,7 @@ export function UserProfileModule({ user, records, risks = [], onUpdateRecord, o
   return (
     <div className="space-y-8 pb-10">
 
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
 
         <div className="lg:col-span-7 bg-white rounded-xl border border-slate-200 p-6 space-y-5 shadow-sm">
           <div className="flex items-center gap-2 border-b border-slate-100 pb-4">
@@ -979,9 +979,14 @@ export default function UserDashboard({ user,
   onUpdateDailyHabit, // New prop
   mentalHealthLogs, // New prop
   onAddHealthRecord, // Added onAddHealthRecord prop
-  onUpdateSentimentPulse,
+  onAddMentalHealthLog,
+  onUpdateMentalHealthLog,
+  onUpdateSentimentPulse, 
   recommendations= [],
-  loading = false
+  loading = false,
+  isProfileModalOpen,
+  setIsProfileModalOpen,
+  onUpdateAvatar
 }) {
 
   const [activeTab, setActiveTab] = useState(7);
@@ -1005,7 +1010,10 @@ export default function UserDashboard({ user,
         </div>
 
         {/* User Info & Actions */}
-        <div className="flex items-center justify-between md:justify-end gap-5">
+        <div
+          className="flex items-center justify-between md:justify-end gap-5 cursor-pointer group"
+          onClick={() => setIsProfileModalOpen(true)}
+        >
           <div className="flex items-center gap-3 text-right">
             <div className="hidden sm:block text-right mr-3">
               <span className="block text-sm font-semibold text-slate-800 leading-tight">{user.name}</span>
@@ -1018,7 +1026,7 @@ export default function UserDashboard({ user,
               <img
                 src={user.avatarUrl}
                 alt={user.name}
-                referrerPolicy="no-referrer"
+                referrerPolicy="no-referrer" 
                 className="w-9 h-9 rounded-full border border-slate-200 shadow-md object-cover"
               />
             ) : (
@@ -1028,7 +1036,7 @@ export default function UserDashboard({ user,
             )}
           </div>
 
-          <div className="h-8 w-px bg-slate-200 hidden sm:block" />
+          <div className="h-8 w-px bg-slate-200 hidden sm:block group-hover:bg-indigo-300 transition-colors" />
 
           <button
             onClick={onLogout}
@@ -1039,6 +1047,14 @@ export default function UserDashboard({ user,
           </button>
         </div>
       </header>
+
+      {isProfileModalOpen && (
+        <ProfileModal
+          user={user}
+          onClose={() => setIsProfileModalOpen(false)}
+          onUpdateAvatar={onUpdateAvatar}
+        />
+      )}
 
       {/* Main Workspace Layout */}
       <div className="flex-1 flex flex-col lg:flex-row">
@@ -1123,6 +1139,8 @@ export default function UserDashboard({ user,
                 onUpdateDailyHabit={onUpdateDailyHabit} // Pass new handler
                 mentalHealthLogs={mentalHealthLogs} // Pass new state
                 onAddRecord={onAddRecord || onAddHealthRecord} // Pass to UserProfileModule
+                onAddMentalHealthLog={onAddMentalHealthLog}
+                onUpdateMentalHealthLog={onUpdateMentalHealthLog}
                 onUpdateRecord={onUpdateUserRecord}
                 onAddSentimentPulse={onUpdateSentimentPulse}
               />
@@ -1185,6 +1203,73 @@ export default function UserDashboard({ user,
             </div>
           )}
         </button>
+      </div>
+    </div>
+  );
+}
+
+function ProfileModal({ user, onClose, onUpdateAvatar }) {
+  const [file, setFile] = useState(null);
+  const [preview, setPreview] = useState(null);
+  const fileInputRef = useRef(null);
+
+  const handleFileChange = (e) => {
+    const selectedFile = e.target.files[0];
+    if (selectedFile) {
+      setFile(selectedFile);
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setPreview(reader.result);
+      };
+      reader.readAsDataURL(selectedFile);
+    }
+  };
+
+  const handleUpload = () => {
+    if (file) {
+      onUpdateAvatar(file);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 z-50 animate-fadeIn">
+      <div className="bg-white rounded-2xl border border-slate-200 w-full max-w-md shadow-2xl flex flex-col">
+        <div className="bg-slate-50 border-b border-slate-100 px-6 py-4 flex items-center justify-between">
+          <h3 className="font-display font-semibold text-slate-800">My Profile</h3>
+          <button onClick={onClose} className="text-slate-400 hover:text-slate-600 transition-colors">
+            <X className="w-5 h-5" />
+          </button>
+        </div>
+        <div className="p-6 space-y-6">
+          <div className="flex flex-col items-center gap-4">
+            <div className="relative">
+              <img
+                src={preview || user.avatarUrl || `https://ui-avatars.com/api/?name=${user.name}&background=e2e8f0&color=475569`}
+                alt={user.name}
+                className="w-24 h-24 rounded-full object-cover border-4 border-white shadow-lg"
+              />
+              <button
+                onClick={() => fileInputRef.current.click()}
+                className="absolute -bottom-1 -right-1 bg-indigo-600 hover:bg-indigo-700 text-white p-1.5 rounded-full border-2 border-white shadow-md transition-transform hover:scale-110"
+              >
+                <UploadCloud className="w-4 h-4" />
+              </button>
+              <input
+                type="file"
+                ref={fileInputRef}
+                onChange={handleFileChange}
+                className="hidden"
+                accept="image/png, image/jpeg"
+              />
+            </div>
+            <div className="text-center">
+              <h4 className="font-semibold text-lg text-slate-800">{user.name}</h4>
+              <p className="text-sm text-slate-500">{user.email}</p>
+              <p className="text-xs text-slate-400 font-mono mt-1">{user.employeeId}</p>
+            </div>
+          </div>
+          <button onClick={handleUpload} disabled={!file} className="w-full py-2.5 bg-slate-900 hover:bg-slate-800 text-white rounded-lg text-xs font-bold transition-all shadow-sm disabled:bg-slate-300 disabled:cursor-not-allowed">Save Changes</button>
+        </div>
       </div>
     </div>
   );

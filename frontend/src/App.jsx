@@ -1,7 +1,7 @@
 import  { useState, useEffect, useMemo, useCallback } from 'react';
 import Login from './components/Login';
 import SignUp from './components/SignUp';
-import ForgotPassword from './components/ForgotPassword';
+import ForgotPassword from './components/ForgotPassword'; 
 import UserDashboard from './components/UserDashboard';
 import AdminDashboard from './components/AdminDashboard';
 import * as api from './services/api';
@@ -23,6 +23,7 @@ export default function App() {
     const [currentUser, setCurrentUser] = useState(null);
     const [loadingSession, setLoadingSession] = useState(true); // New state to indicate session loading
     const [loadingWellnessData, setLoadingWellnessData] = useState(false);
+    const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
     
 
     // Core Wellness State (Moved from Dashboard)
@@ -297,22 +298,34 @@ export default function App() {
 
     // Update department sentiment pulse based on new feedback and persist changes
     const handleUpdateSentimentPulse = async (deptName, stressScore, feedbackText) => {
-        try {
-            // Call the new backend endpoint to record the pulse
-            await api.submitSentimentPulse(deptName, stressScore, feedbackText);
-
-            // Only admins can fetch sentiment data (the endpoint is admin-only).
-            // For regular employees, just skip the refetch to avoid a 403 error.
-            if (currentUser?.role === 'admin') {
-                const loadedSentiments = await api.fetchSentiments();
-                setSentimentList(loadedSentiments || []);
-            }
-        } catch (error) {
-            console.error("Failed to submit sentiment pulse:", error);
-            // Optionally, show an error message to the user
+      try {
+        // 1. Call the backend endpoint to record the pulse. This writes to MongoDB.
+        await api.submitSentimentPulse(deptName, stressScore, feedbackText);
+  
+        // 2. For immediate UI feedback, re-fetch the aggregated sentiment data.
+        // This is more reliable than trying to replicate the aggregation logic on the client.
+        if (currentUser?.role === 'admin') {
+            const loadedSentiments = await api.fetchSentiments();
+            setSentimentList(loadedSentiments || []);
         }
+      } catch (error) {
+        console.error("Failed to submit sentiment pulse:", error);
+      }
     };
 
+    const handleUpdateAvatar = async (file) => {
+        try {
+            const response = await api.uploadAvatar(file);
+            if (response && response.user) {
+                setCurrentUser(response.user);
+                localStorage.setItem('wellness_current_user', JSON.stringify(response.user));
+                setIsProfileModalOpen(false); // Close modal on success
+            }
+        } catch (error) {
+            console.error("Failed to upload avatar:", error);
+            // You could set an error state here to show in the modal
+        }
+    };
     // Navigation and Authentication Handlers
     const handleLoginSuccess = (user) => {
         setCurrentUser(user);
@@ -362,6 +375,9 @@ export default function App() {
                     kpis={derivedKpis}
                     loading={loadingWellnessData}
                     onAddHealthRecord={handleAddHealthRecord}
+                    isProfileModalOpen={isProfileModalOpen}
+                    setIsProfileModalOpen={setIsProfileModalOpen}
+                    onUpdateAvatar={handleUpdateAvatar}
                     onDeleteHealthRecord={handleDeleteHealthRecord}
                     onUpdateHealthRecord={handleUpdateUserRecord}
                      />)
@@ -375,11 +391,16 @@ export default function App() {
                     onAddDailyHabit={handleAddDailyHabit} // Pass new handler
                     onUpdateDailyHabit={handleUpdateDailyHabit} // Pass new handler
                     mentalHealthLogs={mentalHealthLogs} // Pass new state
+                    onAddMentalHealthLog={handleAddMentalHealthLog}
+                    onUpdateMentalHealthLog={handleUpdateMentalHealthLog}
                     onAddRecord={handleAddHealthRecord}
                     onAddHealthRecord={handleAddHealthRecord} // Pass the add handler
                     onUpdateUserRecord={handleUpdateUserRecord}
                     onUpdateSentimentPulse={handleUpdateSentimentPulse}
                     recommendations={recommendations}
+                    isProfileModalOpen={isProfileModalOpen}
+                    setIsProfileModalOpen={setIsProfileModalOpen}
+                    onUpdateAvatar={handleUpdateAvatar}
                     loading={loadingWellnessData}
                 />)
             )}

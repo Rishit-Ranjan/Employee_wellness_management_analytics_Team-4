@@ -1,5 +1,6 @@
 from flask import Flask, request, jsonify, make_response
-from flask_cors import CORS
+from flask_cors import CORS 
+from werkzeug.utils import secure_filename
 import bcrypt
 from flask_jwt_extended import create_refresh_token
 
@@ -12,7 +13,7 @@ from flask_jwt_extended import (
 )
 
 import os
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timedelta, timezone 
 from pymongo import MongoClient
 from pymongo.errors import ConfigurationError
 from bson import ObjectId
@@ -21,6 +22,8 @@ import joblib
 import pandas as pd
 from email_sender import send_email
 import cloudpickle
+from nltk.sentiment import SentimentIntensityAnalyzer
+import nltk
 
 app = Flask(__name__)
 
@@ -36,6 +39,12 @@ app.config["JWT_SECRET_KEY"] = os.getenv("JWT_SECRET_KEY", "default-super-secret
 app.config["JWT_ACCESS_TOKEN_EXPIRES"] = timedelta(minutes=int(os.getenv('JWT_EXPIRES_MINUTES', '1440'))) # 24-hour token for presentation
 app.config["JWT_TOKEN_LOCATION"] = ["cookies"]
 app.config["JWT_ACCESS_COOKIE_NAME"] = "access_token"
+
+# --- File Upload Configuration ---
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+UPLOAD_FOLDER = os.path.join(BASE_DIR, 'static', 'avatars')
+app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
+os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 app.config["JWT_COOKIE_CSRF_PROTECT"] = False
 jwt = JWTManager(app)
 
@@ -58,6 +67,7 @@ reset_collection = db.get_collection('password_reset_requests')
 health_records_collection = db.get_collection('health_records')
 daily_habits_collection = db.get_collection('daily_habits')
 mental_health_logs_collection = db.get_collection('mental_health_logs')
+sentiment_pulses_collection = db.get_collection('sentiment_pulses')
 
 # --- Load ML Model and Metadata ---
 try:
@@ -80,64 +90,21 @@ except Exception as e:
     target_encoder = None
     feature_columns = None
     recommendation_engine = None
+
+# --- NLTK Setup for Sentiment Analysis ---
+try:
+    nltk.download('vader_lexicon', quiet=True)
+    sia = SentimentIntensityAnalyzer()
+except Exception as e:
+    app.logger.error(f"Failed to initialize NLTK Sentiment Analyzer: {e}")
+    sia = None
     
 #--- Utility Functions ---
 def hash_password(password: str) -> str:
     return bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
 
-
 def verify_password(password: str, password_hash: str) -> bool:
     return bcrypt.checkpw(password.encode('utf-8'), password_hash.encode('utf-8'))
-
-
-def _regenerate_department_summary():
-    """
-    Reads the raw employee_feedback.csv and regenerates the
-    department_stress_summary.csv with aggregated metrics.
-    This ensures admin dashboards reflect real-time pulse data.
-    """
-    FEEDBACK_DATA_PATH = os.path.join(BASE_DIR, "data", "dataset", "employee_feedback.csv")
-    DEPT_SUMMARY_PATH = os.path.join(BASE_DIR, "outputs", "department_stress_summary.csv")
-    
-    if not os.path.exists(FEEDBACK_DATA_PATH):
-        app.logger.warning("Cannot regenerate summary: employee_feedback.csv not found.")
-        return False
-    
-    try:
-        feedback_df = pd.read_csv(FEEDBACK_DATA_PATH)
-        if feedback_df.empty:
-            app.logger.warning("Feedback data is empty. No summary generated.")
-            return False
-        
-        # Map simple sentiment labels to approximate compound scores.
-        # Positive ~ 0.9 (low stress), Neutral ~ 0.0, Negative ~ -0.8 (high stress).
-        # This mapping is correct because:
-        #   - stress_score <= 4 -> sentiment='Positive' -> compound ~ 0.9 (good)
-        #   - stress_score >= 7 -> sentiment='Negative' -> compound ~ -0.8 (bad)
-        sentiment_compound_map = {'Positive': 0.9, 'Neutral': 0.0, 'Negative': -0.8}
-        feedback_df['compound'] = feedback_df['sentiment'].map(
-            sentiment_compound_map
-        ).fillna(0.0)
-
-        # Aggregate by department
-        summary = feedback_df.groupby('department').agg(
-            total_feedback=('feedback_id', 'count'),
-            negative_feedback_count=('sentiment', lambda x: (x == 'Negative').sum()),
-            avg_compound_sentiment=('compound', 'mean')
-        ).reset_index()
-        
-        # Round numeric columns
-        summary['avg_compound_sentiment'] = summary['avg_compound_sentiment'].round(4)
-        
-        # Write the updated summary CSV
-        summary.to_csv(DEPT_SUMMARY_PATH, index=False)
-        app.logger.info(f"Department summary regenerated with {len(summary)} departments.")
-        return True
-    
-    except Exception as e:
-        app.logger.exception(f"Failed to regenerate department summary: {e}")
-        return False
-
 
 def _generate_reset_otp(length: int = 6) -> str:
     # numeric OTP, zero-padded
@@ -147,6 +114,15 @@ def _generate_reset_token(num_bytes: int = 32) -> str:
     # URL-safe-ish token
     return os.urandom(num_bytes).hex()
 
+def get_full_avatar_url(avatar_path):
+    """Constructs the full URL for an avatar path."""
+    if not avatar_path or not avatar_path.startswith('/static'):
+        return None # Or return a default avatar URL
+    # In a production environment, this should use the actual public domain.
+    base_url = request.url_root.rstrip('/')
+    return f"{base_url}{avatar_path}"
+
+# login API endpoint
 @app.route('/api/auth/login', methods=['POST'])
 def login():
     data = request.get_json() or {}
@@ -208,9 +184,10 @@ def login():
             "id": user_id_str,
             "name": user.get('name') or user.get('username'),
             "email": user['email'],
-            "employeeId": user.get('employeeId'), # Add employeeId here
+            "employeeId": user.get('employeeId'),
+            "adminId": user.get('adminId'),
             "role": user.get('role', 'user'),
-            "avatarUrl": user.get("avatarUrl", f"https://i.pravatar.cc/150?u={email}")
+            "avatarUrl": get_full_avatar_url(user.get("avatarUrl"))
         }
 
         # Create token with user_info as the identity
@@ -227,7 +204,7 @@ def login():
         app.logger.exception(f"An unexpected error occurred during login for {email}: {e}")
         return jsonify({'detail': 'Internal Server Error'}), 500
 
-
+# signup API endpoint
 @app.route('/api/auth/signup', methods=['POST'])
 def signup():
     data = request.get_json() or {}
@@ -269,8 +246,7 @@ def signup():
             'username': username,
             'email': email,
             'password_hash': pwd_hash,
-            'role': 'user',
-            'createdAt': datetime.now(timezone.utc).isoformat(),
+            'role': 'user', 'createdAt': datetime.now(timezone.utc).isoformat(),
         }
 
         # Insert the new user into the users collection
@@ -282,8 +258,7 @@ def signup():
         app.logger.exception(f"Signup failed for {email}: {e}")
         return jsonify({'detail': 'Internal Server Error'}), 500
 
-
-
+# forget-password API endpoint
 @app.route('/api/auth/forgot-password', methods=['POST'])
 def forgot_password():
     data = request.get_json() or {}
@@ -358,9 +333,9 @@ def forgot_password():
         if reset_token is not None:
             resp_payload['debugResetToken'] = reset_token
 
-
     return jsonify(resp_payload), 200
 
+# Reset password API endpoint
 @app.route('/api/auth/reset-password', methods=['POST'])
 def reset_password():
     # Get the JSON data from the request
@@ -439,8 +414,7 @@ def reset_password():
         app.logger.exception(f"Password reset failed for {email}: {e}")
         return jsonify({'detail': 'Internal Server Error'}), 500
 
-
-
+# --- User Info Endpoints ---
 @app.route('/api/auth/me', methods=['GET'])
 @jwt_required(locations=["cookies"])
 def me():
@@ -452,7 +426,7 @@ def me():
     
     return jsonify({'user': user_info})
 
-
+# --- Logout Endpoint ---
 @app.route('/api/auth/logout', methods=['POST'])
 def logout():
     """Clears the access token cookie."""
@@ -460,9 +434,50 @@ def logout():
     resp.set_cookie('access_token', '', expires=0)
     return resp
 
+# --- Avatar Upload Endpoint ---
+@app.route('/api/users/avatar', methods=['POST'])
+@jwt_required(locations=["cookies"])
+def upload_avatar():
+    """Uploads a new avatar for the current user."""
+    user_id = get_jwt_identity()
+    if 'avatar' not in request.files:
+        return jsonify({'detail': 'No file part in the request'}), 400
+
+    file = request.files['avatar']
+    if file.filename == '':
+        return jsonify({'detail': 'No selected file'}), 400
+
+    if file:
+        # Create a secure, unique filename
+        filename = secure_filename(f"{user_id}_{file.filename}")
+        filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+        file.save(filepath)
+
+        # The URL path to be stored in the database and used by the frontend
+        avatar_url = f"/static/avatars/{filename}"
+
+        # Determine which collection to update based on the user's role
+        jwt_payload = get_jwt()
+        user_info = jwt_payload.get("user_info", {})
+        is_admin = user_info.get('role', '').lower() == 'admin'
+        
+        collection_to_update = admin_collection if is_admin else users_collection
+        
+        # Update the user's document
+        collection_to_update.update_one(
+            {'_id': ObjectId(user_id)},
+            {'$set': {'avatarUrl': avatar_url}}
+        )
+
+        # Return the updated user info, including the new avatar URL
+        updated_user_info = {**user_info, "avatarUrl": get_full_avatar_url(avatar_url)}
+
+        return jsonify({'detail': 'Avatar updated successfully', 'user': updated_user_info}), 200
+
+    return jsonify({'detail': 'File upload failed'}), 500
+
 
 # --- Wellness API Endpoints ---
-
 @app.route('/api/wellness/health-records', methods=['GET'])
 @jwt_required(locations=["cookies"])
 def get_health_records():
@@ -482,7 +497,7 @@ def get_health_records():
         app.logger.exception(f"An unexpected error occurred while fetching health records: {e}")
         return jsonify({'detail': 'Internal Server Error'}), 500
 
-
+# --- Update, Add, and Delete Health Records Endpoints ---
 @app.route('/api/wellness/health-records', methods=['POST'])
 @jwt_required(locations=["cookies"])
 def add_health_record():
@@ -523,7 +538,7 @@ def add_health_record():
         app.logger.exception(f"An unexpected error occurred while adding a health record: {e}")
         return jsonify({'detail': 'Internal Server Error'}), 500
 
-
+# health records API endpoint (PUT)
 @app.route('/api/wellness/health-records/<employee_id>', methods=['PUT'])
 @jwt_required(locations=["cookies"])
 def update_health_record(employee_id):
@@ -558,6 +573,7 @@ def update_health_record(employee_id):
         app.logger.exception(f"An unexpected error occurred while updating health record for {employee_id}: {e}")
         return jsonify({'detail': 'Internal Server Error'}), 500
 
+# --- Delete Health Record Endpoint ---
 @app.route('/api/wellness/health-records/<employee_id>', methods=['DELETE'])
 @jwt_required(locations=["cookies"])
 def delete_health_record(employee_id):
@@ -578,6 +594,7 @@ def delete_health_record(employee_id):
         app.logger.exception(f"An unexpected error occurred while deleting health record for {employee_id}: {e}")
         return jsonify({'detail': 'Internal Server Error'}), 500
 
+# --- Admin-Only Endpoint to Fetch All Users ---
 @app.route('/api/users', methods=['GET'])
 @jwt_required(locations=["cookies"])
 def get_all_users():
@@ -599,6 +616,7 @@ def get_all_users():
         app.logger.exception(f"An unexpected error occurred while fetching all users: {e}")
         return jsonify({'detail': 'Internal Server Error'}), 500
 
+# --- Risk Prediction Helper Function ---
 def map_health_record_to_model_input(record):
     normalized = {
         "age": int(record.get("age", 30) or 30),
@@ -626,6 +644,7 @@ def map_health_record_to_model_input(record):
     df = df.reindex(columns=feature_columns, fill_value=0)
     return df
 
+# --- Risk Prediction Endpoint ---
 @app.route('/api/wellness/risks', methods=['GET'])
 @jwt_required(locations=["cookies"])
 def get_risk_predictions():
@@ -717,7 +736,7 @@ def get_risk_predictions():
         app.logger.exception(f"Failed to generate wellness risks: {e}")
         return jsonify({"detail": "Risk prediction failed"}), 500
 
-
+# --- Legacy Risk Prediction Endpoint (for backward compatibility) ---
 @app.route('/api/wellness/risks_old', methods=['GET'])
 @jwt_required(locations=["cookies"])
 def get_wellness_risks_old():
@@ -774,7 +793,6 @@ def get_wellness_risks_old():
     except Exception as e:
         app.logger.exception(f"An unexpected error occurred during risk prediction: {e}")
         return jsonify({'detail': 'Internal Server Error'}), 500
-
 
 # --- Wellness Recommendations Endpoint ---
 @app.route('/api/wellness/recommendations', methods=['GET'])
@@ -890,18 +908,17 @@ def get_recommendations():
         return jsonify({'detail': 'Internal Server Error'}), 500
 
 
-# --- Daily Habits API Endpoints ---
+# --- Daily Habits API Endpoints (GET) ---
 @app.route('/api/wellness/daily-habits/<employee_id>', methods=['GET'])
 @jwt_required(locations=["cookies"])
 def get_daily_habits(employee_id):
     """Fetches a specific user's daily habits record."""
     jwt_payload = get_jwt()
     user_info = jwt_payload.get("user_info")
-    
     # Ensure user can only fetch their own record unless they are an admin
     if user_info.get('role') != 'admin' and user_info.get('employeeId') != employee_id:
         return jsonify({'detail': 'Forbidden: You can only view your own daily habits.'}), 403
-    # Fetch the daily habits record from the database
+
     try:
         habit_record = daily_habits_collection.find_one({'employeeId': employee_id})
         if not habit_record:
@@ -913,7 +930,7 @@ def get_daily_habits(employee_id):
         app.logger.exception(f"An unexpected error occurred while fetching daily habits for {employee_id}: {e}")
         return jsonify({'detail': 'Internal Server Error'}), 500
 
-# --- Daily Habits API Endpoints ---
+# Daily Habits API Endpoints (POST)
 @app.route('/api/wellness/daily-habits', methods=['POST'])
 @jwt_required(locations=["cookies"])
 def add_daily_habit():
@@ -942,7 +959,7 @@ def add_daily_habit():
         app.logger.exception(f"An unexpected error occurred while adding a daily habit record: {e}")
         return jsonify({'detail': 'Internal Server Error'}), 500
 
-# --- Daily Habits API Endpoints ---
+# --- Daily Habit endpoint (PUT) ---
 @app.route('/api/wellness/daily-habits/<employee_id>', methods=['PUT'])
 @jwt_required(locations=["cookies"])
 def update_daily_habit(employee_id):
@@ -974,7 +991,6 @@ def update_daily_habit(employee_id):
 @app.route('/api/wellness/mental-health-logs/<employee_id>', methods=['GET'])
 @jwt_required(locations=["cookies"])
 def get_mental_health_logs(employee_id):
-    
     """Fetches a specific user's mental health logs."""
     jwt_payload = get_jwt()
     user_info = jwt_payload.get("user_info")
@@ -997,7 +1013,7 @@ def get_mental_health_logs(employee_id):
         app.logger.exception(f"An unexpected error occurred while fetching mental health logs for {employee_id}: {e}")
         return jsonify({'detail': 'Internal Server Error'}), 500
 
-# --- Mental Health Logs API Endpoints ---
+# --- Mental Health Logs API Endpoints (POST) ---
 @app.route('/api/wellness/mental-health-logs', methods=['POST'])
 @jwt_required(locations=["cookies"])
 def add_mental_health_log():
@@ -1028,6 +1044,7 @@ def add_mental_health_log():
         app.logger.exception(f"An unexpected error occurred while adding a mental health log: {e}")
         return jsonify({'detail': 'Internal Server Error'}), 500
 
+# mental health logs API endpoint (PUT)
 @app.route('/api/wellness/mental-health-logs/<employee_id>', methods=['PUT'])
 @jwt_required(locations=["cookies"])
 def update_mental_health_log(employee_id):
@@ -1059,6 +1076,7 @@ def update_mental_health_log(employee_id):
         app.logger.exception(f"An unexpected error occurred while updating mental health log for {employee_id}: {e}")
         return jsonify({'detail': 'Internal Server Error'}), 500
 
+# sentiment endpoint
 @app.route('/api/wellness/sentiments', methods=['GET'])
 @jwt_required(locations=["cookies"])
 def get_sentiments():
@@ -1068,99 +1086,122 @@ def get_sentiments():
     if user_info.get('role', '').lower() != 'admin':
         return jsonify({'detail': 'Forbidden: You do not have permission to access this resource.'}), 403
 
-    try:
-        DEPT_SUMMARY_PATH = os.path.join(BASE_DIR, "outputs", "department_stress_summary.csv")
-        FEEDBACK_DATA_PATH = os.path.join(BASE_DIR, "data", "dataset", "employee_feedback.csv")
+    try: 
+        # Aggregation pipeline to calculate stats for each department from MongoDB
+        pipeline = [
+            {
+                '$group': {
+                    '_id': '$department',
+                    'total_feedback': { '$sum': 1 },
+                    'avg_stress_score': { '$avg': '$stressScore' },
+                    'positive_count': {
+                        '$sum': { '$cond': [{ '$eq': ['$sentiment', 'Positive'] }, 1, 0] }
+                    },
+                    'neutral_count': {
+                        '$sum': { '$cond': [{ '$eq': ['$sentiment', 'Neutral'] }, 1, 0] }
+                    },
+                    'negative_count': {
+                        '$sum': { '$cond': [{ '$eq': ['$sentiment', 'Negative'] }, 1, 0] }
+                    }
+                }
+            },
+            {
+                '$project': {
+                    'department': '$_id',
+                    'total_feedback': 1,
+                    'avg_stress_score': { '$round': ['$avg_stress_score', 1] },
+                    'sentimentDistribution': {
+                        'positive': {
+                            '$round': [{ '$multiply': [{ '$divide': ['$positive_count', '$total_feedback'] }, 100] }]
+                        },
+                        'neutral': {
+                            '$round': [{ '$multiply': [{ '$divide': ['$neutral_count', '$total_feedback'] }, 100] }]
+                        },
+                        'negative': {
+                            '$round': [{ '$multiply': [{ '$divide': ['$negative_count', '$total_feedback'] }, 100] }]
+                        }
+                    },
+                    '_id': 0
+                }
+            }
+        ]
+        
+        department_stats = list(sentiment_pulses_collection.aggregate(pipeline))
 
-        if not os.path.exists(DEPT_SUMMARY_PATH) or not os.path.exists(FEEDBACK_DATA_PATH):
-            app.logger.warning("Department summary or feedback CSV not found. Returning empty list.")
-            return jsonify([]), 200
+        # Fetch the 3 most recent non-empty feedback texts for each department
+        key_issues_pipeline = [
+            { '$match': { 'feedbackText': { '$ne': '' } } },
+            { '$sort': { 'createdAt': -1 } },
+            { '$group': {
+                '_id': '$department',
+                'recent_issues': { '$push': '$feedbackText' }
+            }},
+            { '$project': {
+                'department': '$_id',
+                'keyIssues': { '$slice': ['$recent_issues', 3] },
+                '_id': 0
+            }}
+        ]
+        key_issues_data = {item['department']: item['keyIssues'] for item in sentiment_pulses_collection.aggregate(key_issues_pipeline)}
 
-        summary_df = pd.read_csv(DEPT_SUMMARY_PATH)
-        feedback_df = pd.read_csv(FEEDBACK_DATA_PATH)
-
-        # Extract top 3 key issues per department from the raw feedback
-        key_issues = feedback_df[feedback_df['sentiment'] == 'Negative'].groupby('department')['feedback_text'].apply(
-            # Use a lambda to get unique items before slicing
-            lambda x: list(pd.Series(x).unique())[:3]
-        ).to_dict()
-
+        # Combine the aggregated stats with the key issues
         results = []
-        for _, row in summary_df.iterrows():
-            department = row['department']
-            department_feedback = feedback_df[feedback_df['department'] == department]
-
-            # Calculate actual sentiment counts directly from feedback data
-            pos_count = (department_feedback['sentiment'] == 'Positive').sum()
-            neu_count = (department_feedback['sentiment'] == 'Neutral').sum()
-            neg_count = (department_feedback['sentiment'] == 'Negative').sum()
-            total = row['total_feedback']
-
-            # Correctly scale the stress score
-            compound = row['avg_compound_sentiment']
-            stress_score = round(max(1.0, min(10.0, 5.5 - 4.5 * compound)), 1)
-
+        for stats in department_stats:
             results.append({
-                "department": department,
-                "averageStressScore": stress_score,
-                "sentimentDistribution": {
-                    "positive": round((pos_count / total) * 100) if total > 0 else 0,
-                    "neutral": round((neu_count / total) * 100) if total > 0 else 0,
-                    "negative": round((neg_count / total) * 100) if total > 0 else 0,
-                },
-                "keyIssues": key_issues.get(department, ["No specific issues logged"]),
-                "recentFeedbackCount": total
+                "department": stats['department'],
+                "averageStressScore": stats['avg_stress_score'],
+                "sentimentDistribution": stats['sentimentDistribution'],
+                "keyIssues": key_issues_data.get(stats['department'], ["No specific issues logged"]),
+                "recentFeedbackCount": stats['total_feedback']
             })
-
         return jsonify(results), 200
     except Exception as e:
         app.logger.exception(f"An unexpected error occurred while fetching sentiments: {e}")
         return jsonify({'detail': 'Internal Server Error'}), 500
 
+# sentiment-pulse endpoint
 @app.route('/api/wellness/sentiment-pulse', methods=['POST'])
 @jwt_required(locations=["cookies"])
 def add_sentiment_pulse():
     """
-    Receives an anonymized sentiment pulse from a user and updates the
-    centralized feedback and summary files.
+    Receives an anonymized sentiment pulse from a user and stores it
+    in the sentiment_pulses MongoDB collection.
     """
     data = request.get_json()
     if not data or 'department' not in data or 'stressScore' not in data:
         return jsonify({'detail': 'Missing department or stressScore'}), 400
 
     try:
-        department = data['department']
-        stress_score = float(data['stressScore'])
         feedback_text = data.get('feedbackText', '')
+        stress_score = float(data['stressScore'])
 
-        # --- 1. Append to the raw feedback file ---
-        FEEDBACK_DATA_PATH = os.path.join(BASE_DIR, "data", "dataset", "employee_feedback.csv")
-        
-        # Create a simple sentiment label based on the stress score
-        sentiment = 'Neutral'
-        if stress_score >= 7:
-            sentiment = 'Negative'
-        elif stress_score <= 4:
-            sentiment = 'Positive'
+        # Use VADER for sentiment analysis if text is provided, otherwise fallback to stress score
+        if feedback_text and sia:
+            sentiment_scores = sia.polarity_scores(feedback_text)
+            compound_score = sentiment_scores['compound']
+            if compound_score >= 0.05:
+                sentiment = 'Positive'
+            elif compound_score <= -0.05:
+                sentiment = 'Negative'
+            else:
+                sentiment = 'Neutral'
+        else:
+            # Fallback logic based on stress score if no text or VADER is unavailable
+            sentiment = 'Neutral'
+            if stress_score >= 7.0: sentiment = 'Negative'
+            elif stress_score <= 4.0: sentiment = 'Positive'
 
-        # Create a new feedback entry. We use a placeholder for IDs.
-        feedback_count = pd.read_csv(FEEDBACK_DATA_PATH).shape[0]
-        new_feedback = pd.DataFrame([{
-            'feedback_id': f'FB{feedback_count + 1}',
-            'employee_id': 'ANONYMOUS',
-            'department': department,
-            'feedback_date': datetime.now(timezone.utc).strftime('%Y-%m-%d'),
-            'feedback_text': feedback_text,
-            'rating': round(stress_score / 2), # Approximate rating
-            'sentiment': sentiment
-        }])
-        
-        # Append to the CSV without writing the header
-        new_feedback.to_csv(FEEDBACK_DATA_PATH, mode='a', header=False, index=False)
-        
-        # Regenerate the department stress summary so admin dashboards reflect real-time data
-        _regenerate_department_summary()
-        
+        # Create the document to be inserted into MongoDB
+        pulse_doc = {
+            "department": data['department'],
+            "stressScore": stress_score,
+            "feedbackText": feedback_text,
+            "sentiment": sentiment,
+            "createdAt": datetime.now(timezone.utc)
+        }
+
+        sentiment_pulses_collection.insert_one(pulse_doc)
+
         return jsonify({'detail': 'Sentiment pulse recorded successfully.'}), 201
 
     except Exception as e:
