@@ -1122,6 +1122,7 @@ export default function AdminDashboard({ user,
   isProfileModalOpen,
   setIsProfileModalOpen,
   onUpdateAvatar,
+  onUserUpdate,
   onAddHealthRecord,
   onDeleteHealthRecord,
   onUpdateHealthRecord
@@ -1152,7 +1153,9 @@ export default function AdminDashboard({ user,
           isAdmin={true}
           onClose={() => setIsProfileModalOpen(false)}
           onUpdateAvatar={onUpdateAvatar}
-          onUpdated={(updatedUser) => {}}
+          onUpdated={(updatedUser) => {
+            if (updatedUser) onUserUpdate(updatedUser);
+          }}
         />
       )}
       {/* Platform Header */}

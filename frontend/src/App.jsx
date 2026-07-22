@@ -378,6 +378,7 @@ export default function App() {
                     isProfileModalOpen={isProfileModalOpen}
                     setIsProfileModalOpen={setIsProfileModalOpen}
                     onUpdateAvatar={handleUpdateAvatar}
+                    onUserUpdate={setCurrentUser}
                     onDeleteHealthRecord={handleDeleteHealthRecord}
                     onUpdateHealthRecord={handleUpdateUserRecord}
                      />)
@@ -401,6 +402,7 @@ export default function App() {
                     isProfileModalOpen={isProfileModalOpen}
                     setIsProfileModalOpen={setIsProfileModalOpen}
                     onUpdateAvatar={handleUpdateAvatar}
+                    onUserUpdate={setCurrentUser}
                     loading={loadingWellnessData}
                 />)
             )}

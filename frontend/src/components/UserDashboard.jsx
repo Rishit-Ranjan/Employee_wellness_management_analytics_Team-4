@@ -995,6 +995,7 @@ export default function UserDashboard({ user,
   isProfileModalOpen,
   setIsProfileModalOpen,
   onUpdateAvatar
+  onUserUpdate
 }) {
 
   const [activeTab, setActiveTab] = useState(7);
@@ -1062,6 +1063,7 @@ export default function UserDashboard({ user,
           onClose={() => setIsProfileModalOpen(false)}
           onUpdated={(updatedUser) => {
             // This part is handled by onUpdateAvatar, but we can refresh if needed
+            if (updatedUser) onUserUpdate(updatedUser);
             if (updatedUser) {
               localStorage.setItem('wellness_current_user', JSON.stringify(updatedUser));
             }
