@@ -1,11 +1,12 @@
-import React, { useState } from 'react';
-import { X, User, Save, KeyRound, Check, AlertCircle } from 'lucide-react';
+import React, { useState, useRef } from 'react';
+import { X, User, Save, KeyRound, Check, AlertCircle, UploadCloud } from 'lucide-react';
 import { updateProfile, changePassword } from '../services/api';
 
 const DEPARTMENTS = ['Engineering', 'Sales', 'Marketing', 'Product', 'Operations', 'HR', 'Finance', 'Support'];
 
-export default function ProfileEditModal({ user, isAdmin = false, onClose, onUpdated }) {
+export default function ProfileEditModal({ user, isAdmin = false, onClose, onUpdated, onUpdateAvatar }) {
   const [name, setName] = useState(user.name || '');
+  const [phone, setPhone] = useState(user.phone || '');
   const [department, setDepartment] = useState(user.department || 'Engineering');
   const [avatarUrl, setAvatarUrl] = useState(user.avatarUrl || '');
   const [saving, setSaving] = useState(false);
@@ -18,12 +19,32 @@ export default function ProfileEditModal({ user, isAdmin = false, onClose, onUpd
   const [pwError, setPwError] = useState('');
   const [pwSuccess, setPwSuccess] = useState('');
 
+  const [avatarFile, setAvatarFile] = useState(null);
+  const fileInputRef = useRef(null);
+
+  const handleAvatarChange = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      setAvatarFile(file);
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setAvatarUrl(reader.result);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
   const handleSaveProfile = async (e) => {
     e.preventDefault();
     setSaving(true);
     setError('');
     try {
-      const res = await updateProfile({ name, department, avatarUrl });
+      // First, upload avatar if a new one was selected
+      if (avatarFile) {
+        await onUpdateAvatar(avatarFile);
+      }
+      // Then, update the rest of the profile info
+      const res = await updateProfile({ name, department, phone });
       setSuccess('Profile updated.');
       onUpdated?.(res.user);
       setTimeout(() => setSuccess(''), 2500);
@@ -65,15 +86,31 @@ export default function ProfileEditModal({ user, isAdmin = false, onClose, onUpd
             ) : (
               <div className="w-14 h-14 rounded-full bg-slate-100 border border-slate-200 flex items-center justify-center font-bold text-slate-600">{name.substring(0, 2).toUpperCase()}</div>
             )}
-            <div className="flex-1">
-              <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Avatar URL</label>
-              <input value={avatarUrl} onChange={(e) => setAvatarUrl(e.target.value)} placeholder="https://…" className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs" />
-            </div>
+            <button
+              type="button"
+              onClick={() => fileInputRef.current?.click()}
+              className="flex-1 px-4 py-2.5 bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-lg text-xs font-semibold text-slate-600 flex items-center justify-center gap-2 transition-colors"
+            >
+              <UploadCloud className="w-4 h-4" />
+              Upload Image
+            </button>
+            <input
+              type="file"
+              ref={fileInputRef}
+              onChange={handleAvatarChange}
+              className="hidden"
+              accept="image/png, image/jpeg, image/gif"
+            />
           </div>
 
           <div>
             <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Name</label>
             <input value={name} onChange={(e) => setName(e.target.value)} className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs" />
+          </div>
+
+          <div>
+            <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Phone Number</label>
+            <input value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="Your contact number" className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs" />
           </div>
 
           {!isAdmin && (

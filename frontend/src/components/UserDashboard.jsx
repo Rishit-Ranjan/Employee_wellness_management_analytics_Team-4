@@ -1061,6 +1061,7 @@ export default function UserDashboard({ user,
           isAdmin={false}
           onClose={() => setIsProfileModalOpen(false)}
           onUpdated={(updatedUser) => {
+            // This part is handled by onUpdateAvatar, but we can refresh if needed
             if (updatedUser) {
               localStorage.setItem('wellness_current_user', JSON.stringify(updatedUser));
             }

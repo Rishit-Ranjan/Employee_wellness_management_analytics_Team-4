@@ -1151,6 +1151,7 @@ export default function AdminDashboard({ user,
           user={user}
           isAdmin={true}
           onClose={() => setIsProfileModalOpen(false)}
+          onUpdateAvatar={onUpdateAvatar}
           onUpdated={(updatedUser) => {}}
         />
       )}
