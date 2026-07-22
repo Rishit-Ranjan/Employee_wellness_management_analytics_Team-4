@@ -1018,45 +1018,40 @@ export default function UserDashboard({ user,
         </div>
 
         {/* User Info & Actions */}
-        <div className="flex items-center justify-between md:justify-end gap-5">
+        <div className="flex items-center md:justify-end gap-4">
+          <div className="flex items-center gap-3 cursor-pointer group" onClick={() => setIsProfileModalOpen(true)}>
+            <div className="hidden sm:block text-right">
+              <span className="block text-sm font-semibold text-slate-800 leading-tight">{user.name}</span>
+              <span className="block text-[10px] text-slate-400 font-mono mt-0.5">{user.employeeId}</span>
+              <span className="inline-block mt-1 px-2 py-0.5 bg-slate-50 border border-slate-200 text-slate-500 text-[9px] font-mono font-bold rounded uppercase tracking-widest leading-none">
+                Employee
+              </span>
+          </div>
+            {user.avatarUrl ? (
+              <img
+                src={user.avatarUrl}
+                alt={user.name}
+                referrerPolicy="no-referrer"
+                className="w-9 h-9 rounded-full border border-slate-200 shadow-md object-cover"
+              />
+            ) : (
+              <div className="w-9 h-9 rounded-full bg-slate-100 border border-slate-200 flex items-center justify-center font-bold text-sm text-slate-700">
+                {user.name.substring(0, 2).toUpperCase()}
+              </div>
+            )}
+          </div>
+
           <NotificationBell user={user} />
 
-          <div
-            className="flex items-center gap-5 cursor-pointer group"
-            onClick={() => setIsProfileModalOpen(true)}
+          <div className="h-8 w-px bg-slate-200 hidden sm:block" />
+
+          <button
+            onClick={onLogout}
+            className="flex items-center gap-2 px-3.5 py-1.5 bg-slate-50 hover:bg-rose-50 border border-slate-200 hover:border-rose-200 rounded-lg text-xs font-semibold text-slate-500 hover:text-rose-600 transition-all cursor-pointer shadow-sm"
           >
-            <div className="flex items-center gap-3 text-right">
-              <div className="hidden sm:block text-right mr-3">
-                <span className="block text-sm font-semibold text-slate-800 leading-tight">{user.name}</span>
-                <span className="block text-[10px] text-slate-400 font-mono mt-0.5">{user.employeeId}</span>
-                <span className="inline-block mt-1 px-2 py-0.5 bg-slate-50 border border-slate-200 text-slate-500 text-[9px] font-mono font-bold rounded uppercase tracking-widest leading-none">
-                  Employee
-                </span>
-              </div>
-              {user.avatarUrl ? (
-                <img
-                  src={user.avatarUrl}
-                  alt={user.name}
-                  referrerPolicy="no-referrer" 
-                  className="w-9 h-9 rounded-full border border-slate-200 shadow-md object-cover"
-                />
-              ) : (
-                <div className="w-9 h-9 rounded-full bg-slate-100 border border-slate-200 flex items-center justify-center font-bold text-sm text-slate-700">
-                  {user.name.substring(0, 2).toUpperCase()}
-                </div>
-              )}
-            </div>
-
-            <div className="h-8 w-px bg-slate-200 hidden sm:block group-hover:bg-indigo-300 transition-colors" />
-
-            <button
-              onClick={onLogout}
-              className="flex items-center gap-2 px-3.5 py-1.5 bg-slate-50 hover:bg-rose-50 border border-slate-200 hover:border-rose-200 rounded-lg text-xs font-semibold text-slate-500 hover:text-rose-600 transition-all cursor-pointer shadow-sm"
-            >
-              <LogOut className="w-4 h-4" />
-              Logout
-            </button>
-          </div>
+            <LogOut className="w-4 h-4" />
+            Logout
+          </button>
         </div>
       </header>
 
@@ -1270,5 +1265,3 @@ export default function UserDashboard({ user,
     </div>
   );
 }
-
-
