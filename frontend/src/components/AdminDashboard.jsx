@@ -1,7 +1,13 @@
 import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { Trash2, Edit, MoreHorizontal, Activity, TrendingUp, Lightbulb, Smile, BarChart3, LogOut,
-  Search, Plus, X, ShieldAlert, AlertCircle, Check, Sparkles, Dumbbell, Apple, Brain, Clock, UploadCloud
+  Search, Plus, X, ShieldAlert, AlertCircle, Check, Sparkles, Dumbbell, Apple, Brain, Clock, UploadCloud,
+  ShieldCheck, Bell, Siren, Receipt
 } from 'lucide-react';
+import AdminInsuranceModule from './AdminInsuranceModule';
+import AdminNotificationCenter from './AdminNotificationCenter';
+import { AdminCheckupsModule, AdminSosMonitor, AdminExpensesModule } from './AdminExtraModules';
+import NotificationBell from './NotificationBell';
+import ProfileEditModal from './ProfileEditModal';
 
 // ==========================================
 // MODULE 1: EMPLOYEE HEALTH DATA MANAGEMENT
@@ -1141,10 +1147,11 @@ export default function AdminDashboard({ user,
     <div className="min-h-screen bg-slate-50 text-slate-800 flex flex-col font-sans">
       
       {isProfileModalOpen && (
-        <ProfileModal
+        <ProfileEditModal
           user={user}
+          isAdmin={true}
           onClose={() => setIsProfileModalOpen(false)}
-          onUpdateAvatar={onUpdateAvatar}
+          onUpdated={(updatedUser) => {}}
         />
       )}
       {/* Platform Header */}
@@ -1160,41 +1167,44 @@ export default function AdminDashboard({ user,
         </div>
 
         {/* User Info & Actions */}
-        <div
-          className="flex items-center justify-between md:justify-end gap-5 cursor-pointer group"
-          onClick={() => setIsProfileModalOpen(true)}
-        >
-          <div className="flex items-center gap-3 text-right">
-            <div className="hidden sm:block text-right mr-3">
-              <span className="block text-sm font-semibold text-slate-850 leading-tight">{user.name}</span>
-              <span className="block text-[10px] text-slate-400 font-mono mt-0.5">{user.adminId}</span>
-              <span className="inline-block mt-1 px-2 py-0.5 bg-slate-100 border border-slate-200 text-slate-600 text-[9px] font-mono font-bold rounded uppercase tracking-widest leading-none">
-                Administrator
-              </span>
-            </div>
-            {user.avatarUrl ? (
-              <img
-                src={user.avatarUrl}
-                alt={user.name}
-                referrerPolicy="no-referrer"
-                className="w-9 h-9 rounded-full border border-slate-200 shadow-md object-cover"
-              />
-            ) : (
-              <div className="w-9 h-9 rounded-full bg-slate-100 border border-slate-200 flex items-center justify-center font-bold text-sm text-slate-700">
-                {user.name.substring(0, 2).toUpperCase()}
-              </div>
-            )}
-          </div>
-
-          <div className="h-8 w-px bg-slate-200 hidden sm:block group-hover:bg-indigo-300 transition-colors" />
-
-          <button
-            onClick={onLogout}
-            className="flex items-center gap-2 px-3.5 py-1.5 bg-slate-50 hover:bg-red-50 border border-slate-200 hover:border-red-200 rounded-lg text-xs font-semibold text-slate-500 hover:text-red-600 transition-all cursor-pointer"
+        <div className="flex items-center md:justify-end gap-3">
+          <NotificationBell isAdmin={true} />
+          <div
+            className="flex items-center gap-5 cursor-pointer group"
+            onClick={() => setIsProfileModalOpen(true)}
           >
-            <LogOut className="w-4 h-4" />
-            Logout
-          </button>
+            <div className="flex items-center gap-3 text-right">
+              <div className="hidden sm:block text-right mr-3">
+                <span className="block text-sm font-semibold text-slate-850 leading-tight">{user.name}</span>
+                <span className="block text-[10px] text-slate-400 font-mono mt-0.5">{user.adminId}</span>
+                <span className="inline-block mt-1 px-2 py-0.5 bg-slate-100 border border-slate-200 text-slate-600 text-[9px] font-mono font-bold rounded uppercase tracking-widest leading-none">
+                  Administrator
+                </span>
+              </div>
+              {user.avatarUrl ? (
+                <img
+                  src={user.avatarUrl}
+                  alt={user.name}
+                  referrerPolicy="no-referrer"
+                  className="w-9 h-9 rounded-full border border-slate-200 shadow-md object-cover"
+                />
+              ) : (
+                <div className="w-9 h-9 rounded-full bg-slate-100 border border-slate-200 flex items-center justify-center font-bold text-sm text-slate-700">
+                  {user.name.substring(0, 2).toUpperCase()}
+                </div>
+              )}
+            </div>
+
+            <div className="h-8 w-px bg-slate-200 hidden sm:block group-hover:bg-indigo-300 transition-colors" />
+
+            <button
+              onClick={(e) => { e.stopPropagation(); onLogout(); }}
+              className="flex items-center gap-2 px-3.5 py-1.5 bg-slate-50 hover:bg-red-50 border border-slate-200 hover:border-red-200 rounded-lg text-xs font-semibold text-slate-500 hover:text-red-600 transition-all cursor-pointer"
+            >
+              <LogOut className="w-4 h-4" />
+              Logout
+            </button>
+          </div>
         </div>
       </header>
 
@@ -1214,6 +1224,9 @@ export default function AdminDashboard({ user,
               { id: 3, label: 'Personalized Recommender', icon: Lightbulb, desc: 'Fitness, diets, wellness schedules' },
               { id: 4, label: 'Sentiment & Mental Health', icon: Smile, desc: 'Anonymized stress tracker' },
               { id: 5, label: 'Performance Analytics', icon: BarChart3, desc: 'Absenteeism & wellness KPIs' },
+              { id: 6, label: 'Insurance Management', icon: ShieldCheck, desc: 'Policies & claims oversight' },
+              { id: 7, label: 'Notification Center', icon: Bell, desc: 'Send & manage notifications' },
+              { id: 8, label: 'Checkups, SOS & Expenses', icon: Siren, desc: 'Appointments, alerts, claims' },
             ].map((tab) => {
               const Icon = tab.icon;
               const isActive = activeTab === tab.id;
@@ -1259,7 +1272,7 @@ export default function AdminDashboard({ user,
           <div className="mb-8 flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-200 pb-6">
             <div>
               <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 bg-indigo-50 border border-indigo-100 rounded-md text-[10px] font-bold text-indigo-700 uppercase tracking-wide mb-3">
-                {`Module ${activeTab} of 5`}
+                {activeTab <= 5 ? `Core Module ${activeTab} of 5` : `Extension Module ${activeTab}`}
               </div>
               <h1 className="font-display text-3xl font-light text-slate-900 tracking-tight">
                 {activeTab === 1 && 'Employee Health Data Management'}
@@ -1267,6 +1280,9 @@ export default function AdminDashboard({ user,
                 {activeTab === 3 && 'Wellness Recommendation System'}
                 {activeTab === 4 && 'Mental Health & Sentiment Analytics'}
                 {activeTab === 5 && 'Wellness Performance Dashboard & Analytics'}
+                {activeTab === 6 && 'Insurance Management'}
+                {activeTab === 7 && 'Notification Center'}
+                {activeTab === 8 && 'Checkups, SOS & Expenses'}
               </h1>
               <p className="text-slate-500 text-sm mt-2 max-w-2xl font-light">
                 {activeTab === 1 && 'Database logs for tracking key metrics including BMI, medical stats, sleep, and lifestyle routines.'}
@@ -1274,6 +1290,9 @@ export default function AdminDashboard({ user,
                 {activeTab === 3 && 'Tailored, evidence-based fitness routines, diet schedules, and mental wellbeing recommendations.'}
                 {activeTab === 4 && 'NLP-driven departmental stress analytics collected through fully anonymized feedback pulse-checks.'}
                 {activeTab === 5 && 'High-level HR dashboard displaying team participation rates, absenteeism counters, and program efficacy.'}
+                {activeTab === 6 && 'Manage employee insurance policies, claims, and coverage oversight.'}
+                {activeTab === 7 && 'Send broadcast notifications to all employees or specific departments.'}
+                {activeTab === 8 && 'Oversee employee checkup scheduling, SOS alerts, and expense claims.'}
               </p>
             </div>
           </div>
@@ -1305,6 +1324,22 @@ export default function AdminDashboard({ user,
             {activeTab === 5 && (
               <PerformanceDashboard kpis={kpis} records={healthRecords} />
             )}
+
+            {activeTab === 6 && (
+              <AdminInsuranceModule />
+            )}
+
+            {activeTab === 7 && (
+              <AdminNotificationCenter />
+            )}
+
+            {activeTab === 8 && (
+              <div className="space-y-8">
+                <AdminCheckupsModule />
+                <AdminSosMonitor />
+                <AdminExpensesModule />
+              </div>
+            )}
           </div>
         </main>
       </div>
@@ -1312,69 +1347,4 @@ export default function AdminDashboard({ user,
   );
 }
 
-function ProfileModal({ user, onClose, onUpdateAvatar }) {
-  const [file, setFile] = useState(null);
-  const [preview, setPreview] = useState(null);
-  const fileInputRef = useRef(null);
 
-  const handleFileChange = (e) => {
-    const selectedFile = e.target.files[0];
-    if (selectedFile) {
-      setFile(selectedFile);
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setPreview(reader.result);
-      };
-      reader.readAsDataURL(selectedFile);
-    }
-  };
-
-  const handleUpload = () => {
-    if (file) {
-      onUpdateAvatar(file);
-    }
-  };
-
-  return (
-    <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 z-50 animate-fadeIn">
-      <div className="bg-white rounded-2xl border border-slate-200 w-full max-w-md shadow-2xl flex flex-col">
-        <div className="bg-slate-50 border-b border-slate-100 px-6 py-4 flex items-center justify-between">
-          <h3 className="font-display font-semibold text-slate-800">My Profile</h3>
-          <button onClick={onClose} className="text-slate-400 hover:text-slate-600 transition-colors">
-            <X className="w-5 h-5" />
-          </button>
-        </div>
-        <div className="p-6 space-y-6">
-          <div className="flex flex-col items-center gap-4">
-            <div className="relative">
-              <img
-                src={preview || user.avatarUrl || `https://ui-avatars.com/api/?name=${user.name}&background=e2e8f0&color=475569`}
-                alt={user.name}
-                className="w-24 h-24 rounded-full object-cover border-4 border-white shadow-lg"
-              />
-              <button
-                onClick={() => fileInputRef.current.click()}
-                className="absolute -bottom-1 -right-1 bg-indigo-600 hover:bg-indigo-700 text-white p-1.5 rounded-full border-2 border-white shadow-md transition-transform hover:scale-110"
-              >
-                <UploadCloud className="w-4 h-4" />
-              </button>
-              <input
-                type="file"
-                ref={fileInputRef}
-                onChange={handleFileChange}
-                className="hidden"
-                accept="image/png, image/jpeg"
-              />
-            </div>
-            <div className="text-center">
-              <h4 className="font-semibold text-lg text-slate-800">{user.name}</h4>
-              <p className="text-sm text-slate-500">{user.email}</p>
-              <p className="text-xs text-slate-400 font-mono mt-1">{user.employeeId || user.adminId}</p>
-            </div>
-          </div>
-          <button onClick={handleUpload} disabled={!file} className="w-full py-2.5 bg-slate-900 hover:bg-slate-800 text-white rounded-lg text-xs font-bold transition-all shadow-sm disabled:bg-slate-300 disabled:cursor-not-allowed">Save Changes</button>
-        </div>
-      </div>
-    </div>
-  );
-}
