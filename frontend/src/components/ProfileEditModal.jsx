@@ -44,14 +44,17 @@ export default function ProfileEditModal({ user, isAdmin = false, onClose, onUpd
     setSaving(true);
     setError('');
     try {
-      // First, upload avatar if a new one was selected
+      const profileData = { name, department, phone };
+
+      // First, handle avatar changes before updating other profile info
       if (avatarFile) {
         await onUpdateAvatar(avatarFile);
       } else if (avatarUrl === '') {
-        // If URL is empty string, it means user wants to remove it.
-        await updateProfile({ avatarUrl: null });
+        // If avatarUrl is cleared, include this in the update payload
+        profileData.avatarUrl = null;
       }
-      const res = await updateProfile({ name, department, phone }); // Update other fields
+
+      const res = await updateProfile(profileData); // Update other fields
       setSuccess('Profile updated.');
       onUpdated?.(res.user);
       setTimeout(() => setSuccess(''), 2500);
