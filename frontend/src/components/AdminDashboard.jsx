@@ -1346,5 +1346,3 @@ export default function AdminDashboard({ user,
     </div>
   );
 }
-
-
