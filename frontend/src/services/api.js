@@ -321,6 +321,24 @@ export const downloadHealthReportPdf = async (employeeId) => {
   window.URL.revokeObjectURL(url);
 };
 
+// --- AI Wellness Service API ---
+export const sendAiChatMessage = (employeeId, message) => request('/ai/chat', {
+  method: 'POST',
+  body: JSON.stringify({ employeeId, message }),
+});
+
+export const fetchAiInsights = (employeeId) => request(`/ai/insights/${employeeId}`);
+
+export const fetchBurnoutTrend = (department) => {
+  const params = department ? `?department=${encodeURIComponent(department)}` : '';
+  return request(`/ai/burnout-trend${params}`);
+};
+
+export const generateAiRoutine = (employeeId, preferences = {}) => request('/ai/routine', {
+  method: 'POST',
+  body: JSON.stringify({ employeeId, preferences }),
+});
+
 // --- Updated Default Export ---
 export default {
   login, signup, me, logout, forgotPassword, resetPassword,

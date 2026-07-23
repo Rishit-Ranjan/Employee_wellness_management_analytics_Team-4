@@ -1,13 +1,14 @@
 import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { Trash2, Edit, MoreHorizontal, Activity, TrendingUp, Lightbulb, Smile, BarChart3, LogOut,
   Search, Plus, X, ShieldAlert, AlertCircle, Check, Sparkles, Dumbbell, Apple, Brain, Clock, UploadCloud,
-  ShieldCheck, Bell, Siren, Receipt
+  ShieldCheck, Bell, Siren, Receipt, Zap, Target, Users, LineChart
 } from 'lucide-react';
 import AdminInsuranceModule from './AdminInsuranceModule';
 import AdminNotificationCenter from './AdminNotificationCenter';
 import { AdminCheckupsModule, AdminSosMonitor, AdminExpensesModule } from './AdminExtraModules';
 import NotificationBell from './NotificationBell';
 import ProfileEditModal from './ProfileEditModal';
+import { fetchBurnoutTrend } from '../services/api';
 
 // ==========================================
 // MODULE 1: EMPLOYEE HEALTH DATA MANAGEMENT
@@ -1108,6 +1109,255 @@ export function PerformanceDashboard({ kpis, records  }) {
 }
 
 // ==========================================
+// MODULE 9: AI ANALYTICS & BURNOUT TREND
+// ==========================================
+export function AiAnalyticsModule({ healthRecords, risks }) {
+  const [burnoutData, setBurnoutData] = useState(null);
+  const [loadingBurnout, setLoadingBurnout] = useState(false);
+  const [selectedDept, setSelectedDept] = useState('');
+  const [error, setError] = useState('');
+
+  // Derive department wellness predictions from health records
+  const departmentWellness = useMemo(() => {
+    const deptMap = {};
+    healthRecords.forEach(r => {
+      const dept = r.department || 'Unknown';
+      if (!deptMap[dept]) {
+        deptMap[dept] = { total: 0, stressSum: 0, bmiSum: 0, sleepSum: 0, exerciseSum: 0, riskHigh: 0 };
+      }
+      deptMap[dept].total += 1;
+      deptMap[dept].stressSum += (r.stressScore || 5);
+      deptMap[dept].bmiSum += (r.bmi || 24);
+      deptMap[dept].sleepSum += (r.sleepHoursPerNight || 7);
+      deptMap[dept].exerciseSum += (r.exerciseHoursPerWeek || 3);
+      // Check if this employee has a high risk
+      const empRisk = (risks || []).find(risk => risk.employeeId === r.employeeId);
+      if (empRisk && empRisk.riskScore >= 70) {
+        deptMap[dept].riskHigh += 1;
+      }
+    });
+    return Object.entries(deptMap).map(([dept, data]) => ({
+      department: dept,
+      employeeCount: data.total,
+      avgStressScore: Number((data.stressSum / data.total).toFixed(1)),
+      avgBmi: Number((data.bmiSum / data.total).toFixed(1)),
+      avgSleep: Number((data.sleepSum / data.total).toFixed(1)),
+      avgExercise: Number((data.exerciseSum / data.total).toFixed(1)),
+      highRiskCount: data.riskHigh,
+      wellnessScore: Math.round(100 - ((data.stressSum / data.total) * 3 + (data.riskHigh / data.total) * 20))
+    }));
+  }, [healthRecords, risks]);
+
+  // Fetch burnout trend from backend
+  useEffect(() => {
+    const loadBurnout = async () => {
+      setLoadingBurnout(true);
+      setError('');
+      try {
+        const data = await fetchBurnoutTrend(selectedDept || undefined);
+        setBurnoutData(data);
+      } catch (err) {
+        // Fallback: generate from local data
+        setBurnoutData(null);
+        setError('Could not fetch AI burnout trend. Using local data.');
+      } finally {
+        setLoadingBurnout(false);
+      }
+    };
+    loadBurnout();
+  }, [selectedDept]);
+
+  return (
+    <div className="space-y-8">
+      {/* Burnout Trend Visualization */}
+      <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-6 space-y-5">
+        <div className="flex items-center justify-between">
+          <div>
+            <h3 className="font-display font-semibold text-slate-800">AI Burnout Risk Trend</h3>
+            <p className="text-xs text-slate-400 mt-1">Real-time burnout prediction across the organization</p>
+          </div>
+          <select
+            value={selectedDept}
+            onChange={(e) => setSelectedDept(e.target.value)}
+            className="px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs text-slate-800 outline-none cursor-pointer"
+          >
+            <option value="">All Departments</option>
+            <option value="Engineering">Engineering</option>
+            <option value="Sales">Sales</option>
+            <option value="Marketing">Marketing</option>
+            <option value="Product">Product</option>
+            <option value="Operations">Operations</option>
+          </select>
+        </div>
+
+        {loadingBurnout ? (
+          <div className="flex items-center justify-center py-12">
+            <div className="animate-spin w-8 h-8 border-2 border-indigo-500 border-t-transparent rounded-full" />
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+            {/* Burnout probability cards */}
+            <div className="bg-rose-50 border border-rose-200 rounded-xl p-5">
+              <div className="flex items-center justify-between mb-3">
+                <span className="text-[10px] font-bold text-rose-700 uppercase tracking-wider">High Burnout Risk</span>
+                <Zap className="w-4 h-4 text-rose-500" />
+              </div>
+              <div className="text-3xl font-display font-bold text-rose-700">
+                {burnoutData?.highBurnoutCount ?? departmentWellness.reduce((sum, d) => sum + d.highRiskCount, 0)}
+              </div>
+              <div className="text-[10px] text-rose-500 mt-1 font-mono">Employees at critical level</div>
+              <div className="w-full bg-rose-200 h-1.5 rounded-full mt-3 overflow-hidden">
+                <div
+                  className="bg-rose-500 h-full rounded-full"
+                  style={{ width: `${Math.min(100, ((burnoutData?.highBurnoutCount ?? departmentWellness.reduce((sum, d) => sum + d.highRiskCount, 0)) / Math.max(healthRecords.length, 1)) * 100)}%` }}
+                />
+              </div>
+            </div>
+
+            <div className="bg-amber-50 border border-amber-200 rounded-xl p-5">
+              <div className="flex items-center justify-between mb-3">
+                <span className="text-[10px] font-bold text-amber-700 uppercase tracking-wider">Moderate Risk</span>
+                <Target className="w-4 h-4 text-amber-500" />
+              </div>
+              <div className="text-3xl font-display font-bold text-amber-700">
+                {burnoutData?.moderateBurnoutCount ?? risks.filter(r => r.riskScore >= 45 && r.riskScore < 70).length}
+              </div>
+              <div className="text-[10px] text-amber-500 mt-1 font-mono">Needs intervention</div>
+              <div className="w-full bg-amber-200 h-1.5 rounded-full mt-3 overflow-hidden">
+                <div
+                  className="bg-amber-500 h-full rounded-full"
+                  style={{ width: `${Math.min(100, ((burnoutData?.moderateBurnoutCount ?? risks.filter(r => r.riskScore >= 45 && r.riskScore < 70).length) / Math.max(healthRecords.length, 1)) * 100)}%` }}
+                />
+              </div>
+            </div>
+
+            <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-5">
+              <div className="flex items-center justify-between mb-3">
+                <span className="text-[10px] font-bold text-emerald-700 uppercase tracking-wider">Low Risk</span>
+                <Users className="w-4 h-4 text-emerald-500" />
+              </div>
+              <div className="text-3xl font-display font-bold text-emerald-700">
+                {burnoutData?.lowBurnoutCount ?? risks.filter(r => r.riskScore < 45).length}
+              </div>
+              <div className="text-[10px] text-emerald-500 mt-1 font-mono">Healthy baseline</div>
+              <div className="w-full bg-emerald-200 h-1.5 rounded-full mt-3 overflow-hidden">
+                <div
+                  className="bg-emerald-500 h-full rounded-full"
+                  style={{ width: `${Math.min(100, ((burnoutData?.lowBurnoutCount ?? risks.filter(r => r.riskScore < 45).length) / Math.max(healthRecords.length, 1)) * 100)}%` }}
+                />
+              </div>
+            </div>
+          </div>
+        )}
+
+        {error && (
+          <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg text-xs text-amber-700 flex items-center gap-2">
+            <AlertCircle className="w-4 h-4 shrink-0" />
+            <span>{error}</span>
+          </div>
+        )}
+      </div>
+
+      {/* Department Wellness Score Predictions */}
+      <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-6 space-y-5">
+        <div className="flex items-center gap-2">
+          <LineChart className="w-5 h-5 text-indigo-500" />
+          <h3 className="font-display font-semibold text-slate-800">Department Wellness Score Predictions</h3>
+        </div>
+        <p className="text-xs text-slate-400">AI-predicted wellness scores based on aggregated health metrics per department</p>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+          {departmentWellness.length === 0 ? (
+            <div className="col-span-full bg-slate-50 border border-slate-200 rounded-xl p-8 text-center font-mono text-xs text-slate-400">
+              No health records available for prediction.
+            </div>
+          ) : (
+            departmentWellness.map((dept) => (
+              <div key={dept.department} className="bg-slate-50 border border-slate-200 rounded-xl p-5 space-y-4">
+                <div className="flex items-center justify-between">
+                  <h4 className="font-semibold text-slate-800">{dept.department}</h4>
+                  <span className="px-2 py-0.5 bg-white border border-slate-200 rounded text-[9px] font-bold text-slate-500 font-mono">
+                    {dept.employeeCount} employees
+                  </span>
+                </div>
+
+                <div className="space-y-2">
+                  <div className="flex justify-between text-xs">
+                    <span className="text-slate-500">Wellness Score</span>
+                    <span className={`font-bold font-mono ${
+                      dept.wellnessScore >= 70 ? 'text-emerald-600' : dept.wellnessScore >= 50 ? 'text-amber-600' : 'text-red-600'
+                    }`}>{dept.wellnessScore}%</span>
+                  </div>
+                  <div className="w-full bg-slate-200 h-2 rounded-full overflow-hidden">
+                    <div
+                      className={`h-full rounded-full ${
+                        dept.wellnessScore >= 70 ? 'bg-emerald-500' : dept.wellnessScore >= 50 ? 'bg-amber-500' : 'bg-red-500'
+                      }`}
+                      style={{ width: `${dept.wellnessScore}%` }}
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3 text-[10px]">
+                  <div className="bg-white rounded-lg p-2.5 border border-slate-100">
+                    <span className="block text-slate-400 font-mono">Avg Stress</span>
+                    <span className="font-bold text-slate-700">{dept.avgStressScore}/10</span>
+                  </div>
+                  <div className="bg-white rounded-lg p-2.5 border border-slate-100">
+                    <span className="block text-slate-400 font-mono">Avg BMI</span>
+                    <span className="font-bold text-slate-700">{dept.avgBmi}</span>
+                  </div>
+                  <div className="bg-white rounded-lg p-2.5 border border-slate-100">
+                    <span className="block text-slate-400 font-mono">Avg Sleep</span>
+                    <span className="font-bold text-slate-700">{dept.avgSleep}h</span>
+                  </div>
+                  <div className="bg-white rounded-lg p-2.5 border border-slate-100">
+                    <span className="block text-slate-400 font-mono">Avg Exercise</span>
+                    <span className="font-bold text-slate-700">{dept.avgExercise}h/wk</span>
+                  </div>
+                </div>
+
+                {dept.highRiskCount > 0 && (
+                  <div className="p-2.5 bg-red-50 border border-red-100 rounded-lg flex items-center gap-2">
+                    <ShieldAlert className="w-3.5 h-3.5 text-red-500 shrink-0" />
+                    <span className="text-[10px] text-red-700 font-medium">{dept.highRiskCount} employee(s) at high risk</span>
+                  </div>
+                )}
+              </div>
+            ))
+          )}
+        </div>
+      </div>
+
+      {/* AI-Generated Wellness Report Summary */}
+      <div className="bg-gradient-to-r from-indigo-50 to-purple-50 border border-indigo-100 rounded-xl p-6 space-y-3">
+        <div className="flex items-center gap-2">
+          <Sparkles className="w-5 h-5 text-indigo-600" />
+          <h3 className="font-display font-semibold text-indigo-900">AI Wellness Report Summary</h3>
+        </div>
+        <p className="text-sm text-indigo-700 leading-relaxed font-light">
+          Based on current health records and risk predictions, the organization shows {
+            departmentWellness.reduce((sum, d) => sum + d.wellnessScore, 0) / Math.max(departmentWellness.length, 1) >= 70
+              ? 'strong overall wellness with low burnout indicators.'
+              : departmentWellness.reduce((sum, d) => sum + d.wellnessScore, 0) / Math.max(departmentWellness.length, 1) >= 50
+              ? 'moderate wellness levels — targeted interventions recommended for high-stress departments.'
+              : 'elevated risk levels — immediate wellness program interventions are strongly advised.'
+          } {
+            departmentWellness.filter(d => d.highRiskCount > 0).length > 0
+              ? `${departmentWellness.filter(d => d.highRiskCount > 0).length} department(s) have employees requiring urgent attention.`
+              : 'All departments maintain healthy risk profiles.'
+          }
+        </p>
+        <div className="flex items-center gap-2 text-[10px] text-indigo-500 font-mono">
+          <Check className="w-3 h-3" />
+          <span>AI-generated report based on {healthRecords.length} health records across {departmentWellness.length} departments</span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ==========================================
 // CORE COMPONENT: ADMIN DASHBOARD
 // ==========================================
 export default function AdminDashboard({ user,
@@ -1227,6 +1477,7 @@ export default function AdminDashboard({ user,
               { id: 6, label: 'Insurance Management', icon: ShieldCheck, desc: 'Policies & claims oversight' },
               { id: 7, label: 'Notification Center', icon: Bell, desc: 'Send & manage notifications' },
               { id: 8, label: 'Checkups, SOS & Expenses', icon: Siren, desc: 'Appointments, alerts, claims' },
+              { id: 9, label: 'AI Analytics', icon: Zap, desc: 'Burnout trends & wellness predictions' },
             ].map((tab) => {
               const Icon = tab.icon;
               const isActive = activeTab === tab.id;
@@ -1283,6 +1534,7 @@ export default function AdminDashboard({ user,
                 {activeTab === 6 && 'Insurance Management'}
                 {activeTab === 7 && 'Notification Center'}
                 {activeTab === 8 && 'Checkups, SOS & Expenses'}
+                {activeTab === 9 && 'AI Analytics & Burnout Trend'}
               </h1>
               <p className="text-slate-500 text-sm mt-2 max-w-2xl font-light">
                 {activeTab === 1 && 'Database logs for tracking key metrics including BMI, medical stats, sleep, and lifestyle routines.'}
@@ -1293,6 +1545,7 @@ export default function AdminDashboard({ user,
                 {activeTab === 6 && 'Manage employee insurance policies, claims, and coverage oversight.'}
                 {activeTab === 7 && 'Send broadcast notifications to all employees or specific departments.'}
                 {activeTab === 8 && 'Oversee employee checkup scheduling, SOS alerts, and expense claims.'}
+                {activeTab === 9 && 'AI-driven burnout risk trends, department wellness score predictions, and automated wellness report summaries.'}
               </p>
             </div>
           </div>
@@ -1339,6 +1592,10 @@ export default function AdminDashboard({ user,
                 <AdminSosMonitor />
                 <AdminExpensesModule />
               </div>
+            )}
+
+            {activeTab === 9 && (
+              <AiAnalyticsModule healthRecords={healthRecords} risks={risks} />
             )}
           </div>
         </main>
