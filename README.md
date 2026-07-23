@@ -25,6 +25,10 @@ EMAIL_FROM=employee-wellness-analytics@gmail.com
 JWT_SCECRET_KEY=your_jwt_secret_key
 
 FRONTEND_ORIGIN=http://localhost:5173
+
+OPENAI_API_KEY=your_openai_api_key
+
+GEMINI_API_KEY=your_gemini_api_key
 ```
 
 Then create a virtual environment in the project root using the command:
