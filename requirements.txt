@@ -18,3 +18,4 @@ nltk
 cloudpickle
 reportlab
 openai
+google-generativeai
