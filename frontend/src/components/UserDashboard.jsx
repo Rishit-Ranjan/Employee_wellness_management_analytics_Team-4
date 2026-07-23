@@ -3,7 +3,7 @@ import {
   User, Lightbulb, Bot, X, LogOut, UploadCloud,
   Dumbbell, Apple, Brain, Clock, HeartPulse, Sparkles, Check, ShieldAlert, AlertCircle, Smile, Send,
   CalendarCheck, Siren, Receipt, ShieldCheck, Target, FileDown, Utensils, Bell,
-  Mic, MicOff, Volume2, Sun, Moon, Activity
+  Mic, MicOff, Volume2, Sun, Moon, Activity, Trash2
 } from 'lucide-react';
 import ProfileEditModal from './ProfileEditModal';
 import { CheckupSchedulerModule, EmergencySOSModule, ExpenseTrackerModule } from './ExtraWellnessModules';
@@ -240,6 +240,13 @@ export function ChatbotModule({ user, isFloating = false  }) {
     handleSendWithText(inputText);
   };
 
+  const handleClearChat = () => {
+    const greeting = `Hello ${user.name}! I am your AI Wellness Chatbot Assistant. Ask me anything about exercise schedules, diet rules, stress management, or how to reduce workplace burnout!`;
+    setMessages([
+      { id: '1', sender: 'bot', text: greeting, timestamp: '22:56' }
+    ]);
+  };
+
   const handleVoiceCommand = (command) => {
     // Quick voice command actions
     const cmd = command.toLowerCase();
@@ -296,6 +303,16 @@ export function ChatbotModule({ user, isFloating = false  }) {
             {cmd}
           </button>
         ))}
+        <div className="ml-auto flex items-center gap-1">
+          <button
+            onClick={handleClearChat}
+            title="Clear chat history"
+            className="px-2 py-0.5 bg-white border border-slate-200 rounded text-[9px] text-slate-400 hover:text-red-500 hover:border-red-200 transition-colors cursor-pointer flex items-center gap-1"
+          >
+            <Trash2 className="w-3 h-3" />
+            Clear
+          </button>
+        </div>
       </div>
 
       {/* Messages viewport */}
