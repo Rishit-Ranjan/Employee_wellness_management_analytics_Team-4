@@ -655,7 +655,7 @@ export default function UserDashboard({
             </div>
             <div className="hidden sm:block">
               <span className="font-display font-bold text-base tracking-tight block text-slate-900 dark:text-slate-50 leading-none">
-                Wellness Pulse
+                Employee Wellness Management Analytics
               </span>
               <span className="text-[10px] text-slate-400 dark:text-slate-400 font-mono uppercase tracking-widest font-semibold mt-1 block">
                 Healthcare Analytics Platform
