@@ -222,30 +222,14 @@ export function ChatbotModule({ user, isFloating = false  }) {
       setMessages(prev => [...prev, botMsg]);
       speakText(reply);
     } catch (err) {
-      console.warn('AI Chat failed, using fallback:', err);
-      // Fallback to simulated responses if backend is unavailable
-      let reply = "That is a great wellness inquiry! Implementing consistent 7-8 hour sleep schedules and introducing low-GI meals is scientifically proven to reduce cardiovascular risks.";
-
-      const query = text.toLowerCase();
-      if (query.includes('sleep') || query.includes('tired') || query.includes('rest')) {
-        reply = "Getting under 6 hours of sleep dramatically spikes blood pressure and fatigue. I highly recommend our 'Digital Sabbatical Routine' — turning off all work communications precisely 1 hour before sleeping to stimulate natural melatonin production.";
-      } else if (query.includes('stress') || query.includes('burnout') || query.includes('anxiety')) {
-        reply = "High stress compromises decision-making and leads to workplace burnout. You should allocate 10 minutes every morning at 9:00 AM for our 'Diaphragmatic Breathing Program' to regulate stress triggers instantly.";
-      } else if (query.includes('diet') || query.includes('food') || query.includes('eat')) {
-        reply = "Optimizing nutrition stabilizes your workplace energy indexes! A strong recommendation is adopting a low-glycemic dietary fuel schedule, packing meals with high protein and healthy fats to prevent blood glucose crashes.";
-      } else if (query.includes('exercise') || query.includes('workout') || query.includes('fit')) {
-        reply = "Even 1.5 hours of physical activity per week makes a massive difference. Try incorporating 3 zone-2 cardio elliptical or brisk walking sessions per week, which lowers systolic pressure efficiently.";
-      }
-
+      console.error('AI Chat failed:', err);
       const botMsg = {
         id: `bot-${Date.now()}`,
         sender: 'bot',
-        text: reply,
+        text: "I'm sorry, I'm having trouble connecting to the wellness service right now. Please try again in a moment.",
         timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
       };
-
       setMessages(prev => [...prev, botMsg]);
-      speakText(reply);
     } finally {
       setIsTyping(false);
     }
@@ -1144,17 +1128,9 @@ export function WellnessCoachDashboard({ user, healthRecords = [] }) {
         const data = await fetchAiInsights(user.employeeId);
         setInsights(data);
       } catch (err) {
-        console.warn('Failed to fetch AI insights:', err);
-        // Fallback insights
-        setInsights({
-          sleepScore: 72,
-          stressIndex: 45,
-          activityLevel: 'Moderate',
-          nutritionQuality: 'Good',
-          mentalWellness: 'Fair',
-          dailyTip: 'Try a 10-minute morning meditation to center your focus for the day ahead.',
-          weeklyGoal: 'Increase step count by 2,000 steps daily'
-        });
+        console.error('Failed to fetch AI insights:', err);
+        // Insights remain null — UI will show fallback static text
+        setInsights(null);
       } finally {
         setLoadingInsights(false);
       }
@@ -1170,14 +1146,9 @@ export function WellnessCoachDashboard({ user, healthRecords = [] }) {
       const data = await generateAiRoutine(user.employeeId);
       setRoutine(data);
     } catch (err) {
-      console.warn('Failed to generate AI routine:', err);
-      // Fallback routine
-      setRoutine({
-        morning: ['Wake up at 6:30 AM', '15 min stretching', 'Hydrate with 2 glasses of water', 'Light breakfast with protein'],
-        afternoon: ['30 min brisk walk', 'Healthy lunch with vegetables', '5 min breathing exercise', 'Post-lunch walk'],
-        evening: ['20 min workout or yoga', 'Dinner before 8 PM', '10 min meditation', 'Screen-free 30 min before bed'],
-        tips: ['Maintain consistent sleep schedule', 'Stay hydrated throughout the day', 'Take short breaks every 90 minutes']
-      });
+      console.error('Failed to generate AI routine:', err);
+      // Routine remains null — UI will show the empty state prompt
+      setRoutine(null);
     } finally {
       setLoadingRoutine(false);
     }
@@ -1193,8 +1164,8 @@ export function WellnessCoachDashboard({ user, healthRecords = [] }) {
       const data = await sendAiChatMessage(user.employeeId, coachMessage);
       setCoachResponse(data.reply || data.message || 'Thank you for your question! Based on your health profile, I recommend maintaining a balanced routine with adequate sleep and regular exercise.');
     } catch (err) {
-      console.warn('AI Coach query failed:', err);
-      setCoachResponse('Thank you for reaching out! Based on your wellness data, I recommend focusing on consistent sleep schedules and incorporating short mindfulness breaks throughout your workday.');
+      console.error('AI Coach query failed:', err);
+      setCoachResponse("I'm sorry, I'm having trouble connecting to the wellness service. Please try again in a moment.");
     } finally {
       setCoachLoading(false);
     }
