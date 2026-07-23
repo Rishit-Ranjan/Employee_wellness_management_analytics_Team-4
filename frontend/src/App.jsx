@@ -70,6 +70,18 @@ export default function App() {
         setScreen('login');
     }, []); // No dependencies, as it only uses setters and localStorage
 
+    // Initialize theme on app mount
+    useEffect(() => {
+        const savedTheme = localStorage.getItem('wellness_theme');
+        if (savedTheme === 'dark' || (!savedTheme && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+            document.documentElement.classList.add('dark');
+            document.body.classList.add('dark');
+        } else {
+            document.documentElement.classList.remove('dark');
+            document.body.classList.remove('dark');
+        }
+    }, []);
+
     // Check if a user is already logged in from a previous session and verify with backend
     useEffect(() => {
         const checkSession = async () => {
