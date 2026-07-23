@@ -129,7 +129,7 @@ class AIWellnessService:
     
     def _get_context_from_db(self, employee_id: str) -> Dict[str, Any]:
         """Fetch user's health context from database."""
-        if not self.db:
+        if self.db is None:
             return {}
         
         context = {}
@@ -371,7 +371,7 @@ What would you like to explore today? I'm here to support your wellness journey!
     
     def generate_daily_insights(self, employee_id: str) -> Dict[str, Any]:
         """Generate personalized daily wellness insights for an employee."""
-        if not self.db:
+        if self.db is None:
             return self._generate_default_insights()
         
         context = self._get_context_from_db(employee_id)
@@ -492,7 +492,7 @@ What would you like to explore today? I'm here to support your wellness journey!
     
     def analyze_burnout_trend(self, department: str = None) -> Dict[str, Any]:
         """Analyze burnout risk trends across employees or departments."""
-        if not self.db:
+        if self.db is None:
             return {'trend': 'stable', 'risk_level': 'low', 'message': 'Insufficient data for analysis.'}
         
         try:
