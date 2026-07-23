@@ -104,6 +104,7 @@ export function ChatbotModule({ user, isFloating = false  }) {
   const [isTyping, setIsTyping] = useState(false);
   const [isListening, setIsListening] = useState(false);
   const [isSpeechEnabled, setIsSpeechEnabled] = useState(true);
+  const [isVoiceInput, setIsVoiceInput] = useState(false);
   const scrollRef = useRef(null);
   const recognitionRef = useRef(null);
   const speechSynthRef = useRef(window.speechSynthesis);
@@ -121,6 +122,7 @@ export function ChatbotModule({ user, isFloating = false  }) {
         const transcript = event.results[0][0].transcript;
         setInputText(transcript);
         setIsListening(false);
+        setIsVoiceInput(true);
         // Auto-send after voice input
         setTimeout(() => {
           handleSendWithText(transcript);
@@ -220,7 +222,10 @@ export function ChatbotModule({ user, isFloating = false  }) {
       };
 
       setMessages(prev => [...prev, botMsg]);
-      speakText(reply);
+      // Only speak the reply if the input came from voice
+      if (isVoiceInput) {
+        speakText(reply);
+      }
     } catch (err) {
       console.error('AI Chat failed:', err);
       const botMsg = {
@@ -232,11 +237,13 @@ export function ChatbotModule({ user, isFloating = false  }) {
       setMessages(prev => [...prev, botMsg]);
     } finally {
       setIsTyping(false);
+      setIsVoiceInput(false);
     }
   };
 
   const handleSendMessage = (e) => {
     e.preventDefault();
+    setIsVoiceInput(false);
     handleSendWithText(inputText);
   };
 

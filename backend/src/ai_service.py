@@ -25,7 +25,7 @@ except ImportError:
 
 # Optional: Google Gemini integration
 try:
-    import google.generativeai as genai
+    import google.genai as genai
     GEMINI_AVAILABLE = True
 except ImportError:
     GEMINI_AVAILABLE = False
