@@ -658,7 +658,7 @@ export default function UserDashboard({
                 Employee Wellness Management Analytics
               </span>
               <span className="text-[10px] text-slate-400 dark:text-slate-400 font-mono uppercase tracking-widest font-semibold mt-1 block">
-                Healthcare Analytics Platform
+                Wellness Intelligence & AI Insights
               </span>
             </div>
           </div>
