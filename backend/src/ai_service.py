@@ -50,7 +50,7 @@ class AIWellnessService:
         if self.llm_provider == 'gemini' and self.gemini_api_key and GEMINI_AVAILABLE:
             try:
                 genai.configure(api_key=self.gemini_api_key)
-                self.gemini_model = genai.GenerativeModel('gemini-2.0-flash')
+                self.gemini_model = genai.GenerativeModel('gemini-1.5-flash')
             except Exception as e:
                 print(f"Gemini initialization error: {e}")
                 self.gemini_model = None
@@ -110,6 +110,7 @@ class AIWellnessService:
             'bp': ['blood pressure', 'bp', 'hypertension', 'heart', 'cardio'],
             'bmi': ['bmi', 'weight', 'obese', 'overweight', 'fat'],
             'routine': ['routine', 'schedule', 'plan', 'daily', 'habit'],
+            'greeting': ['hi', 'hello', 'hey', 'greetings', 'good morning', 'good evening'],
         }
     
     def _detect_intent(self, message: str) -> str:
@@ -244,6 +245,10 @@ Use emojis sparingly but effectively to make the response engaging."""
         """Generate rule-based response when LLM is not available."""
         
         responses = {
+            'greeting': """Hello! 👋 How are you feeling today? 
+
+I'm your AI Wellness Coach. Let me know if you'd like to check in on your sleep, stress, fitness, or nutrition goals!""",
+
             'sleep': """I noticed you're asking about sleep! Here's what works:
 
 1️⃣ Stick to a consistent schedule - same bedtime & wake time
