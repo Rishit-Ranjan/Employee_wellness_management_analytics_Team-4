@@ -213,7 +213,7 @@ export function ChatbotModule({ user, isFloating = false }) {
 
     try {
       const data = await sendAiChatMessage(user.employeeId, text.trim());
-      const botText = data.reply || data.message || "I'm here to support your health & wellness journey.";
+      const botText = data.response || data.reply || data.message || "I'm here to support your health & wellness journey.";
 
       const botMsg = {
         id: (Date.now() + 1).toString(),
@@ -377,7 +377,7 @@ export function WellnessCoachDashboard({ user, healthRecords = [] }) {
     setCoachResponse('');
     try {
       const data = await sendAiChatMessage(user.employeeId, coachMessage);
-      setCoachResponse(data.reply || data.message || 'Based on your health profile, I recommend maintaining a balanced routine with adequate sleep and regular exercise.');
+setCoachResponse(data.response || data.reply || data.message || 'Based on your health profile, I recommend maintaining a balanced routine with adequate sleep and regular exercise.');
     } catch (err) {
       console.error('AI Coach query failed:', err);
       setCoachResponse("I'm having trouble connecting to the wellness service. Please try again shortly.");
@@ -658,7 +658,7 @@ export default function UserDashboard({
                 Employee Wellness Management Analytics
               </span>
               <span className="text-[10px] text-slate-400 dark:text-slate-400 font-mono uppercase tracking-widest font-semibold mt-1 block">
-                Wellness Intelligence & AI Insights
+                Wellness Intelligence
               </span>
             </div>
           </div>
