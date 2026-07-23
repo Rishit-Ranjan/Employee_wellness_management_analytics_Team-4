@@ -1,8 +1,9 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
   User, Lightbulb, Bot, X, LogOut, UploadCloud,
   Dumbbell, Apple, Brain, Clock, HeartPulse, Sparkles, Check, ShieldAlert, AlertCircle, Smile, Send,
-  CalendarCheck, Siren, Receipt, ShieldCheck, Target, FileDown, Utensils, Bell
+  CalendarCheck, Siren, Receipt, ShieldCheck, Target, FileDown, Utensils, Bell,
+  Mic, MicOff, Volume2, Sun, Moon, Activity, Trash2
 } from 'lucide-react';
 import ProfileEditModal from './ProfileEditModal';
 import { CheckupSchedulerModule, EmergencySOSModule, ExpenseTrackerModule } from './ExtraWellnessModules';
@@ -11,6 +12,7 @@ import DietPlanModule from './DietPlanModule';
 import GoalsModule from './GoalsModule';
 import ReportsModule from './ReportsModule';
 import NotificationBell from './NotificationBell';
+import { sendAiChatMessage, fetchAiInsights, generateAiRoutine } from '../services/api';
 
 
 // ==========================================
@@ -100,11 +102,72 @@ export function ChatbotModule({ user, isFloating = false  }) {
   const [messages, setMessages] = useState([]);
   const [inputText, setInputText] = useState('');
   const [isTyping, setIsTyping] = useState(false);
+  const [isListening, setIsListening] = useState(false);
+  const [isSpeechEnabled, setIsSpeechEnabled] = useState(true);
+  const [isVoiceInput, setIsVoiceInput] = useState(false);
   const scrollRef = useRef(null);
+  const recognitionRef = useRef(null);
+  const speechSynthRef = useRef(window.speechSynthesis);
 
+  // Initialize Speech Recognition
   useEffect(() => {
+    if (typeof window !== 'undefined' && ('SpeechRecognition' in window || 'webkitSpeechRecognition' in window)) {
+      const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+      recognitionRef.current = new SpeechRecognition();
+      recognitionRef.current.continuous = false;
+      recognitionRef.current.interimResults = false;
+      recognitionRef.current.lang = 'en-US';
+
+      recognitionRef.current.onresult = (event) => {
+        const transcript = event.results[0][0].transcript;
+        setInputText(transcript);
+        setIsListening(false);
+        setIsVoiceInput(true);
+        // Auto-send after voice input
+        setTimeout(() => {
+          handleSendWithText(transcript);
+        }, 300);
+      };
+
+      recognitionRef.current.onerror = (event) => {
+        console.warn('Speech recognition error:', event.error);
+        setIsListening(false);
+      };
+
+      recognitionRef.current.onend = () => {
+        setIsListening(false);
+      };
+    }
+    return () => {
+      if (recognitionRef.current) {
+        recognitionRef.current.abort();
+      }
+      if (speechSynthRef.current) {
+        speechSynthRef.current.cancel();
+      }
+    };
+  }, []);
+
+  // Speak helper using TTS
+  const speakText = useCallback((text) => {
+    if (!isSpeechEnabled || !speechSynthRef.current) return;
+    speechSynthRef.current.cancel();
+    const utterance = new SpeechSynthesisUtterance(text);
+    utterance.rate = 1.0;
+    utterance.pitch = 1.0;
+    utterance.volume = 1.0;
+    // Pick a female voice if available
+    const voices = speechSynthRef.current.getVoices();
+    const femaleVoice = voices.find(v => v.name.includes('Female') || v.name.includes('Zira'));
+    if (femaleVoice) utterance.voice = femaleVoice;
+    speechSynthRef.current.speak(utterance);
+  }, [isSpeechEnabled]);
+
+  // Initialize greeting
+  useEffect(() => {
+    const greeting = `Hello ${user.name}! I am your AI Wellness Chatbot Assistant. Ask me anything about exercise schedules, diet rules, stress management, or how to reduce workplace burnout!`;
     setMessages([
-      { id: '1', sender: 'bot', text: `Hello ${user.name}! I am your AI Wellness Chatbot Assistant. Ask me anything about exercise schedules, diet rules, stress management, or how to reduce workplace burnout!`, timestamp: '22:56' }
+      { id: '1', sender: 'bot', text: greeting, timestamp: '22:56' }
     ]);
   }, [user]);
 
@@ -112,14 +175,33 @@ export function ChatbotModule({ user, isFloating = false  }) {
     scrollRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages, isTyping]);
 
-  const handleSendMessage = (e) => {
-    e.preventDefault();
-    if (!inputText.trim()) return;
+  // Toggle listening
+  const toggleListening = () => {
+    if (!recognitionRef.current) {
+      alert('Speech recognition is not supported in your browser. Please use Chrome, Edge, or Safari.');
+      return;
+    }
+    if (isListening) {
+      recognitionRef.current.stop();
+      setIsListening(false);
+    } else {
+      try {
+        recognitionRef.current.start();
+        setIsListening(true);
+      } catch (err) {
+        console.warn('Speech recognition failed:', err);
+        setIsListening(false);
+      }
+    }
+  };
+
+  const handleSendWithText = async (text) => {
+    if (!text.trim()) return;
 
     const userMsg = {
       id: `user-${Date.now()}`,
       sender: 'user',
-      text: inputText,
+      text: text,
       timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
     };
 
@@ -127,20 +209,10 @@ export function ChatbotModule({ user, isFloating = false  }) {
     setInputText('');
     setIsTyping(true);
 
-    // Simulate AI wellness reasoning answering
-    setTimeout(() => {
-      let reply = "That is a great wellness inquiry! Implementing consistent 7-8 hour sleep schedules and introducing low-GI meals is scientifically proven to reduce cardiovascular risks and increase mental agility by up to 20% in high-pressure workplaces.";
-
-      const query = inputText.toLowerCase();
-      if (query.includes('sleep') || query.includes('tired') || query.includes('rest')) {
-        reply = "Getting under 6 hours of sleep dramatically spikes blood pressure and fatigue. I highly recommend our 'Digital Sabbatical Routine' — turning off all work communications precisely 1 hour before sleeping to stimulate natural melatonin production.";
-      } else if (query.includes('stress') || query.includes('burnout') || query.includes('anxiety')) {
-        reply = "High stress compromises decision-making and leads to workplace burnout. You should allocate 10 minutes every morning at 9:00 AM for our 'Diaphragmatic Breathing Program' to regulate stress triggers instantly.";
-      } else if (query.includes('diet') || query.includes('food') || query.includes('eat')) {
-        reply = "Optimizing nutrition stabilizes your workplace energy indexes! A strong recommendation is adopting a low-glycemic dietary fuel schedule, packing meals with high protein and healthy fats to prevent blood glucose crashes.";
-      } else if (query.includes('exercise') || query.includes('workout') || query.includes('fit')) {
-        reply = "Even 1.5 hours of physical activity per week makes a massive difference. Try incorporating 3 zone-2 cardio elliptical or brisk walking sessions per week, which lowers systolic pressure efficiently.";
-      }
+    try {
+      // Call the real backend AI endpoint
+      const response = await sendAiChatMessage(user.employeeId, text);
+      const reply = response.reply || response.message || "I'm here to help with your wellness journey! Please try asking about sleep, stress, diet, or exercise.";
 
       const botMsg = {
         id: `bot-${Date.now()}`,
@@ -150,8 +222,50 @@ export function ChatbotModule({ user, isFloating = false  }) {
       };
 
       setMessages(prev => [...prev, botMsg]);
+      // Only speak the reply if the input came from voice
+      if (isVoiceInput) {
+        speakText(reply);
+      }
+    } catch (err) {
+      console.error('AI Chat failed:', err);
+      const botMsg = {
+        id: `bot-${Date.now()}`,
+        sender: 'bot',
+        text: "I'm sorry, I'm having trouble connecting to the wellness service right now. Please try again in a moment.",
+        timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+      };
+      setMessages(prev => [...prev, botMsg]);
+    } finally {
       setIsTyping(false);
-    }, 1200);
+      setIsVoiceInput(false);
+    }
+  };
+
+  const handleSendMessage = (e) => {
+    e.preventDefault();
+    setIsVoiceInput(false);
+    handleSendWithText(inputText);
+  };
+
+  const handleClearChat = () => {
+    const greeting = `Hello ${user.name}! I am your AI Wellness Chatbot Assistant. Ask me anything about exercise schedules, diet rules, stress management, or how to reduce workplace burnout!`;
+    setMessages([
+      { id: '1', sender: 'bot', text: greeting, timestamp: '22:56' }
+    ]);
+  };
+
+  const handleVoiceCommand = (command) => {
+    // Quick voice command actions
+    const cmd = command.toLowerCase();
+    if (cmd.includes('sleep') || cmd.includes('tired')) {
+      setInputText('Tell me about improving my sleep schedule');
+    } else if (cmd.includes('stress') || cmd.includes('anxiety')) {
+      setInputText('How can I manage workplace stress?');
+    } else if (cmd.includes('diet') || cmd.includes('food')) {
+      setInputText('What diet plan do you recommend?');
+    } else if (cmd.includes('exercise') || cmd.includes('fitness')) {
+      setInputText('Suggest an exercise routine');
+    }
   };
 
   return (
@@ -172,8 +286,41 @@ export function ChatbotModule({ user, isFloating = false  }) {
               <div className="text-[10px] text-slate-400 font-mono">Continuous Learning Active</div>
             </div>
           </div>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setIsSpeechEnabled(!isSpeechEnabled)}
+              title={isSpeechEnabled ? 'Mute voice' : 'Enable voice'}
+              className={`p-1.5 rounded-md transition-colors ${isSpeechEnabled ? 'bg-emerald-50 text-emerald-600' : 'bg-slate-100 text-slate-400'}`}
+            >
+              {isSpeechEnabled ? <Volume2 className="w-3.5 h-3.5" /> : <Volume2 className="w-3.5 h-3.5 opacity-40" />}
+            </button>
+          </div>
         </div>
       )}
+
+      {/* Quick Voice Commands */}
+      <div className="px-4 pt-3 pb-1 flex flex-wrap gap-1.5 bg-slate-50 border-b border-slate-100">
+        <span className="text-[8px] text-slate-400 font-mono mr-1 self-center">Quick:</span>
+        {['Sleep', 'Stress', 'Diet', 'Exercise'].map(cmd => (
+          <button
+            key={cmd}
+            onClick={() => handleVoiceCommand(cmd)}
+            className="px-2 py-0.5 bg-white border border-slate-200 rounded text-[9px] text-slate-500 hover:text-indigo-600 hover:border-indigo-200 transition-colors cursor-pointer"
+          >
+            {cmd}
+          </button>
+        ))}
+        <div className="ml-auto flex items-center gap-1">
+          <button
+            onClick={handleClearChat}
+            title="Clear chat history"
+            className="px-2 py-0.5 bg-white border border-slate-200 rounded text-[9px] text-slate-400 hover:text-red-500 hover:border-red-200 transition-colors cursor-pointer flex items-center gap-1"
+          >
+            <Trash2 className="w-3 h-3" />
+            Clear
+          </button>
+        </div>
+      </div>
 
       {/* Messages viewport */}
       <div className="flex-1 p-5 overflow-y-auto space-y-4 bg-slate-50">
@@ -222,8 +369,20 @@ export function ChatbotModule({ user, isFloating = false  }) {
         <div ref={scrollRef} />
       </div>
 
-      {/* Input Form field */}
+      {/* Input Form field with Voice button */}
       <form onSubmit={handleSendMessage} className="p-4 border-t border-slate-200 flex gap-2.5 bg-white shrink-0">
+        <button
+          type="button"
+          onClick={toggleListening}
+          title={isListening ? 'Stop listening' : 'Start voice input'}
+          className={`px-3 py-2.5 rounded-lg flex items-center justify-center transition-all cursor-pointer ${
+            isListening
+              ? 'bg-red-500 text-white animate-pulse'
+              : 'bg-slate-100 text-slate-500 hover:bg-slate-200 hover:text-slate-700'
+          }`}
+        >
+          {isListening ? <MicOff className="w-4 h-4" /> : <Mic className="w-4 h-4" />}
+        </button>
         <input
           type="text"
           value={inputText}
@@ -974,6 +1133,297 @@ export function UserProfileModule({ user, records, risks = [], onUpdateRecord, o
 }
 
 // ==========================================
+// MODULE 14: AI WELLNESS COACH DASHBOARD
+// ==========================================
+export function WellnessCoachDashboard({ user, healthRecords = [] }) {
+  const [insights, setInsights] = useState(null);
+  const [routine, setRoutine] = useState(null);
+  const [loadingInsights, setLoadingInsights] = useState(false);
+  const [loadingRoutine, setLoadingRoutine] = useState(false);
+  const [coachMessage, setCoachMessage] = useState('');
+  const [coachResponse, setCoachResponse] = useState('');
+  const [coachLoading, setCoachLoading] = useState(false);
+
+  // Fetch AI insights on mount
+  useEffect(() => {
+    const loadInsights = async () => {
+      setLoadingInsights(true);
+      try {
+        const data = await fetchAiInsights(user.employeeId);
+        setInsights(data);
+      } catch (err) {
+        console.error('Failed to fetch AI insights:', err);
+        // Insights remain null — UI will show fallback static text
+        setInsights(null);
+      } finally {
+        setLoadingInsights(false);
+      }
+    };
+    loadInsights();
+  }, [user.employeeId]);
+
+  // Generate AI routine
+  const handleGenerateRoutine = async () => {
+    setLoadingRoutine(true);
+    setRoutine(null);
+    try {
+      const data = await generateAiRoutine(user.employeeId);
+      setRoutine(data);
+    } catch (err) {
+      console.error('Failed to generate AI routine:', err);
+      // Routine remains null — UI will show the empty state prompt
+      setRoutine(null);
+    } finally {
+      setLoadingRoutine(false);
+    }
+  };
+
+  // Ask the AI Coach a question
+  const handleAskCoach = async (e) => {
+    e.preventDefault();
+    if (!coachMessage.trim()) return;
+    setCoachLoading(true);
+    setCoachResponse('');
+    try {
+      const data = await sendAiChatMessage(user.employeeId, coachMessage);
+      setCoachResponse(data.reply || data.message || 'Thank you for your question! Based on your health profile, I recommend maintaining a balanced routine with adequate sleep and regular exercise.');
+    } catch (err) {
+      console.error('AI Coach query failed:', err);
+      setCoachResponse("I'm sorry, I'm having trouble connecting to the wellness service. Please try again in a moment.");
+    } finally {
+      setCoachLoading(false);
+    }
+  };
+
+  const userRecord = healthRecords.find(r => r.employeeId === user.employeeId);
+  const bmiVal = userRecord?.bmi || 22;
+  const sleepVal = userRecord?.sleepHoursPerNight || 7;
+  const stressVal = userRecord?.stressLevel || 'Medium';
+
+  return (
+    <div className="space-y-6 pb-10">
+      {/* Wellness Score Overview Cards */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="bg-white border border-slate-200 rounded-xl p-5 shadow-sm">
+          <div className="flex items-center justify-between mb-3">
+            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider font-mono">Sleep Score</span>
+            <Moon className="w-4 h-4 text-indigo-400" />
+          </div>
+          <div className="flex items-baseline gap-1.5">
+            <span className="text-2xl font-display font-semibold text-slate-800">{insights?.sleepScore || sleepVal * 10}%</span>
+            <span className="text-[10px] text-slate-400 font-mono">/ 100</span>
+          </div>
+          <div className="w-full bg-slate-100 h-1.5 rounded-full mt-2 overflow-hidden">
+            <div className="bg-indigo-500 h-full rounded-full" style={{ width: `${insights?.sleepScore || sleepVal * 10}%` }} />
+          </div>
+        </div>
+
+        <div className="bg-white border border-slate-200 rounded-xl p-5 shadow-sm">
+          <div className="flex items-center justify-between mb-3">
+            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider font-mono">Stress Index</span>
+            <Activity className="w-4 h-4 text-amber-400" />
+          </div>
+          <div className="flex items-baseline gap-1.5">
+            <span className="text-2xl font-display font-semibold text-slate-800">{insights?.stressIndex || 50}%</span>
+            <span className="text-[10px] text-slate-400 font-mono">/ 100</span>
+          </div>
+          <div className="w-full bg-slate-100 h-1.5 rounded-full mt-2 overflow-hidden">
+            <div className="bg-amber-500 h-full rounded-full" style={{ width: `${insights?.stressIndex || 50}%` }} />
+          </div>
+        </div>
+
+        <div className="bg-white border border-slate-200 rounded-xl p-5 shadow-sm">
+          <div className="flex items-center justify-between mb-3">
+            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider font-mono">Activity Level</span>
+            <Dumbbell className="w-4 h-4 text-emerald-400" />
+          </div>
+          <div className="flex items-baseline gap-1.5">
+            <span className="text-2xl font-display font-semibold text-slate-800">{insights?.activityLevel || 'Moderate'}</span>
+          </div>
+          <p className="text-[10px] text-slate-400 mt-2 font-mono">Based on weekly exercise</p>
+        </div>
+
+        <div className="bg-white border border-slate-200 rounded-xl p-5 shadow-sm">
+          <div className="flex items-center justify-between mb-3">
+            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider font-mono">Nutrition</span>
+            <Apple className="w-4 h-4 text-sky-400" />
+          </div>
+          <div className="flex items-baseline gap-1.5">
+            <span className="text-2xl font-display font-semibold text-slate-800">{insights?.nutritionQuality || 'Good'}</span>
+          </div>
+          <p className="text-[10px] text-slate-400 mt-2 font-mono">Diet quality assessment</p>
+        </div>
+      </div>
+
+      {/* Daily Tip & Weekly Goal */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div className="bg-gradient-to-br from-indigo-50 to-white border border-indigo-100 rounded-xl p-6 shadow-sm">
+          <div className="flex items-center gap-2 mb-3">
+            <Sparkles className="w-5 h-5 text-indigo-600" />
+            <h3 className="font-display font-semibold text-slate-800">AI Daily Wellness Tip</h3>
+          </div>
+          <p className="text-slate-700 text-sm leading-relaxed font-light">
+            {loadingInsights ? 'Loading your personalized tip...' : (insights?.dailyTip || 'Take a moment to breathe deeply and stretch. Your wellbeing matters!')}
+          </p>
+        </div>
+
+        <div className="bg-gradient-to-br from-emerald-50 to-white border border-emerald-100 rounded-xl p-6 shadow-sm">
+          <div className="flex items-center gap-2 mb-3">
+            <Target className="w-5 h-5 text-emerald-600" />
+            <h3 className="font-display font-semibold text-slate-800">This Week's AI Goal</h3>
+          </div>
+          <p className="text-slate-700 text-sm leading-relaxed font-light">
+            {loadingInsights ? 'Setting your weekly goal...' : (insights?.weeklyGoal || 'Aim to walk 10,000 steps daily and practice mindfulness for 10 minutes each day.')}
+          </p>
+        </div>
+      </div>
+
+      {/* Generate AI Routine */}
+      <div className="bg-white border border-slate-200 rounded-xl p-6 shadow-sm">
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center gap-2">
+            <Sun className="w-5 h-5 text-amber-500" />
+            <h3 className="font-display font-semibold text-slate-800">AI-Generated Daily Routine</h3>
+          </div>
+          <button
+            onClick={handleGenerateRoutine}
+            disabled={loadingRoutine}
+            className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 disabled:bg-slate-300 text-white text-xs font-semibold rounded-lg transition-all cursor-pointer flex items-center gap-2"
+          >
+            <Sparkles className="w-3.5 h-3.5" />
+            {loadingRoutine ? 'Generating...' : 'Generate New Routine'}
+          </button>
+        </div>
+
+        {loadingRoutine ? (
+          <div className="space-y-3 animate-pulse">
+            <div className="h-4 bg-slate-200 rounded w-1/4" />
+            <div className="h-3 bg-slate-100 rounded w-full" />
+            <div className="h-3 bg-slate-100 rounded w-5/6" />
+            <div className="h-3 bg-slate-100 rounded w-4/6" />
+          </div>
+        ) : routine ? (
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="bg-slate-50 rounded-xl p-4 border border-slate-200">
+              <div className="flex items-center gap-2 mb-3">
+                <Sun className="w-4 h-4 text-amber-500" />
+                <h4 className="text-xs font-bold text-slate-700 uppercase tracking-wider">Morning</h4>
+              </div>
+              <ul className="space-y-2">
+                {routine.morning?.map((item, i) => (
+                  <li key={i} className="text-[11px] text-slate-600 flex items-start gap-2">
+                    <span className="w-1.5 h-1.5 bg-amber-400 rounded-full mt-1 shrink-0" />
+                    {item}
+                  </li>
+                ))}
+              </ul>
+            </div>
+
+            <div className="bg-slate-50 rounded-xl p-4 border border-slate-200">
+              <div className="flex items-center gap-2 mb-3">
+                <Clock className="w-4 h-4 text-sky-500" />
+                <h4 className="text-xs font-bold text-slate-700 uppercase tracking-wider">Afternoon</h4>
+              </div>
+              <ul className="space-y-2">
+                {routine.afternoon?.map((item, i) => (
+                  <li key={i} className="text-[11px] text-slate-600 flex items-start gap-2">
+                    <span className="w-1.5 h-1.5 bg-sky-400 rounded-full mt-1 shrink-0" />
+                    {item}
+                  </li>
+                ))}
+              </ul>
+            </div>
+
+            <div className="bg-slate-50 rounded-xl p-4 border border-slate-200">
+              <div className="flex items-center gap-2 mb-3">
+                <Moon className="w-4 h-4 text-indigo-400" />
+                <h4 className="text-xs font-bold text-slate-700 uppercase tracking-wider">Evening</h4>
+              </div>
+              <ul className="space-y-2">
+                {routine.evening?.map((item, i) => (
+                  <li key={i} className="text-[11px] text-slate-600 flex items-start gap-2">
+                    <span className="w-1.5 h-1.5 bg-indigo-400 rounded-full mt-1 shrink-0" />
+                    {item}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          </div>
+        ) : (
+          <div className="text-center py-8 text-slate-400">
+            <Sparkles className="w-10 h-10 mx-auto mb-3 text-slate-300" />
+            <p className="text-sm font-light">Click "Generate New Routine" to get an AI-crafted daily wellness plan tailored to your health profile.</p>
+          </div>
+        )}
+
+        {routine?.tips && routine.tips.length > 0 && (
+          <div className="mt-4 p-4 bg-amber-50 border border-amber-100 rounded-xl">
+            <h4 className="text-xs font-bold text-amber-800 uppercase tracking-wider mb-2">💡 Coach's Tips</h4>
+            <ul className="space-y-1">
+              {routine.tips.map((tip, i) => (
+                <li key={i} className="text-xs text-amber-700 flex items-start gap-2">
+                  <span className="text-amber-500">•</span>
+                  {tip}
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+      </div>
+
+      {/* Ask the AI Coach */}
+      <div className="bg-white border border-slate-200 rounded-xl p-6 shadow-sm">
+        <div className="flex items-center gap-2 mb-4">
+          <Brain className="w-5 h-5 text-indigo-600" />
+          <h3 className="font-display font-semibold text-slate-800">Ask Your AI Wellness Coach</h3>
+        </div>
+
+        <form onSubmit={handleAskCoach} className="flex gap-3">
+          <input
+            type="text"
+            value={coachMessage}
+            onChange={(e) => setCoachMessage(e.target.value)}
+            placeholder="Ask anything about sleep, stress, fitness, nutrition..."
+            className="flex-1 px-4 py-2.5 bg-slate-50 border border-slate-200 focus:border-indigo-400 rounded-lg text-xs text-slate-700 placeholder-slate-400 outline-none transition-all"
+          />
+          <button
+            type="submit"
+            disabled={coachLoading || !coachMessage.trim()}
+            className="px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 disabled:bg-slate-300 text-white rounded-lg text-xs font-semibold transition-all cursor-pointer flex items-center gap-2"
+          >
+            <Send className="w-3.5 h-3.5" />
+            Ask
+          </button>
+        </form>
+
+        {coachLoading && (
+          <div className="mt-4 p-4 bg-slate-50 border border-slate-200 rounded-xl flex items-center gap-3">
+            <div className="w-6 h-6 bg-indigo-100 rounded-full flex items-center justify-center">
+              <Brain className="w-3.5 h-3.5 text-indigo-600 animate-pulse" />
+            </div>
+            <span className="text-xs text-slate-500">AI Coach is analyzing your query...</span>
+          </div>
+        )}
+
+        {coachResponse && !coachLoading && (
+          <div className="mt-4 p-4 bg-indigo-50 border border-indigo-100 rounded-xl">
+            <div className="flex items-start gap-3">
+              <div className="w-7 h-7 bg-indigo-600 rounded-full flex items-center justify-center shrink-0">
+                <Brain className="w-3.5 h-3.5 text-white" />
+              </div>
+              <div>
+                <p className="text-xs font-semibold text-indigo-800 mb-1">AI Wellness Coach</p>
+                <p className="text-xs text-slate-700 leading-relaxed">{coachResponse}</p>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ==========================================
 // CORE COMPONENT: USER DASHBOARD
 // ==========================================
 export default function UserDashboard({ user,
@@ -1085,6 +1535,7 @@ export default function UserDashboard({ user,
             {[
               { id: 7, label: 'My Wellness Profile', icon: User, desc: 'Your health stats & personalized trackers' },
               { id: 3, label: 'Personalized Recommender', icon: Lightbulb, desc: 'Fitness, diets, wellness schedules' },
+              { id: 14, label: 'AI Wellness Coach', icon: Brain, desc: 'Daily insights & routines from AI' },
               { id: 8, label: 'My Insurance', icon: ShieldCheck, desc: 'View coverage & file claims' },
               { id: 9, label: 'Diet Plans', icon: Utensils, desc: 'AI-generated meal plans' },
               { id: 10, label: 'My Goals', icon: Target, desc: 'Track achievements & badges' },
@@ -1136,11 +1587,12 @@ export default function UserDashboard({ user,
           <div className="mb-8 flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-200 pb-6">
             <div>
           <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 bg-slate-50 border border-slate-200 rounded-md text-[10px] font-bold text-slate-500 uppercase tracking-wide mb-3">
-                {activeTab === 7 ? 'Self-Service Portal' : activeTab === 3 ? 'Recommendation Engine' : activeTab === 8 ? 'Insurance' : activeTab === 9 ? 'Nutrition' : activeTab === 10 ? 'Goal Tracking' : activeTab === 11 ? 'Reports' : activeTab === 12 ? 'Emergency Services' : 'Financial'}
+                {activeTab === 7 ? 'Self-Service Portal' : activeTab === 3 ? 'Recommendation Engine' : activeTab === 14 ? 'AI Wellness Coach' : activeTab === 8 ? 'Insurance' : activeTab === 9 ? 'Nutrition' : activeTab === 10 ? 'Goal Tracking' : activeTab === 11 ? 'Reports' : activeTab === 12 ? 'Emergency Services' : 'Financial'}
               </div>
               <h1 className="font-display text-3xl font-semibold text-slate-800 tracking-tight">
                 {activeTab === 7 && 'My Personal Wellness Profile'}
                 {activeTab === 3 && 'Personalized Wellness Recommendation System'}
+                {activeTab === 14 && 'AI Wellness Coach'}
                 {activeTab === 8 && 'My Insurance Coverage'}
                 {activeTab === 9 && 'AI-Generated Diet Plans'}
                 {activeTab === 10 && 'My Goals & Achievements'}
@@ -1151,6 +1603,7 @@ export default function UserDashboard({ user,
               <p className="text-slate-500 text-sm mt-2 max-w-2xl font-light">
                 {activeTab === 7 && 'Manage your personal health vitals, track daily habits, and submit secure mental health feedback.'}
                 {activeTab === 3 && 'Tailored, evidence-based fitness routines, diet schedules, and mental wellbeing recommendations.'}
+                {activeTab === 14 && 'AI-powered daily wellness insights, personalized routines, and intelligent coaching based on your health data.'}
                 {activeTab === 8 && 'View your current insurance policy, coverage details, and file claims.'}
                 {activeTab === 9 && 'Personalized meal plans generated by AI based on your health profile and dietary preferences.'}
                 {activeTab === 10 && 'Track your wellness goals, achievements, and earn recognition badges.'}
@@ -1209,6 +1662,10 @@ export default function UserDashboard({ user,
 
             {activeTab === 13 && (
               <ExpenseTrackerModule user={user} />
+            )}
+
+            {activeTab === 14 && (
+              <WellnessCoachDashboard user={user} healthRecords={healthRecords} />
             )}
           </div>
         </main>

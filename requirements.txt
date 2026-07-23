@@ -17,3 +17,5 @@ flask-jwt-extended
 nltk
 cloudpickle
 reportlab
+openai
+google-genai

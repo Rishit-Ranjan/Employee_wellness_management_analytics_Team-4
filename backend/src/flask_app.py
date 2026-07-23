@@ -1663,6 +1663,84 @@ def change_password():
     target_collection.update_one({'_id': ObjectId(user_id_str)}, {'$set': {'password_hash': hash_password(new_password)}})
     return jsonify({'detail': 'Password updated successfully.'}), 200
 
+# --- AI Wellness Service Endpoints ---
+from ai_service import get_ai_service
+ai_wellness_service = get_ai_service(db, risk_model, recommendation_engine)
+
+@app.route('/api/ai/chat', methods=['POST'])
+@jwt_required(locations=["cookies"])
+def ai_chat():
+    """AI wellness chat with employee health context."""
+    jwt_payload = get_jwt()
+    user_info = jwt_payload.get("user_info")
+    data = request.get_json() or {}
+    message = data.get('message', '')
+    employee_id = data.get('employeeId') or user_info.get('employeeId')
+    
+    if not message:
+        return jsonify({'detail': 'Message is required'}), 400
+    
+    try:
+        result = ai_wellness_service.chat(message, employee_id)
+        return jsonify(result), 200
+    except Exception as e:
+        app.logger.exception(f"AI Chat error: {e}")
+        return jsonify({'detail': 'AI service unavailable'}), 500
+
+
+@app.route('/api/ai/insights/<employee_id>', methods=['GET'])
+@jwt_required(locations=["cookies"])
+def ai_insights(employee_id):
+    """Get personalized daily wellness insights for an employee."""
+    jwt_payload = get_jwt()
+    user_info = jwt_payload.get("user_info")
+    if user_info.get('role') != 'admin' and user_info.get('employeeId') != employee_id:
+        return jsonify({'detail': 'Forbidden'}), 403
+    
+    try:
+        insights = ai_wellness_service.generate_daily_insights(employee_id)
+        return jsonify(insights), 200
+    except Exception as e:
+        app.logger.exception(f"AI Insights error: {e}")
+        return jsonify({'detail': 'AI service unavailable'}), 500
+
+
+@app.route('/api/ai/burnout-trend', methods=['GET'])
+@jwt_required(locations=["cookies"])
+def ai_burnout_trend():
+    """Analyze burnout risk trends across employees or departments. Admin-only."""
+    jwt_payload = get_jwt()
+    user_info = jwt_payload.get("user_info")
+    if user_info.get('role') != 'admin':
+        return jsonify({'detail': 'Forbidden'}), 403
+    
+    department = request.args.get('department')
+    try:
+        trend = ai_wellness_service.analyze_burnout_trend(department)
+        return jsonify(trend), 200
+    except Exception as e:
+        app.logger.exception(f"AI Burnout Trend error: {e}")
+        return jsonify({'detail': 'AI service unavailable'}), 500
+
+
+@app.route('/api/ai/routine', methods=['POST'])
+@jwt_required(locations=["cookies"])
+def ai_generate_routine():
+    """Generate a personalized daily wellness routine."""
+    jwt_payload = get_jwt()
+    user_info = jwt_payload.get("user_info")
+    data = request.get_json() or {}
+    employee_id = data.get('employeeId') or user_info.get('employeeId')
+    preferences = data.get('preferences', {})
+    
+    try:
+        routine = ai_wellness_service.generate_daily_routine(employee_id, preferences)
+        return jsonify(routine), 200
+    except Exception as e:
+        app.logger.exception(f"AI Routine error: {e}")
+        return jsonify({'detail': 'AI service unavailable'}), 500
+
+
 # --- Annual Health Check-up Scheduler ---
 @app.route('/api/checkups', methods=['GET'])
 @jwt_required(locations=["cookies"])
