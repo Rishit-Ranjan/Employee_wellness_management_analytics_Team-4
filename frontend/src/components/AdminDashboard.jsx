@@ -906,20 +906,20 @@ export function RecommendationModule({ recommendations = [], loading }) {
                         <div className="p-2 bg-white border border-slate-200 rounded-lg text-indigo-600">
                           <Icon className="w-4 h-4" />
                         </div>
-                        <span className="px-2 py-0.5 bg-white border border-slate-200 text-slate-600 text-[9px] font-bold uppercase rounded-md">
+                        <span className="px-2 py-0.5 bg-white border border-slate-200 text-slate-600 text-[10px] font-bold uppercase rounded-md">
                           {rec.category}
                         </span>
                       </div>
                       <div>
-                        <h5 className="font-semibold text-xs text-slate-800">{rec.title}</h5>
-                        <p className="text-[11px] text-slate-500 mt-1 leading-relaxed font-light">{rec.description}</p>
+                        <h5 className=" text-[13px] font-semibold text-xs text-slate-800">{rec.title}</h5>
+                        <p className="text-[12px] text-slate-500 mt-1 leading-relaxed font-light">{rec.description}</p>
                       </div>
                       {rec.reasons && rec.reasons.length > 0 && (
                         <div className="pt-2 border-t border-slate-200">
-                           <p className="text-[9px] font-bold text-slate-400 uppercase tracking-wider">Reasons:</p>
+                           <p className="text-[12px] font-bold text-slate-400 uppercase tracking-wider">Reasons:</p>
                            <ul className="list-disc list-inside space-y-0.5 mt-1">
                             {rec.reasons.map((reason, i) => (
-                              <li key={i} className="text-[10px] text-slate-500">{reason}</li>
+                              <li key={i} className="text-[12px] text-slate-500">{reason}</li>
                             ))}
                            </ul>
                         </div>
