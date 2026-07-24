@@ -63,7 +63,7 @@ npm run dev
 
 Note: Admin Module Login Credentials:
 
-Admin id: ADM001
+Admin ID: ADM001
 
 Email: admin@platform.com
 
