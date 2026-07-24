@@ -61,8 +61,8 @@ npm install
 npm run dev
 ```
 
-**Note:** 
-Admin Module Login Credentials:
+**Note:**<br/>
+Admin Module Login Credentials:<br/>
 
 Admin ID: ADM001
 
