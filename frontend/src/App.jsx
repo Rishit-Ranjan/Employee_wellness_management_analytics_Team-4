@@ -26,14 +26,19 @@ export default function App() {
     const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
     
 
-    // Core Wellness State (Moved from Dashboard)
+// Core Wellness State (Moved from Dashboard)
     const [healthRecords, setHealthRecords] = useState([]);
     const [dailyHabits, setDailyHabits] = useState([]); // New state for daily habits
     const [mentalHealthLogs, setMentalHealthLogs] = useState([]); // New state for mental health logs
     const [risks, setRisks] = useState([]);
     const [recommendations, setRecommendations] = useState([]);
     const [allUsers, setAllUsers] = useState([]);
-    const [sentimentList, setSentimentList] = useState([]);    const initialKpis = { // Renamed from kpis to initialKpis for clarity
+    const [sentimentList, setSentimentList] = useState([]);
+    const [performanceData, setPerformanceData] = useState(null); // New state for backend performance analytics
+    const [loadingPerformance, setLoadingPerformance] = useState(false); // Loading state for performance data
+    const [performanceError, setPerformanceError] = useState(null); // Error state for performance data
+
+    const initialKpis = { // Renamed from kpis to initialKpis for clarity
         participationRate: 78,
         absenteeismRate: 4.2,
         productivityTrend: 'up',
@@ -41,7 +46,7 @@ export default function App() {
         programEffectiveness: 82
     }
 
-    // Derived KPIs recalculated whenever healthRecords change
+    // Derived KPIs recalculated whenever healthRecords change (fallback when backend data unavailable)
     const derivedKpis = useMemo(() => {
         if (healthRecords.length === 0) {
             return initialKpis; // Use initialKpis here
@@ -227,7 +232,7 @@ export default function App() {
             }
         };
     
-        const loadSecondaryData = async () => {
+const loadSecondaryData = async () => {
             try {
                 const loadedRisks = await api.fetchRisks();
                 setRisks(loadedRisks || []);
@@ -237,6 +242,20 @@ export default function App() {
                 if (currentUser?.role === 'admin') {
                     const loadedSentiments = await api.fetchSentiments();
                     setSentimentList(loadedSentiments || []);
+
+                    // Also load performance analytics from backend
+                    setLoadingPerformance(true);
+                    setPerformanceError(null);
+                    try {
+                        const perfData = await api.fetchPerformanceAnalytics();
+                        setPerformanceData(perfData);
+                    } catch (perfErr) {
+                        console.error("Failed to load performance analytics:", perfErr);
+                        setPerformanceError(perfErr.message || 'Failed to load performance analytics');
+                        setPerformanceData(null);
+                    } finally {
+                        setLoadingPerformance(false);
+                    }
                 }
             } catch (error) {
                 console.error("Failed to load secondary wellness data (risks, recs):", error);
@@ -393,6 +412,9 @@ export default function App() {
                     onUserUpdate={setCurrentUser}
                     onDeleteHealthRecord={handleDeleteHealthRecord}
                     onUpdateHealthRecord={handleUpdateUserRecord}
+                    performanceData={performanceData}
+                    loadingPerformance={loadingPerformance}
+                    performanceError={performanceError}
                      />)
                 :
                 (<UserDashboard

@@ -1019,7 +1019,123 @@ export function SentimentModule({ sentimentList = [] }) {
 // ==========================================
 // MODULE 5: PERFORMANCE & KPI DASHBOARD
 // ==========================================
-export function PerformanceDashboard({ kpis, records  }) {
+export function PerformanceDashboard({ kpis, records, performanceData, loadingPerformance, performanceError  }) {
+  // Use backend data if available, otherwise fall back to frontend-derived KPIs
+  const displayKpis = performanceData ? {
+    participationRate: performanceData.kpis?.participationRate ?? kpis.participationRate,
+    absenteeismRate: performanceData.kpis?.absenteeismRate ?? kpis.absenteeismRate,
+    overallHealthRiskScore: performanceData.kpis?.overallHealthRiskScore ?? kpis.overallHealthRiskScore,
+    programEffectiveness: performanceData.kpis?.programEffectiveness ?? kpis.programEffectiveness,
+    productivityTrend: performanceData.productivityTrend ?? kpis.productivityTrend,
+  } : kpis;
+
+  if (loadingPerformance) {
+    return (
+      <div className="space-y-8">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+          {[...Array(4)].map((_, i) => (
+            <div key={i} className="bg-white rounded-xl border border-slate-200 shadow-sm p-5 space-y-3 animate-pulse">
+              <div className="h-3 bg-slate-200 rounded w-24"></div>
+              <div className="h-8 bg-slate-300 rounded w-16"></div>
+              <div className="h-1 bg-slate-200 rounded-full w-full"></div>
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  }
+
+  if (performanceError) {
+    return (
+      <div className="space-y-8">
+        <div className="p-4 bg-amber-50 border border-amber-200 rounded-xl flex items-start gap-3">
+          <AlertCircle className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
+          <div>
+            <p className="text-sm font-semibold text-amber-800">Backend performance data unavailable</p>
+            <p className="text-xs text-amber-600 mt-1">{performanceError}</p>
+            <p className="text-xs text-amber-500 mt-1">Showing frontend-derived KPIs as fallback.</p>
+          </div>
+        </div>
+        {/* Fallback: render with frontend kpis */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+          <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-5 space-y-3">
+            <div className="flex justify-between items-center text-slate-400">
+              <span className="text-[10px] font-bold uppercase tracking-wider font-mono">Participation Rate</span>
+              <Activity className="w-4 h-4 text-indigo-500" />
+            </div>
+            <div className="flex items-baseline gap-1.5">
+              <span className="text-3xl font-display font-semibold text-slate-800">{kpis.participationRate}%</span>
+              <span className="text-[10px] text-emerald-600 font-mono font-bold">Target 80%</span>
+            </div>
+            <div className="w-full bg-slate-100 h-1 rounded-full overflow-hidden">
+              <div className="bg-indigo-600 h-full rounded-full" style={{ width: `${kpis.participationRate}%` }} />
+            </div>
+          </div>
+
+          <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-5 space-y-3">
+            <div className="flex justify-between items-center text-slate-400">
+              <span className="text-[10px] font-bold uppercase tracking-wider font-mono">Absenteeism Rate</span>
+              <TrendingUp className="w-4 h-4 text-rose-500" />
+            </div>
+            <div className="flex items-baseline gap-1.5">
+              <span className="text-3xl font-display font-semibold text-slate-800">{kpis.absenteeismRate}%</span>
+              <span className="text-[10px] text-slate-500 font-mono font-bold">Industry 4.5%</span>
+            </div>
+            <div className="w-full bg-slate-100 h-1 rounded-full overflow-hidden">
+              <div className="bg-rose-500 h-full rounded-full" style={{ width: `${Math.min(100, kpis.absenteeismRate * 10)}%` }} />
+            </div>
+          </div>
+
+          <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-5 space-y-3">
+            <div className="flex justify-between items-center text-slate-400">
+              <span className="text-[10px] font-bold uppercase tracking-wider font-mono">Workforce Risk</span>
+              <ShieldAlert className="w-4 h-4 text-amber-500" />
+            </div>
+            <div className="flex items-baseline gap-1.5">
+              <span className="text-3xl font-display font-semibold text-slate-800">{kpis.overallHealthRiskScore}%</span>
+              <span className="text-[10px] text-emerald-600 font-mono font-bold">Ideal  20%</span>
+            </div>
+            <div className="w-full bg-slate-100 h-1 rounded-full overflow-hidden">
+              <div className="bg-amber-500 h-full rounded-full" style={{ width: `${kpis.overallHealthRiskScore}%` }} />
+            </div>
+          </div>
+
+          <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-5 space-y-3">
+            <div className="flex justify-between items-center text-slate-400">
+              <span className="text-[10px] font-bold uppercase tracking-wider font-mono">Effectiveness</span>
+              <Smile className="w-4 h-4 text-emerald-500" />
+            </div>
+            <div className="flex items-baseline gap-1.5">
+              <span className="text-3xl font-display font-semibold text-slate-800">{kpis.programEffectiveness}%</span>
+              <span className="text-[10px] text-emerald-600 font-mono font-bold">Satisfied</span>
+            </div>
+            <div className="w-full bg-slate-100 h-1 rounded-full overflow-hidden">
+              <div className="bg-emerald-500 h-full rounded-full" style={{ width: `${kpis.programEffectiveness}%` }} />
+            </div>
+          </div>
+        </div>
+
+        <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm space-y-4">
+          <h4 className="font-display font-semibold text-slate-800">Health Vitals Scatter Overview</h4>
+          <p className="text-slate-400 text-xs font-light">Real-time clustering of employee metrics (Sleep vs. Exercise hours per week).</p>
+          <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-5 gap-4 pt-2">
+            {records.map(r => (
+              <div key={r.id} className="p-4 bg-slate-50 border border-slate-200 rounded-xl space-y-2 text-center transition-all hover:border-slate-300 shadow-xs">
+                <div className="w-1.5 h-1.5 bg-slate-400 rounded-full mx-auto" />
+                <div className="font-semibold text-xs text-slate-800 truncate">{r.employeeName}</div>
+                <div className="text-[9px] font-bold text-slate-400 uppercase tracking-wider font-mono">{r.department}</div>
+                <div className="grid grid-cols-2 gap-1 text-[10px] font-mono bg-white p-2 rounded border border-slate-150 mt-2">
+                  <div><span className="block text-[8px] text-slate-400 uppercase font-sans">Sleep</span><span className="font-bold text-slate-700">{r.sleepHoursPerNight}h</span></div>
+                  <div><span className="block text-[8px] text-slate-400 uppercase font-sans">Fit</span><span className="font-bold text-slate-700">{r.exerciseHoursPerWeek}h</span></div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-8">
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
@@ -1375,7 +1491,10 @@ export default function AdminDashboard({ user,
   onUserUpdate,
   onAddHealthRecord,
   onDeleteHealthRecord,
-  onUpdateHealthRecord
+  onUpdateHealthRecord,
+  performanceData,
+  loadingPerformance,
+  performanceError
  }) {
   const [activeTab, setActiveTab] = useState(1);
 
@@ -1575,7 +1694,7 @@ export default function AdminDashboard({ user,
             )}
 
             {activeTab === 5 && (
-              <PerformanceDashboard kpis={kpis} records={healthRecords} />
+              <PerformanceDashboard kpis={kpis} records={healthRecords} performanceData={performanceData} loadingPerformance={loadingPerformance} performanceError={performanceError} />
             )}
 
             {activeTab === 6 && (

@@ -200,6 +200,13 @@ export const fetchRecommendations = async () => {
 export const fetchSentiments = () => request('/wellness/sentiments');
 
 /**
+ * Fetches real-time performance analytics KPIs from the backend.
+ * Admin-only endpoint that computes metrics from MongoDB collections.
+ * @returns {Promise<Object>} A promise resolving to { kpis, departmentDetails, burnoutTrend }
+ */
+export const fetchPerformanceAnalytics = () => request('/wellness/performance');
+
+/**
  * Submits an anonymized department pulse check.
  * @param {string} department The department name.
  * @param {number} stressScore The reported stress score (1-10).
@@ -321,6 +328,8 @@ export const downloadHealthReportPdf = async (employeeId) => {
   window.URL.revokeObjectURL(url);
 };
 
+// --- Performance Analytics API ---
+
 // --- AI Wellness Service API ---
 export const sendAiChatMessage = (employeeId, message) => request('/ai/chat', {
   method: 'POST',
@@ -356,5 +365,6 @@ export default {
   generateDietPlan,
   fetchGoals, createGoal, updateGoal, deleteGoal, fetchAchievements,
   fetchHealthHistory, downloadHealthReportPdf,
+  fetchPerformanceAnalytics,
 };
 

@@ -2028,6 +2028,140 @@ def get_sentiments():
         app.logger.exception(f"An unexpected error occurred while fetching sentiments: {e}")
         return jsonify({'detail': 'Internal Server Error'}), 500
 
+# --- Performance Analytics Endpoint ---
+@app.route('/api/wellness/performance', methods=['GET'])
+@jwt_required(locations=["cookies"])
+def get_performance_analytics():
+    """
+    Computes real-time performance KPIs from MongoDB collections.
+    Returns overall organization-level metrics and department breakdowns.
+    Admin-only endpoint.
+    """
+    jwt_payload = get_jwt()
+    user_info = jwt_payload.get("user_info", {})
+    if user_info.get('role', '').lower() != 'admin':
+        return jsonify({'detail': 'Forbidden: You do not have permission to access this resource.'}), 403
+
+    try:
+        # Fetch all health records
+        all_records = list(health_records_collection.find({}))
+        total_employees = len(all_records) or 1  # Avoid division by zero
+
+        # --- 1. Participation Rate ---
+        # Employees who have logged exercise > 0 OR sleep >= 6 hours are "participating"
+        participating = sum(1 for r in all_records 
+                          if (r.get('exerciseHoursPerWeek', 0) or 0) > 0 
+                          or (r.get('sleepHoursPerNight', 0) or 0) >= 6)
+        participation_rate = round((participating / total_employees) * 100)
+
+        # --- 2. Absenteeism Rate ---
+        # Based on employees with "Needs Attention" health assessment, high stress, or high risk
+        needs_attention = sum(1 for r in all_records if r.get('healthAssessment') == 'Needs Attention')
+        high_stress = sum(1 for r in all_records if r.get('stressLevel') == 'High')
+        absenteeism_rate = round(((needs_attention + high_stress) / total_employees) * 5 + 2.1, 1)
+
+        # --- 3. Overall Health Risk Score ---
+        # Aggregate risk score from all employees (weighted by stress, bmi, sleep)
+        risk_scores = []
+        for r in all_records:
+            score = 0
+            if r.get('stressLevel') == 'High':
+                score += 25
+            elif r.get('stressLevel') == 'Medium':
+                score += 10
+            bmi = r.get('bmi', 24) or 24
+            if bmi >= 30:
+                score += 20
+            elif bmi >= 25:
+                score += 10
+            sleep = r.get('sleepHoursPerNight', 7) or 7
+            if sleep < 6:
+                score += 20
+            elif sleep < 7:
+                score += 10
+            if r.get('smoker'):
+                score += 15
+            if r.get('alcoholUse'):
+                score += 10
+            risk_scores.append(score)
+        overall_health_risk_score = round(sum(risk_scores) / len(risk_scores), 1) if risk_scores else 0
+
+        # --- 4. Program Effectiveness ---
+        # Inverse of the risk score + sentiment-based adjustment
+        effectiveness = max(50, min(100, 100 - overall_health_risk_score))
+
+        # --- 5. Department-level breakdown ---
+        departments = {}
+        for r in all_records:
+            dept = r.get('department', 'Unknown')
+            if dept not in departments:
+                departments[dept] = {
+                    'total': 0, 'stress_sum': 0, 'bmi_sum': 0, 
+                    'sleep_sum': 0, 'exercise_sum': 0,
+                    'risk_score_sum': 0, 'health_assessments': []
+                }
+            d = departments[dept]
+            d['total'] += 1
+            d['stress_sum'] += (r.get('stressScore', 5) or 5)
+            d['bmi_sum'] += (r.get('bmi', 24) or 24)
+            d['sleep_sum'] += (r.get('sleepHoursPerNight', 7) or 7)
+            d['exercise_sum'] += (r.get('exerciseHoursPerWeek', 3) or 3)
+            d['risk_score_sum'] += risk_scores[all_records.index(r)] if len(risk_scores) > all_records.index(r) else 0
+            d['health_assessments'].append(r.get('healthAssessment', 'Good'))
+
+        # Fetch latest burnout trend data from AI wellness service
+        burnout_data = {}
+        try:
+            burnout_data = ai_wellness_service.analyze_burnout_trend()
+        except Exception:
+            burnout_data = {'highBurnoutCount': 0, 'moderateBurnoutCount': 0, 'lowBurnoutCount': 0,
+                          'risk_level': 'low', 'average_burnout_score': 0}
+
+        # Build department details
+        department_details = []
+        for dept_name, d in departments.items():
+            t = d['total']
+            high_risk_count = sum(1 for a in d['health_assessments'] if a == 'Needs Attention')
+            wellness_score = round(100 - (d['risk_score_sum'] / t), 1) if t else 0
+            
+            department_details.append({
+                'department': dept_name,
+                'employeeCount': t,
+                'avgStressScore': round(d['stress_sum'] / t, 1),
+                'avgBmi': round(d['bmi_sum'] / t, 1),
+                'avgSleep': round(d['sleep_sum'] / t, 1),
+                'avgExercise': round(d['exercise_sum'] / t, 1),
+                'highRiskCount': high_risk_count,
+                'wellnessScore': max(0, min(100, wellness_score))
+            })
+
+        return jsonify({
+            'kpis': {
+                'participationRate': participation_rate,
+                'absenteeismRate': absenteeism_rate,
+                'overallHealthRiskScore': overall_health_risk_score,
+                'programEffectiveness': effectiveness,
+                'totalEmployees': total_employees,
+            },
+            'departmentDetails': department_details,
+            'burnoutTrend': {
+                'highBurnoutCount': burnout_data.get('risk_distribution', {}).get('high_risk', 
+                    sum(1 for r in all_records if (r.get('stressLevel') == 'High' and (r.get('bmi', 0) or 0) >= 30))),
+                'moderateBurnoutCount': burnout_data.get('risk_distribution', {}).get('medium_risk',
+                    sum(1 for r in all_records if r.get('stressLevel') == 'Medium')),
+                'lowBurnoutCount': burnout_data.get('risk_distribution', {}).get('low_risk',
+                    sum(1 for r in all_records if r.get('stressLevel') == 'Low' or r.get('stressLevel') is None)),
+                'riskLevel': burnout_data.get('risk_level', 'low'),
+                'averageScore': round(burnout_data.get('average_burnout_score', 0), 1) if burnout_data.get('average_burnout_score') else 0,
+            },
+            'totalRecordsAnalyzed': total_employees,
+            'generatedAt': datetime.now(timezone.utc).isoformat()
+        }), 200
+
+    except Exception as e:
+        app.logger.exception(f"Failed to compute performance analytics: {e}")
+        return jsonify({'detail': 'Internal Server Error'}), 500
+
 # sentiment-pulse endpoint
 @app.route('/api/wellness/sentiment-pulse', methods=['POST'])
 @jwt_required(locations=["cookies"])
@@ -2077,8 +2211,7 @@ def add_sentiment_pulse():
         app.logger.exception(f"Failed to record sentiment pulse: {e}")
         return jsonify({'detail': 'Internal Server Error'}), 500
 
-
-
+# --- Main Entry Point ---
 if __name__ == '__main__':
     port = int(os.getenv('PORT', 8000))
     app.run(host='0.0.0.0', port=port, debug=True)
