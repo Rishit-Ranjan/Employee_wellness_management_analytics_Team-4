@@ -8,6 +8,8 @@ import json
 import random
 from datetime import datetime, timedelta, timezone
 from typing import Optional, Dict, List, Any
+from dotenv import load_dotenv
+load_dotenv()
 
 # Optional: OpenAI integration
 try:
@@ -44,16 +46,16 @@ class AIWellnessService:
         self.openai_api_key = os.getenv('OPENAI_API_KEY', '')
         self.ollama_base_url = os.getenv('OLLAMA_BASE_URL', 'http://localhost:11434')
         self.ollama_model = os.getenv('OLLAMA_MODEL', 'llama3.2')
-        self.gemini_api_key = os.getenv('GOOGLE_API_KEY', '')
+        self.gemini_api_key = os.getenv('GEMINI_API_KEY') or os.getenv('GOOGLE_API_KEY', '')
         
         # Initialize Gemini if available
         if self.llm_provider == 'gemini' and self.gemini_api_key and GEMINI_AVAILABLE:
             try:
-                genai.configure(api_key=self.gemini_api_key)
-                self.gemini_model = genai.GenerativeModel('gemini-1.5-flash')
+                # NEW SYNTAX: Create a Client for the new google.genai SDK
+                self.gemini_client = genai.Client(api_key=self.gemini_api_key)
             except Exception as e:
                 print(f"Gemini initialization error: {e}")
-                self.gemini_model = None
+                self.gemini_client = None
         
         # Wellness tips database (rule-based fallback)
         self._init_wellness_knowledge_base()
@@ -223,8 +225,7 @@ As an AI Wellness Coach, provide a helpful, concise response (max 150 words) wit
                 print(f"Ollama API error: {e}")
         
         # Try Google Gemini
-        if self.llm_provider == 'gemini' and hasattr(self, 'gemini_model') and self.gemini_model:
-            try:
+        if self.llm_provider == 'gemini' and hasattr(self, 'gemini_client') and self.gemini_client:
                 prompt = f"""You are an expert AI Wellness Coach for a corporate wellness platform called "Employee Wellness Management Analytics". 
 You have access to this employee's health data: {context}
 
@@ -233,11 +234,21 @@ User message: {message}
 Provide concise, actionable wellness advice. Be supportive, empathetic, and evidence-based.
 Keep responses under 150 words. Focus on practical tips the employee can implement immediately.
 Use emojis sparingly but effectively to make the response engaging."""
-                gemini_response = self.gemini_model.generate_content(prompt)
-                if gemini_response and gemini_response.text:
-                    return gemini_response.text.strip()
-            except Exception as e:
-                print(f"Gemini API error: {e}")
+                
+                # Iterate through a list of models to handle deprecations and availability
+                model_candidates = ["gemini-3.5-flash"]
+                for model in model_candidates:
+                    try:
+                        gemini_response = self.gemini_client.models.generate_content(
+                            model=f'models/{model}', # Use the full model name format
+                            contents=prompt
+                        )
+                        if gemini_response and gemini_response.text:
+                            print(f"Successfully used Gemini model: {model}")
+                            return gemini_response.text.strip()
+                    except Exception as e:
+                        print(f"Gemini model '{model}' failed: {e}. Trying next model...")
+                        continue # Try the next model in the list
         
         return None
     
