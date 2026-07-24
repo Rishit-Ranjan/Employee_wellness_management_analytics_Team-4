@@ -60,3 +60,11 @@ Then, in the project root folder:
 npm install
 npm run dev
 ```
+
+Note: Admin Module Login Credentials:
+
+Admin id: ADM001
+
+Email: admin@platform.com
+
+Password: AdminPass123
